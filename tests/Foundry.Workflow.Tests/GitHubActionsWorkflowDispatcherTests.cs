@@ -469,7 +469,7 @@ public sealed class GitHubActionsWorkflowDispatcherTests
         };
 
         var inputsStart = workflow.IndexOf("  workflow_dispatch:", StringComparison.Ordinal);
-        var jobsStart = workflow.IndexOf("\\njobs:", StringComparison.Ordinal);
+        var jobsStart = workflow.IndexOf("\njobs:", StringComparison.Ordinal);
         Assert.True(inputsStart >= 0 && jobsStart > inputsStart, "Workflow dispatch input block was not found.");
         var inputBlock = workflow[inputsStart..jobsStart];
         foreach (var input in hostInputs)
