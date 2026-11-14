@@ -1,5 +1,5 @@
 name: Foundry FSM_API and Fox/Sheepdog Proof
-run-name: Foundry CI ${{ github.event.inputs.foundry_request_id || github.run_id }}
+run-name: Foundry CI ${{ github.event.inputs.request_id || github.run_id }}
 
 on:
   push:
@@ -13,8 +13,24 @@ on:
       - feature/foundry-headlessai-turn-seam
   workflow_dispatch:
     inputs:
-      foundry_request_id:
+      request_id:
         description: Host-generated correlation ID
+        required: true
+        type: string
+      operation_id:
+        description: Durable repository-operation identity
+        required: true
+        type: string
+      idempotency_key:
+        description: Durable idempotency identity
+        required: true
+        type: string
+      task_id:
+        description: Foundry task identity
+        required: true
+        type: string
+      correlation_id:
+        description: Host task correlation identity
         required: true
         type: string
       candidate_ref:
@@ -71,7 +87,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          REQUEST_ID: ${{ github.event.inputs.foundry_request_id }}
+          REQUEST_ID: ${{ github.event.inputs.request_id }}
+          OPERATION_ID: ${{ github.event.inputs.operation_id }}
+          IDEMPOTENCY_KEY: ${{ github.event.inputs.idempotency_key }}
+          TASK_ID: ${{ github.event.inputs.task_id }}
+          CORRELATION_ID: ${{ github.event.inputs.correlation_id }}
           CANDIDATE_REF: ${{ github.event.inputs.candidate_ref }}
           CANDIDATE_SHA: ${{ github.event.inputs.candidate_sha }}
           TRUSTED_REF: ${{ github.ref }}
@@ -89,6 +109,10 @@ jobs:
           jq -n \
             --arg schema "foundry.candidate-checkout-provenance.v1" \
             --arg request_id "$REQUEST_ID" \
+            --arg operation_id "$OPERATION_ID" \
+            --arg idempotency_key "$IDEMPOTENCY_KEY" \
+            --arg task_id "$TASK_ID" \
+            --arg correlation_id "$CORRELATION_ID" \
             --arg repository "$REPOSITORY" \
             --arg workflow_path "$WORKFLOW_PATH" \
             --arg workflow_ref "$WORKFLOW_REF" \
@@ -103,6 +127,10 @@ jobs:
             '{
               schema: $schema,
               request_id: $request_id,
+              operation_id: $operation_id,
+              idempotency_key: $idempotency_key,
+              task_id: $task_id,
+              correlation_id: $correlation_id,
               repository: $repository,
               workflow_path: $workflow_path,
               workflow_ref: $workflow_ref,
