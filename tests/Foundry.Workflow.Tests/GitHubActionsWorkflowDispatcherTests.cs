@@ -451,6 +451,36 @@ public sealed class GitHubActionsWorkflowDispatcherTests
     private static TheSingularityWorkshop.Foundry.RepositoryOperationExecutionContext Context() =>
         new(new string('1', 32), new string('2', 32), "task-123", "correlation-123");
 
+    [Fact]
+    public void WorkflowDispatchInputsMatchTheHostDispatcherContract()
+    {
+        var workflowPath = Path.Combine(AppContext.BaseDirectory, "foundry-fsm-api-probe.yml");
+        var workflow = File.ReadAllText(workflowPath);
+        var hostInputs = new[]
+        {
+            "request_id",
+            "operation_id",
+            "idempotency_key",
+            "task_id",
+            "correlation_id",
+            "candidate_ref",
+            "candidate_sha",
+            "trusted_workflow_sha"
+        };
+
+        var inputsStart = workflow.IndexOf("  workflow_dispatch:", StringComparison.Ordinal);
+        var jobsStart = workflow.IndexOf("\\njobs:", StringComparison.Ordinal);
+        Assert.True(inputsStart >= 0 && jobsStart > inputsStart, "Workflow dispatch input block was not found.");
+        var inputBlock = workflow[inputsStart..jobsStart];
+        foreach (var input in hostInputs)
+            Assert.Contains($"      {input}:", inputBlock, StringComparison.Ordinal);
+
+        Assert.Contains("github.event.inputs.request_id", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("foundry_request_id", workflow, StringComparison.Ordinal);
+        Assert.Contains("--arg request_id \"$REQUEST_ID\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("request_id: $request_id", workflow, StringComparison.Ordinal);
+    }
+
     private static GitHubActionsWorkflowDispatcher CreateDispatcher(StubHandler handler, string journalPath)
     {
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.github.com/") };
