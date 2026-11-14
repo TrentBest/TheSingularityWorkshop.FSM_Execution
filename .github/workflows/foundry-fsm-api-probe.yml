@@ -94,5 +94,8 @@ jobs:
             artifacts/fox-run-1.txt
             artifacts/fox-run-1/fox-sheepdog.trace
             artifacts/fox-run-1/fox-sheepdog.svg
+            artifacts/fox-run-2.txt
+            artifacts/fox-run-2/fox-sheepdog.trace
+            artifacts/fox-run-2/fox-sheepdog.svg
           if-no-files-found: warn
           retention-days: 14
