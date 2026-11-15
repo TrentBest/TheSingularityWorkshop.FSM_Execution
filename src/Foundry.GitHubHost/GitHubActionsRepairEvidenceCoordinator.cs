@@ -97,32 +97,32 @@ public sealed class GitHubActionsRepairEvidenceCoordinator
         // immutable task, dispatch, run, workflow, candidate, and success field matches.
         if (task.Events.Count == 0)
             throw new InvalidOperationException("A validating task must have durable lifecycle timestamps.");
-        var durableAttempt = _attempts.GetAttempts(receipt.TaskId)
+        var priorDurableAttempt = _attempts.GetAttempts(receipt.TaskId)
             .FirstOrDefault(item => item.AttemptNumber == task.Attempt);
-        if (durableAttempt is not null)
+        if (priorDurableAttempt is not null)
         {
             if (dispatch.State != GitHubActionsDispatchState.Verified ||
                 !dispatch.RunId.HasValue || !dispatch.RunAttempt.HasValue ||
-                durableAttempt.TaskId != task.Request.TaskId ||
-                durableAttempt.CorrelationId != task.Request.CorrelationId ||
-                !string.Equals(durableAttempt.Repository, receipt.Repository, StringComparison.OrdinalIgnoreCase) ||
-                durableAttempt.Branch != receipt.Branch || durableAttempt.WorkflowPath != receipt.WorkflowPath ||
-                durableAttempt.TaskStartedAt != task.Events[0].OccurredAt ||
-                !string.Equals(durableAttempt.CandidateSha, receipt.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
-                durableAttempt.CiRunId != dispatch.RunId.Value ||
-                durableAttempt.CiRunAttempt != dispatch.RunAttempt.Value ||
-                durableAttempt.StartedAt != receipt.DispatchedAt ||
-                !durableAttempt.EvidenceComplete || !durableAttempt.IsSuccessful ||
-                durableAttempt.HasActionableDiagnostics || durableAttempt.DiagnosticsFingerprint is not null)
+                priorDurableAttempt.TaskId != task.Request.TaskId ||
+                priorDurableAttempt.CorrelationId != task.Request.CorrelationId ||
+                !string.Equals(priorDurableAttempt.Repository, receipt.Repository, StringComparison.OrdinalIgnoreCase) ||
+                priorDurableAttempt.Branch != receipt.Branch || priorDurableAttempt.WorkflowPath != receipt.WorkflowPath ||
+                priorDurableAttempt.TaskStartedAt != task.Events[0].OccurredAt ||
+                !string.Equals(priorDurableAttempt.CandidateSha, receipt.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                priorDurableAttempt.CiRunId != dispatch.RunId.Value ||
+                priorDurableAttempt.CiRunAttempt != dispatch.RunAttempt.Value ||
+                priorDurableAttempt.StartedAt != receipt.DispatchedAt ||
+                !priorDurableAttempt.EvidenceComplete || !priorDurableAttempt.IsSuccessful ||
+                priorDurableAttempt.HasActionableDiagnostics || priorDurableAttempt.DiagnosticsFingerprint is not null)
                 throw new InvalidDataException("A durable repair attempt exists but does not exactly match the verified dispatch and current task.");
 
             var replayExpectation = new WorkTaskRepairEvidenceExpectation(
                 task.Request.TaskId, task.Request.CorrelationId, task.Request.Repository,
-                receipt.Branch, receipt.WorkflowPath, durableAttempt.CandidateSha,
-                durableAttempt.TaskStartedAt, durableAttempt.CiRunId, durableAttempt.CiRunAttempt);
+                receipt.Branch, receipt.WorkflowPath, priorDurableAttempt.CandidateSha,
+                priorDurableAttempt.TaskStartedAt, priorDurableAttempt.CiRunId, priorDurableAttempt.CiRunAttempt);
             var replayedTask = _tasks.ApplyRepairDecision(
-                task.Request.TaskId, leaseId, durableAttempt, replayExpectation, _maximumDuration, initialNow);
-            return new(GitHubActionsRepairEvidenceStatus.Applied, replayedTask, null, null, durableAttempt);
+                task.Request.TaskId, leaseId, priorDurableAttempt, replayExpectation, _maximumDuration, initialNow);
+            return new(GitHubActionsRepairEvidenceStatus.Applied, replayedTask, null, null, priorDurableAttempt);
         }
 
         var correlation = await _workflows.FindCorrelatedRunAsync(receipt, cancellationToken).ConfigureAwait(false);
