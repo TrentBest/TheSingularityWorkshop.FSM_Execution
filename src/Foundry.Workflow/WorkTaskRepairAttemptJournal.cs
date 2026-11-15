@@ -147,40 +147,40 @@ public sealed class JsonlWorkTaskRepairAttemptJournal
     private WorkTaskRepairAttemptAppendOutcome AppendUnderLock(WorkTaskRepairAttempt attempt)
     {
         if (!_attempts.TryGetValue(attempt.TaskId, out var history))
-                history = new List<WorkTaskRepairAttempt>();
+            history = new List<WorkTaskRepairAttempt>();
 
-            var existing = history.FirstOrDefault(item => item.AttemptNumber == attempt.AttemptNumber);
-            if (existing is not null)
+        var existing = history.FirstOrDefault(item => item.AttemptNumber == attempt.AttemptNumber);
+        if (existing is not null)
                 return existing == attempt
                     ? WorkTaskRepairAttemptAppendOutcome.Duplicate
                     : WorkTaskRepairAttemptAppendOutcome.Conflict;
 
-            if (attempt.AttemptNumber != history.Count + 1)
+        if (attempt.AttemptNumber != history.Count + 1)
                 return WorkTaskRepairAttemptAppendOutcome.OutOfOrder;
-            if (history.Any(item => item.CiRunId == attempt.CiRunId &&
+        if (history.Any(item => item.CiRunId == attempt.CiRunId &&
                 item.CiRunAttempt == attempt.CiRunAttempt))
                 return WorkTaskRepairAttemptAppendOutcome.Conflict;
-            if (_attempts.Values.SelectMany(items => items).Any(item =>
+        if (_attempts.Values.SelectMany(items => items).Any(item =>
                 string.Equals(item.Repository, attempt.Repository, StringComparison.OrdinalIgnoreCase) &&
                 item.CiRunId == attempt.CiRunId && item.CiRunAttempt == attempt.CiRunAttempt))
                 return WorkTaskRepairAttemptAppendOutcome.Conflict;
-            if (history.Count > 0)
+        if (history.Count > 0)
             {
-                var previous = history[^1];
-                if (!SameTask(previous, attempt) || previous.IsSuccessful ||
+            var previous = history[^1];
+            if (!SameTask(previous, attempt) || previous.IsSuccessful ||
                     attempt.StartedAt < previous.ObservedAt)
-                    return WorkTaskRepairAttemptAppendOutcome.Conflict;
-            }
+                return WorkTaskRepairAttemptAppendOutcome.Conflict;
+        }
 
-            WriteLine(attempt);
-            if (!_attempts.TryGetValue(attempt.TaskId, out history))
+        WriteLine(attempt);
+        if (!_attempts.TryGetValue(attempt.TaskId, out history))
                 _attempts.Add(attempt.TaskId, history = new List<WorkTaskRepairAttempt>());
-            history.Add(attempt);
-            return WorkTaskRepairAttemptAppendOutcome.Appended;
+        history.Add(attempt);
+        return WorkTaskRepairAttemptAppendOutcome.Appended;
     }
 
     private static bool SameReplayIdentity(WorkTaskRepairAttempt existing, WorkTaskRepairAttempt retry) =>
-        existing with { ObservedAt = retry.ObservedAt } == retry;
+        (existing with { ObservedAt = retry.ObservedAt }) == retry;
 
     /// <summary>
     /// Executes a decision callback while holding the journal lock, preventing an append
