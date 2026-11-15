@@ -77,6 +77,7 @@ public sealed class GitHubActionsArtifactProvenanceReader
         if (string.IsNullOrWhiteSpace(token) || token.Length > 4096 || token.Any(char.IsControl))
             throw new UnauthorizedAccessException("The host token provider did not return a valid access token.");
 
+        await VerifyExactAttemptAsync(receipt, correlation, token, cancellationToken).ConfigureAwait(false);
         var artifactId = await FindUniqueArtifactAsync(receipt, correlation, token, cancellationToken).ConfigureAwait(false);
         var zip = await DownloadArtifactZipAsync(receipt, artifactId, token, cancellationToken).ConfigureAwait(false);
         var json = ExtractProvenanceJson(zip);
@@ -85,6 +86,27 @@ public sealed class GitHubActionsArtifactProvenanceReader
         return provenance;
     }
 
+    private async ValueTask VerifyExactAttemptAsync(
+        GitHubActionsDispatchReceipt receipt, GitHubActionsRunCorrelation correlation,
+        string token, CancellationToken cancellationToken)
+    {
+        using var request = CreateApiRequest(HttpMethod.Get,
+            $"repos/{receipt.Repository}/actions/runs/{correlation.RunId}/attempts/{correlation.RunAttempt}", token);
+        using var response = await _api.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
+        using var document = await ReadJsonAsync(response, MaximumMetadataBytes, cancellationToken).ConfigureAwait(false);
+        var run = document.RootElement;
+        if (!run.TryGetProperty("id", out var id) || !id.TryGetInt64(out var runId) || runId != correlation.RunId ||
+            !run.TryGetProperty("run_attempt", out var attempt) || !attempt.TryGetInt32(out var runAttempt) ||
+            runAttempt != correlation.RunAttempt ||
+            String(run, "path") != receipt.WorkflowPath ||
+            String(run, "event") != "workflow_dispatch" ||
+            String(run, "head_branch") != receipt.TrustedWorkflowRef ||
+            !string.Equals(String(run, "head_sha"), receipt.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            String(run, "display_title") != "Foundry CI " + receipt.RequestId ||
+            String(run, "status") != "completed" || String(run, "conclusion") != "success")
+            throw new InvalidDataException("GitHub exact run-attempt metadata is missing, unsuccessful, or mismatched.");
+    }
     private async ValueTask<long> FindUniqueArtifactAsync(
         GitHubActionsDispatchReceipt receipt, GitHubActionsRunCorrelation correlation,
         string token, CancellationToken cancellationToken)
