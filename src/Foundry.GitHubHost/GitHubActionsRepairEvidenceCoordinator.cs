@@ -95,6 +95,8 @@ public sealed class GitHubActionsRepairEvidenceCoordinator
         // Recover the append-success / task-decision-not-applied crash window before
         // consulting GitHub again. The journal record is reusable only when every
         // immutable task, dispatch, run, workflow, candidate, and success field matches.
+        if (task.Events.Count == 0)
+            throw new InvalidOperationException("A validating task must have durable lifecycle timestamps.");
         var durableAttempt = _attempts.GetAttempts(receipt.TaskId)
             .FirstOrDefault(item => item.AttemptNumber == task.Attempt);
         if (durableAttempt is not null)
