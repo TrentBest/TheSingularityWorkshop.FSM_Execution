@@ -138,12 +138,14 @@ public sealed class GitHubActionsArtifactProvenanceReader
                 !sizeValue.TryGetInt64(out var size) || size <= 0 || size > MaximumZipBytes ||
                 !item.TryGetProperty("workflow_run", out var run) ||
                 !run.TryGetProperty("id", out var runIdValue) || !runIdValue.TryGetInt64(out var runId) ||
-                runId != correlation.RunId)
+                runId != correlation.RunId ||
+                String(run, "head_branch") != receipt.TrustedWorkflowRef ||
+                !string.Equals(String(run, "head_sha"), receipt.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("The candidate provenance artifact metadata is expired, malformed, oversized, or bound to another run.");
             var expiresAt = Date(item, "expires_at");
             var createdAt = Date(item, "created_at");
             var now = _clock();
-            if (createdAt > now || expiresAt <= now || expiresAt <= createdAt)
+            if (createdAt > now || createdAt < receipt.DispatchedAt || expiresAt <= now || expiresAt <= createdAt)
                 throw new InvalidDataException("The candidate provenance artifact is not currently within its retention window.");
             matches.Add(id);
         }
