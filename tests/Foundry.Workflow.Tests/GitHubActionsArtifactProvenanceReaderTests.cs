@@ -72,6 +72,53 @@ public sealed class GitHubActionsArtifactProvenanceReaderTests
     }
 
     [Fact]
+    public async Task ExpiredArtifactLeavesDispatchCorrelated()
+    {
+        var journal = CreateCorrelatedJournal();
+        var api = new StubHandler((request, _) =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/attempts/2", StringComparison.Ordinal))
+                return Json(HttpStatusCode.OK, ExactAttemptJson());
+            if (request.RequestUri.AbsolutePath.EndsWith("/artifacts", StringComparison.Ordinal))
+                return Json(HttpStatusCode.OK, ArtifactListJson(expiry: Now.AddMinutes(-1)));
+            return Json(HttpStatusCode.NotFound, "{}");
+        });
+        var download = new StubHandler((_, _) => throw new InvalidOperationException("Expired artifacts must not be downloaded."));
+        var reader = CreateReader(journal, api, download);
+
+        await Assert.ThrowsAsync<InvalidDataException>(async () =>
+            await reader.RetrieveAndVerifyAsync(Receipt(), Correlation()));
+
+        Assert.Empty(download.Requests);
+        Assert.Equal(GitHubActionsDispatchState.Correlated, journal.Get(RequestId).State);
+    }
+
+    [Fact]
+    public async Task MalformedZipLeavesDispatchCorrelated()
+    {
+        var journal = CreateCorrelatedJournal();
+        var api = new StubHandler((request, _) =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/attempts/2", StringComparison.Ordinal))
+                return Json(HttpStatusCode.OK, ExactAttemptJson());
+            if (path.EndsWith("/artifacts", StringComparison.Ordinal))
+                return Json(HttpStatusCode.OK, ArtifactListJson());
+            if (path.EndsWith("/987/zip", StringComparison.Ordinal))
+                return Redirect();
+            return Json(HttpStatusCode.NotFound, "{}");
+        });
+        var download = new StubHandler((_, _) =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("not a zip")) });
+        var reader = CreateReader(journal, api, download);
+
+        await Assert.ThrowsAsync<InvalidDataException>(async () =>
+            await reader.RetrieveAndVerifyAsync(Receipt(), Correlation()));
+
+        Assert.Equal(GitHubActionsDispatchState.Correlated, journal.Get(RequestId).State);
+    }
+
+    [Fact]
     public async Task CandidateShaMismatchInArtifactLeavesDispatchCorrelated()
     {
         var journal = CreateCorrelatedJournal();
@@ -156,14 +203,14 @@ public sealed class GitHubActionsArtifactProvenanceReaderTests
         status = "completed", conclusion = "success"
     });
 
-    private static string ArtifactListJson(int count = 1)
+    private static string ArtifactListJson(int count = 1, DateTimeOffset? expiry = null)
     {
         var artifacts = Enumerable.Range(0, count).Select(index => new
         {
             id = 987L + index, name = "foundry-candidate-checkout-provenance",
             size_in_bytes = 512, expired = false,
             created_at = Now.AddMinutes(-2).ToString("O"),
-            expires_at = Now.AddDays(10).ToString("O"),
+            expires_at = (expiry ?? Now.AddDays(10)).ToString("O"),
             workflow_run = new { id = 123456L, head_branch = "development", head_sha = TrustedSha }
         });
         return JsonSerializer.Serialize(new { total_count = count, artifacts });
