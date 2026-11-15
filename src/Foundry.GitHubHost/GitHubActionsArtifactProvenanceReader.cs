@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -70,12 +71,8 @@ public sealed class GitHubActionsArtifactProvenanceReader
         DemandReceipt(receipt, correlation);
         var durable = _journal.Get(receipt.RequestId);
         DemandDurableBinding(durable, receipt, correlation);
-        if (durable.State != GitHubActionsDispatchState.Correlated)
-        {
-            if (durable.State == GitHubActionsDispatchState.Verified)
-                throw new InvalidOperationException("This dispatch attempt is already verified.");
+        if (durable.State is not (GitHubActionsDispatchState.Correlated or GitHubActionsDispatchState.Verified))
             throw new InvalidOperationException("Candidate provenance can be retrieved only after exact run correlation.");
-        }
 
         var token = await _tokens.GetTokenAsync(receipt.Repository, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(token) || token.Length > 4096 || token.Any(char.IsControl))
@@ -270,7 +267,8 @@ public sealed class GitHubActionsArtifactProvenanceReader
             throw new InvalidDataException("Candidate provenance does not identify the exact GitHub run attempt.");
 
         return new VerifiedCandidateCheckoutProvenance(receipt.RequestId, receipt.Repository,
-            correlation.RunId, correlation.RunAttempt, receipt.Branch, requestedSha, checkedOutHead);
+            correlation.RunId, correlation.RunAttempt, receipt.Branch, requestedSha, checkedOutHead,
+            Convert.ToHexString(SHA256.HashData(json)).ToLowerInvariant());
     }
 
     private static void DemandReceipt(GitHubActionsDispatchReceipt receipt, GitHubActionsRunCorrelation correlation)
