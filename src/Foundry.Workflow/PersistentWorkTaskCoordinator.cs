@@ -25,6 +25,9 @@ public sealed class PersistentWorkTaskCoordinator
             _coordinator.Restore(snapshot);
     }
 
+    /// <summary>The exact durable repair-attempt journal used by evidence decisions, if configured.</summary>
+    public JsonlWorkTaskRepairAttemptJournal? RepairAttemptJournal => _repairAttemptJournal;
+
     public WorkTaskSnapshot Submit(WorkTaskRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
