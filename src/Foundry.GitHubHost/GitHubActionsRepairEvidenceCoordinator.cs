@@ -135,9 +135,15 @@ public sealed class GitHubActionsRepairEvidenceCoordinator
             StartedAt: receipt.DispatchedAt,
             ObservedAt: now).Validate();
 
-        var append = _attempts.Append(repairAttempt);
-        if (append is not (WorkTaskRepairAttemptAppendOutcome.Appended or WorkTaskRepairAttemptAppendOutcome.Duplicate))
-            throw new InvalidOperationException($"Verified CI evidence could not be appended in sequence: {append}.");
+        var append = _attempts.AppendOrGetExactReplay(repairAttempt, out var durableAttempt);
+        if (append is not (WorkTaskRepairAttemptAppendOutcome.Appended or
+            WorkTaskRepairAttemptAppendOutcome.Replayed or WorkTaskRepairAttemptAppendOutcome.Duplicate))
+            throw new InvalidOperationException($"Verified CI evidence could not be appended or replayed exactly: {append}.");
+
+        // The journal's original record is authoritative. In the append-success / decision-
+        // failure crash window, a retry has a new observation time; never replace the durable
+        // timestamp or any other identity/evidence field with reconstructed values.
+        repairAttempt = durableAttempt;
 
         var expectation = new WorkTaskRepairEvidenceExpectation(
             task.Request.TaskId,
