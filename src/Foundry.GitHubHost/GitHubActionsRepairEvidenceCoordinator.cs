@@ -89,7 +89,39 @@ public sealed class GitHubActionsRepairEvidenceCoordinator
             throw new InvalidOperationException("ReviewReady task does not have matching durable verified GitHub evidence.");
         }
 
-        DemandValidatingTask(task, receipt, leaseId, _clock());
+        var initialNow = _clock();
+        DemandValidatingTask(task, receipt, leaseId, initialNow);
+
+        // Recover the append-success / task-decision-not-applied crash window before
+        // consulting GitHub again. The journal record is reusable only when every
+        // immutable task, dispatch, run, workflow, candidate, and success field matches.
+        var durableAttempt = _attempts.GetAttempts(receipt.TaskId)
+            .FirstOrDefault(item => item.AttemptNumber == task.Attempt);
+        if (durableAttempt is not null)
+        {
+            if (dispatch.State != GitHubActionsDispatchState.Verified ||
+                !dispatch.RunId.HasValue || !dispatch.RunAttempt.HasValue ||
+                durableAttempt.TaskId != task.Request.TaskId ||
+                durableAttempt.CorrelationId != task.Request.CorrelationId ||
+                !string.Equals(durableAttempt.Repository, receipt.Repository, StringComparison.OrdinalIgnoreCase) ||
+                durableAttempt.Branch != receipt.Branch || durableAttempt.WorkflowPath != receipt.WorkflowPath ||
+                durableAttempt.TaskStartedAt != task.Events[0].OccurredAt ||
+                !string.Equals(durableAttempt.CandidateSha, receipt.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                durableAttempt.CiRunId != dispatch.RunId.Value ||
+                durableAttempt.CiRunAttempt != dispatch.RunAttempt.Value ||
+                durableAttempt.StartedAt != receipt.DispatchedAt ||
+                !durableAttempt.EvidenceComplete || !durableAttempt.IsSuccessful ||
+                durableAttempt.HasActionableDiagnostics || durableAttempt.DiagnosticsFingerprint is not null)
+                throw new InvalidDataException("A durable repair attempt exists but does not exactly match the verified dispatch and current task.");
+
+            var replayExpectation = new WorkTaskRepairEvidenceExpectation(
+                task.Request.TaskId, task.Request.CorrelationId, task.Request.Repository,
+                receipt.Branch, receipt.WorkflowPath, durableAttempt.CandidateSha,
+                durableAttempt.TaskStartedAt, durableAttempt.CiRunId, durableAttempt.CiRunAttempt);
+            var replayedTask = _tasks.ApplyRepairDecision(
+                task.Request.TaskId, leaseId, durableAttempt, replayExpectation, _maximumDuration, initialNow);
+            return new(GitHubActionsRepairEvidenceStatus.Applied, replayedTask, null, null, durableAttempt);
+        }
 
         var correlation = await _workflows.FindCorrelatedRunAsync(receipt, cancellationToken).ConfigureAwait(false);
         if (correlation is null)
