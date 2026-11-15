@@ -2,6 +2,34 @@ using System.Text.Json;
 
 namespace TheSingularityWorkshop.Foundry.GitHubHost;
 
+/// <summary>
+/// Immutable evidence produced only after the host validates the workflow's candidate-checkout
+/// provenance artifact against the exact dispatch receipt and run attempt.
+/// </summary>
+public sealed class VerifiedCandidateCheckoutProvenance
+{
+    internal VerifiedCandidateCheckoutProvenance(
+        string requestId, string repository, long runId, int runAttempt,
+        string candidateRef, string requestedSha, string checkedOutHead)
+    {
+        RequestId = requestId;
+        Repository = repository;
+        RunId = runId;
+        RunAttempt = runAttempt;
+        CandidateRef = candidateRef;
+        RequestedSha = requestedSha;
+        CheckedOutHead = checkedOutHead;
+    }
+
+    public string RequestId { get; }
+    public string Repository { get; }
+    public long RunId { get; }
+    public int RunAttempt { get; }
+    public string CandidateRef { get; }
+    public string RequestedSha { get; }
+    public string CheckedOutHead { get; }
+}
+
 public enum GitHubActionsDispatchState
 {
     Dispatching,
@@ -43,7 +71,8 @@ public interface IGitHubActionsDispatchJournal
         string operationId, string idempotencyKey, string correlationId, DateTimeOffset createdAt);
     GitHubActionsDispatchRecord Acknowledge(string requestId, DateTimeOffset acknowledgedAt);
     GitHubActionsDispatchRecord Correlate(string requestId, long runId, int runAttempt);
-    GitHubActionsDispatchRecord Verify(string requestId, long runId, int runAttempt);
+    GitHubActionsDispatchRecord Verify(
+        string requestId, long runId, int runAttempt, VerifiedCandidateCheckoutProvenance provenance);
     GitHubActionsDispatchRecord Get(string requestId);
     GitHubActionsDispatchRecord GetByOperationId(string operationId);
     IReadOnlyList<GitHubActionsDispatchRecord> GetUnresolved();
@@ -131,14 +160,24 @@ public sealed class JsonlGitHubActionsDispatchJournal : IGitHubActionsDispatchJo
             };
         });
 
-    public GitHubActionsDispatchRecord Verify(string requestId, long runId, int runAttempt) =>
-        Transition(requestId, current =>
+    public GitHubActionsDispatchRecord Verify(
+        string requestId, long runId, int runAttempt, VerifiedCandidateCheckoutProvenance provenance)
+    {
+        ArgumentNullException.ThrowIfNull(provenance);
+        return Transition(requestId, current =>
         {
             if (current.State != GitHubActionsDispatchState.Correlated ||
-                current.RunId != runId || current.RunAttempt != runAttempt)
-                throw new InvalidOperationException("Only the exact correlated run attempt can be verified.");
+                current.RunId != runId || current.RunAttempt != runAttempt ||
+                provenance.RequestId != requestId ||
+                !string.Equals(provenance.Repository, current.Repository, StringComparison.OrdinalIgnoreCase) ||
+                provenance.RunId != runId || provenance.RunAttempt != runAttempt ||
+                !string.Equals(provenance.CandidateRef, current.Branch, StringComparison.Ordinal) ||
+                !string.Equals(provenance.RequestedSha, current.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(provenance.CheckedOutHead, current.CandidateSha, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Only independently validated candidate checkout provenance for the exact correlated attempt can verify a dispatch.");
             return current with { State = GitHubActionsDispatchState.Verified };
         });
+    }
 
     public GitHubActionsDispatchRecord Get(string requestId)
     {
