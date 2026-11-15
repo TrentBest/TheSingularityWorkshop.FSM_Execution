@@ -248,15 +248,15 @@ public sealed class GitHubActionsArtifactProvenanceReader
         var trusted = RequiredObject(root, "trusted_workflow");
         DemandUniqueProperties(trusted, "ref", "sha");
         Demand(String(trusted, "ref"), "refs/heads/" + receipt.TrustedWorkflowRef, "trusted workflow ref");
-        Demand(String(trusted, "sha"), receipt.TrustedWorkflowSha, "trusted workflow SHA");
+        DemandSha(String(trusted, "sha"), receipt.TrustedWorkflowSha, "trusted workflow SHA");
 
         var candidate = RequiredObject(root, "candidate");
         DemandUniqueProperties(candidate, "ref", "requested_sha", "checked_out_head");
         Demand(String(candidate, "ref"), receipt.Branch, "candidate ref");
         var requestedSha = String(candidate, "requested_sha");
         var checkedOutHead = String(candidate, "checked_out_head");
-        Demand(requestedSha, receipt.CandidateSha, "requested candidate SHA");
-        Demand(checkedOutHead, receipt.CandidateSha, "checked-out candidate HEAD");
+        DemandSha(requestedSha, receipt.CandidateSha, "requested candidate SHA");
+        DemandSha(checkedOutHead, receipt.CandidateSha, "checked-out candidate HEAD");
 
         var run = RequiredObject(root, "run");
         DemandUniqueProperties(run, "id", "attempt");
@@ -357,6 +357,12 @@ public sealed class GitHubActionsArtifactProvenanceReader
     }
 
     private static void Demand(string actual, string expected, string field)
+    {
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+            throw new InvalidDataException($"Candidate provenance {field} does not match the durable dispatch intent.");
+    }
+
+    private static void DemandSha(string actual, string expected, string field)
     {
         if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException($"Candidate provenance {field} does not match the durable dispatch intent.");
