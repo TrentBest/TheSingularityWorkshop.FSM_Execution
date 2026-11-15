@@ -217,7 +217,7 @@ public sealed class GitHubActionsArtifactProvenanceReader
         Demand(String(root, "correlation_id"), durable.CorrelationId, "correlation ID");
         Demand(String(root, "repository"), receipt.Repository, "repository");
         Demand(String(root, "workflow_path"), receipt.WorkflowPath, "workflow path");
-        Demand(String(root, "workflow_ref"), "refs/heads/" + receipt.TrustedWorkflowRef, "workflow ref");
+        Demand(String(root, "workflow_ref"), receipt.Repository + "/" + receipt.WorkflowPath + "@refs/heads/" + receipt.TrustedWorkflowRef, "workflow ref");
         Demand(String(root, "event_name"), "workflow_dispatch", "event");
 
         var trusted = RequiredObject(root, "trusted_workflow");
