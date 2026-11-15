@@ -35,10 +35,10 @@ jobs:
           ref: c87386f0deb5f2f9f8a34dadc6811f2d59727c9f
           path: headlessai
 
-      - name: Set up .NET 8
+      - name: Set up .NET 10
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore projects
         run: |
