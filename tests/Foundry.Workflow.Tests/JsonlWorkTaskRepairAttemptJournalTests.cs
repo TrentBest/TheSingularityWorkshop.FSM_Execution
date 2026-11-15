@@ -78,15 +78,17 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
             Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Appended, journal.AppendOrGetExactReplay(original, out var appended));
             Assert.Equal(original, appended);
 
+            // Simulate process restart after the durable append but before task application.
+            var reopened = new JsonlWorkTaskRepairAttemptJournal(path);
             var retried = original with { ObservedAt = original.ObservedAt.AddMinutes(5) };
-            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Replayed, journal.AppendOrGetExactReplay(retried, out var durable));
+            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Replayed, reopened.AppendOrGetExactReplay(retried, out var durable));
             Assert.Equal(original, durable);
-            Assert.Single(journal.GetAttempts("task-8"));
+            Assert.Single(reopened.GetAttempts("task-8"));
             Assert.Single(File.ReadAllLines(path));
 
             var changedEvidence = retried with { EvidencePayloadSha256 = new string('a', 64) };
             Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Conflict,
-                journal.AppendOrGetExactReplay(changedEvidence, out var conflict));
+                reopened.AppendOrGetExactReplay(changedEvidence, out var conflict));
             Assert.Equal(original, conflict);
             Assert.Single(journal.GetAttempts("task-8"));
         }
