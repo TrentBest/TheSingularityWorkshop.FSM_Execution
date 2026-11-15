@@ -154,7 +154,7 @@ public sealed class GitHubActionsWorkflowDispatcherTests
     }
 
     [Fact]
-    public async Task ExactRunAttemptAndRequiredJobsAreCorrelatedAndDurablyVerified()
+    public async Task ExactRunAttemptAndRequiredJobsRemainCorrelatedUntilCheckoutProvenanceIsValidated()
     {
         var journalPath = NewJournalPath();
         var correlationRequestId = new string('0', 32);
@@ -231,7 +231,7 @@ public sealed class GitHubActionsWorkflowDispatcherTests
         Assert.Equal(123456L, evidence.RunId);
         Assert.Equal(2, evidence.RunAttempt);
         Assert.True(Assert.Single(evidence.RequiredJobs).Succeeded);
-        Assert.Equal(GitHubActionsDispatchState.Verified,
+        Assert.Equal(GitHubActionsDispatchState.Correlated,
             new JsonlGitHubActionsDispatchJournal(journalPath).Get(receipt.RequestId).State);
     }
 
