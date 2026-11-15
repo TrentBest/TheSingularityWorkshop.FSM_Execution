@@ -397,15 +397,8 @@ public sealed class GitHubActionsWorkflowDispatcher
         var allSucceeded = string.Equals(correlation.Status, "completed", StringComparison.Ordinal) &&
             string.Equals(correlation.Conclusion, "success", StringComparison.Ordinal) &&
             results.All(result => result.Succeeded);
-        if (allSucceeded)
-        {
-            var verifiedRecord = _journal.Get(receipt.RequestId);
-            if (verifiedRecord.State == GitHubActionsDispatchState.Correlated)
-                _journal.Verify(receipt.RequestId, correlation.RunId, correlation.RunAttempt);
-            else if (verifiedRecord.State != GitHubActionsDispatchState.Verified ||
-                verifiedRecord.RunId != correlation.RunId || verifiedRecord.RunAttempt != correlation.RunAttempt)
-                throw new InvalidOperationException("Durable dispatch state does not match the verified workflow attempt.");
-        }
+        // Successful required jobs prove only the run's job outcome. Candidate checkout
+        // provenance is a separate mandatory gate and is the only path to durable Verified.
         return new GitHubActionsAttemptEvidence(correlation.RunId, correlation.RunAttempt,
             receipt.CandidateSha, results, allSucceeded);
     }
