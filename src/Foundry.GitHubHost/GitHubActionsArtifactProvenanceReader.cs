@@ -42,6 +42,9 @@ public sealed class GitHubActionsArtifactProvenanceReader
         _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
         _repositories = repositories ?? throw new ArgumentNullException(nameof(repositories));
         _journal = journal ?? throw new ArgumentNullException(nameof(journal));
+        if (_api.DefaultRequestHeaders.Authorization is not null ||
+            _download.DefaultRequestHeaders.Authorization is not null)
+            throw new ArgumentException("API and artifact clients must not carry ambient authorization; credentials are attached only to the exact API request.", nameof(download));
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
         if (_api.BaseAddress is null ||
             !string.Equals(_api.BaseAddress.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
@@ -317,7 +320,7 @@ public sealed class GitHubActionsArtifactProvenanceReader
     private static async ValueTask<byte[]> ReadBoundedAsync(
         HttpContent content, int maximumBytes, CancellationToken cancellationToken)
     {
-        if (content.Headers.ContentLength is > 0 && content.Headers.ContentLength > maximumBytes)
+        if (content.Headers.ContentLength.HasValue && content.Headers.ContentLength.Value > maximumBytes)
             throw new InvalidDataException("Artifact response exceeds the host byte limit.");
         await using var input = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var output = new MemoryStream();
