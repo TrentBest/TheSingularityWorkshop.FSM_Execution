@@ -228,9 +228,14 @@ public sealed class JsonlWorkTaskStoreTests
 
             // Simulate a crash after the attempt journal is flushed but before the task
             // snapshot records its decision. Recovery must consume the durable orphan attempt.
-            coordinator = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path),
-                new JsonlWorkTaskRepairAttemptJournal(attemptsPath));
-            var ready = coordinator.ApplyRepairDecision("task-1", lease, attempt, expectation,
+            var reopenedAttempts = new JsonlWorkTaskRepairAttemptJournal(attemptsPath);
+            var retriedEvidence = attempt with { ObservedAt = attempt.ObservedAt.AddMinutes(5) };
+            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Replayed,
+                reopenedAttempts.AppendOrGetExactReplay(retriedEvidence, out var durableAttempt));
+            Assert.Equal(attempt, durableAttempt);
+
+            coordinator = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path), reopenedAttempts);
+            var ready = coordinator.ApplyRepairDecision("task-1", lease, durableAttempt, expectation,
                 TimeSpan.FromMinutes(30), Now.AddMinutes(3));
 
             Assert.Equal(WorkTaskStatus.ReviewReady, ready.Status);
