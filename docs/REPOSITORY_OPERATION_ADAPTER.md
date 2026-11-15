@@ -50,6 +50,8 @@ The dispatcher depends on the audit interface rather than the JSONL implementati
 
 The request deliberately contains no capability ID. Its `create-branch` operation name can select only the closed branch-creation operation; it cannot select a branch name outside the branch already bound to the host-issued capability. The resolver receives the task ID and retrieves host-owned capability state. The dispatcher then validates that capability against the current durable task snapshot. The handler runs inside the existing sequential `WorkflowRunner`; this feature does not introduce a second executor or scheduler.
 
+Gauntlet is a separate, optional adversarial-evidence provider owned by the CiAi evidence/gate layer, not another Foundry CI job or a second task-evidence ledger. Foundry's exact-run bridge remains responsible for its bounded task lifecycle and CI repair evidence; it does not treat a Gauntlet badge or score as authority. CiAi must independently validate any Gauntlet report's candidate/artifact/profile binding, digest, completeness, and provider trust, then apply its own deterministic policy. The initial provider integration is read-only/advisory; making it a required publishing gate is a later policy decision after reliability is demonstrated. See [CiAi issue #71](https://github.com/TrentBest/TheSingularityWorkshop.CiAi/issues/71) and [Gauntlet issue #1](https://github.com/TrentBest/TheSingularityWorkshop.Gauntlet/issues/1).
+
 ## 5. Host adapter obligations
 
 A production adapter must independently enforce all policy that depends on the host or GitHub:
