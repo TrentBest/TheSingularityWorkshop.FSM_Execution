@@ -164,7 +164,7 @@ public sealed class GitHubActionsArtifactProvenanceReaderTests
             size_in_bytes = 512, expired = false,
             created_at = Now.AddMinutes(-2).ToString("O"),
             expires_at = Now.AddDays(10).ToString("O"),
-            workflow_run = new { id = 123456L }
+            workflow_run = new { id = 123456L, head_branch = "development", head_sha = TrustedSha }
         });
         return JsonSerializer.Serialize(new { total_count = count, artifacts });
     }
