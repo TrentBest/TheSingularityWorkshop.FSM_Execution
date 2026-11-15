@@ -102,6 +102,11 @@ public sealed class GitHubActionsRepairEvidenceCoordinator
         if (priorDurableAttempt is not null)
         {
             if (dispatch.State != GitHubActionsDispatchState.Verified ||
+                dispatch.RequestId != receipt.RequestId || dispatch.TaskId != task.Request.TaskId ||
+                !string.Equals(dispatch.Repository, receipt.Repository, StringComparison.OrdinalIgnoreCase) ||
+                dispatch.WorkflowPath != receipt.WorkflowPath || dispatch.Branch != receipt.Branch ||
+                !string.Equals(dispatch.CandidateSha, receipt.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                dispatch.CorrelationId != task.Request.CorrelationId ||
                 !dispatch.RunId.HasValue || !dispatch.RunAttempt.HasValue ||
                 priorDurableAttempt.TaskId != task.Request.TaskId ||
                 priorDurableAttempt.CorrelationId != task.Request.CorrelationId ||
