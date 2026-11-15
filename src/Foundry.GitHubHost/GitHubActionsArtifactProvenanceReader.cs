@@ -66,6 +66,7 @@ public sealed class GitHubActionsArtifactProvenanceReader
     {
         ArgumentNullException.ThrowIfNull(receipt);
         ArgumentNullException.ThrowIfNull(correlation);
+        _repositories.DemandRepository(receipt.Repository);
         DemandReceipt(receipt, correlation);
         var durable = _journal.Get(receipt.RequestId);
         DemandDurableBinding(durable, receipt, correlation);
