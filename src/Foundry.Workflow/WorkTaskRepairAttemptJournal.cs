@@ -151,30 +151,30 @@ public sealed class JsonlWorkTaskRepairAttemptJournal
 
         var existing = history.FirstOrDefault(item => item.AttemptNumber == attempt.AttemptNumber);
         if (existing is not null)
-                return existing == attempt
-                    ? WorkTaskRepairAttemptAppendOutcome.Duplicate
-                    : WorkTaskRepairAttemptAppendOutcome.Conflict;
+            return existing == attempt
+                ? WorkTaskRepairAttemptAppendOutcome.Duplicate
+                : WorkTaskRepairAttemptAppendOutcome.Conflict;
 
         if (attempt.AttemptNumber != history.Count + 1)
-                return WorkTaskRepairAttemptAppendOutcome.OutOfOrder;
+            return WorkTaskRepairAttemptAppendOutcome.OutOfOrder;
         if (history.Any(item => item.CiRunId == attempt.CiRunId &&
-                item.CiRunAttempt == attempt.CiRunAttempt))
-                return WorkTaskRepairAttemptAppendOutcome.Conflict;
+            item.CiRunAttempt == attempt.CiRunAttempt))
+            return WorkTaskRepairAttemptAppendOutcome.Conflict;
         if (_attempts.Values.SelectMany(items => items).Any(item =>
-                string.Equals(item.Repository, attempt.Repository, StringComparison.OrdinalIgnoreCase) &&
-                item.CiRunId == attempt.CiRunId && item.CiRunAttempt == attempt.CiRunAttempt))
-                return WorkTaskRepairAttemptAppendOutcome.Conflict;
+            string.Equals(item.Repository, attempt.Repository, StringComparison.OrdinalIgnoreCase) &&
+            item.CiRunId == attempt.CiRunId && item.CiRunAttempt == attempt.CiRunAttempt))
+            return WorkTaskRepairAttemptAppendOutcome.Conflict;
         if (history.Count > 0)
-            {
+        {
             var previous = history[^1];
             if (!SameTask(previous, attempt) || previous.IsSuccessful ||
-                    attempt.StartedAt < previous.ObservedAt)
+                attempt.StartedAt < previous.ObservedAt)
                 return WorkTaskRepairAttemptAppendOutcome.Conflict;
         }
 
         WriteLine(attempt);
         if (!_attempts.TryGetValue(attempt.TaskId, out history))
-                _attempts.Add(attempt.TaskId, history = new List<WorkTaskRepairAttempt>());
+            _attempts.Add(attempt.TaskId, history = new List<WorkTaskRepairAttempt>());
         history.Add(attempt);
         return WorkTaskRepairAttemptAppendOutcome.Appended;
     }
