@@ -4,19 +4,21 @@ namespace TheSingularityWorkshop.Foundry.GitHubHost;
 
 /// <summary>
 /// Owns the production composition of the GitHub repository adapter, Actions dispatcher,
-/// and exact-run candidate-checkout provenance verifier. The host supplies durable stores,
-/// token provisioning, allowlists, and HTTP clients configured with automatic redirects disabled.
+/// exact-run candidate-checkout provenance verifier, and durable repair-evidence lifecycle bridge.
+/// The host supplies durable stores, token provisioning, allowlists, and redirect-disabled clients.
 /// </summary>
 public sealed class GitHubRepositoryOperationHost
 {
     private GitHubRepositoryOperationHost(
         GitHubRepositoryOperationAdapter repositoryOperations,
         GitHubActionsWorkflowDispatcher actionsDispatcher,
-        GitHubActionsArtifactProvenanceReader provenanceReader)
+        GitHubActionsArtifactProvenanceReader provenanceReader,
+        GitHubActionsRepairEvidenceCoordinator repairEvidence)
     {
         RepositoryOperations = repositoryOperations;
         ActionsDispatcher = actionsDispatcher;
         ProvenanceReader = provenanceReader;
+        RepairEvidence = repairEvidence;
     }
 
     /// <summary>Capability-gated repository-operation adapter to register with Foundry's host dispatcher.</summary>
@@ -28,11 +30,16 @@ public sealed class GitHubRepositoryOperationHost
     /// <summary>Verifier for the provenance artifact of an already-correlated exact run attempt.</summary>
     public GitHubActionsArtifactProvenanceReader ProvenanceReader { get; }
 
+    /// <summary>Lease-bound bridge from verified CI evidence to durable task repair decisions.</summary>
+    public GitHubActionsRepairEvidenceCoordinator RepairEvidence { get; }
+
     /// <summary>
     /// Creates the complete GitHub host composition. Both clients must have automatic redirects
     /// disabled. The API client must be rooted at https://api.github.com/ and have no default
     /// Authorization header; credentials are supplied per request by the host token provider.
     /// The artifact client must have no default Authorization header and must not follow redirects.
+    /// The task coordinator and repair-attempt journal must share the same journal instance.
+    /// Required job names are host policy, not values supplied by a workflow or candidate.
     /// </summary>
     public static GitHubRepositoryOperationHost Create(
         HttpClient apiClient,
@@ -42,6 +49,10 @@ public sealed class GitHubRepositoryOperationHost
         GitHubActionsWorkflowAllowlist workflows,
         IGitHubActionsDispatchJournal dispatchJournal,
         IGitHubRepositoryStagingStore stagingStore,
+        PersistentWorkTaskCoordinator tasks,
+        JsonlWorkTaskRepairAttemptJournal repairAttempts,
+        IReadOnlyCollection<string> requiredJobNames,
+        TimeSpan maximumRepairDuration,
         string trustedWorkflowSha,
         Func<DateTimeOffset>? clock = null)
     {
@@ -52,6 +63,14 @@ public sealed class GitHubRepositoryOperationHost
         ArgumentNullException.ThrowIfNull(workflows);
         ArgumentNullException.ThrowIfNull(dispatchJournal);
         ArgumentNullException.ThrowIfNull(stagingStore);
+        ArgumentNullException.ThrowIfNull(tasks);
+        ArgumentNullException.ThrowIfNull(repairAttempts);
+        ArgumentNullException.ThrowIfNull(requiredJobNames);
+
+        if (!ReferenceEquals(tasks.RepairAttemptJournal, repairAttempts))
+            throw new ArgumentException(
+                "The task coordinator and repair-evidence bridge must share the exact durable repair-attempt journal instance.",
+                nameof(repairAttempts));
 
         if (apiClient.DefaultRequestHeaders.Authorization is not null ||
             artifactDownloadClient.DefaultRequestHeaders.Authorization is not null)
@@ -63,7 +82,11 @@ public sealed class GitHubRepositoryOperationHost
             apiClient, artifactDownloadClient, tokens, repositoryPolicy, dispatchJournal, clock);
         var repositoryAdapter = new GitHubRepositoryOperationAdapter(
             apiClient, tokens, repositoryPolicy, stagingStore, clock, dispatcher);
+        var repairEvidence = new GitHubActionsRepairEvidenceCoordinator(
+            dispatcher, provenanceReader, dispatchJournal, tasks, repairAttempts,
+            requiredJobNames, maximumRepairDuration, clock);
 
-        return new GitHubRepositoryOperationHost(repositoryAdapter, dispatcher, provenanceReader);
+        return new GitHubRepositoryOperationHost(
+            repositoryAdapter, dispatcher, provenanceReader, repairEvidence);
     }
 }
