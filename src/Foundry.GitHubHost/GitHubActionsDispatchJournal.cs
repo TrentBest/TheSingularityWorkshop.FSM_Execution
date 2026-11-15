@@ -10,7 +10,7 @@ public sealed class VerifiedCandidateCheckoutProvenance
 {
     internal VerifiedCandidateCheckoutProvenance(
         string requestId, string repository, long runId, int runAttempt,
-        string candidateRef, string requestedSha, string checkedOutHead)
+        string candidateRef, string requestedSha, string checkedOutHead, string payloadSha256)
     {
         RequestId = requestId;
         Repository = repository;
@@ -19,6 +19,7 @@ public sealed class VerifiedCandidateCheckoutProvenance
         CandidateRef = candidateRef;
         RequestedSha = requestedSha;
         CheckedOutHead = checkedOutHead;
+        PayloadSha256 = payloadSha256;
     }
 
     public string RequestId { get; }
@@ -28,6 +29,7 @@ public sealed class VerifiedCandidateCheckoutProvenance
     public string CandidateRef { get; }
     public string RequestedSha { get; }
     public string CheckedOutHead { get; }
+    public string PayloadSha256 { get; }
 }
 
 public enum GitHubActionsDispatchState
@@ -166,15 +168,19 @@ public sealed class JsonlGitHubActionsDispatchJournal : IGitHubActionsDispatchJo
         ArgumentNullException.ThrowIfNull(provenance);
         return Transition(requestId, current =>
         {
-            if (current.State != GitHubActionsDispatchState.Correlated ||
-                current.RunId != runId || current.RunAttempt != runAttempt ||
+            if (current.RunId != runId || current.RunAttempt != runAttempt ||
                 provenance.RequestId != requestId ||
                 !string.Equals(provenance.Repository, current.Repository, StringComparison.OrdinalIgnoreCase) ||
                 provenance.RunId != runId || provenance.RunAttempt != runAttempt ||
                 !string.Equals(provenance.CandidateRef, current.Branch, StringComparison.Ordinal) ||
                 !string.Equals(provenance.RequestedSha, current.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(provenance.CheckedOutHead, current.CandidateSha, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(provenance.CheckedOutHead, current.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                provenance.PayloadSha256 is not { Length: 64 } || !provenance.PayloadSha256.All(Uri.IsHexDigit))
                 throw new InvalidOperationException("Only independently validated candidate checkout provenance for the exact correlated attempt can verify a dispatch.");
+            if (current.State == GitHubActionsDispatchState.Verified)
+                return current;
+            if (current.State != GitHubActionsDispatchState.Correlated)
+                throw new InvalidOperationException("Only a correlated dispatch can be verified.");
             return current with { State = GitHubActionsDispatchState.Verified };
         });
     }
