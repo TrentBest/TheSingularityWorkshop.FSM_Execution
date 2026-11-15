@@ -106,9 +106,19 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
             var first = Attempt(successful: true, actionable: false);
             var retry = first with { ObservedAt = first.ObservedAt.AddMinutes(1) };
             var outcomes = await Task.WhenAll(
-                Task.Run(() => journal.AppendOrGetExactReplay(first, out var durable) ? durable : durable),
-                Task.Run(() => journal.AppendOrGetExactReplay(retry, out var durable) ? durable : durable));
-            Assert.Equal(outcomes[0], outcomes[1]);
+                Task.Run(() =>
+                {
+                    var outcome = journal.AppendOrGetExactReplay(first, out var durable);
+                    return (Outcome: outcome, Durable: durable);
+                }),
+                Task.Run(() =>
+                {
+                    var outcome = journal.AppendOrGetExactReplay(retry, out var durable);
+                    return (Outcome: outcome, Durable: durable);
+                }));
+            Assert.Contains(outcomes[0].Outcome, new[] { WorkTaskRepairAttemptAppendOutcome.Appended, WorkTaskRepairAttemptAppendOutcome.Replayed });
+            Assert.Contains(outcomes[1].Outcome, new[] { WorkTaskRepairAttemptAppendOutcome.Appended, WorkTaskRepairAttemptAppendOutcome.Replayed });
+            Assert.Equal(outcomes[0].Durable, outcomes[1].Durable);
             Assert.Single(journal.GetAttempts("task-8"));
             Assert.Single(File.ReadAllLines(path));
         }
