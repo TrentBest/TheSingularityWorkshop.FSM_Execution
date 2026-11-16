@@ -53,6 +53,7 @@ The separate [FSM_API probe](src/Foundry.FsmApiProbe/Program.cs) and [fox/sheepd
 - [Contract inspection ledger](docs/CONTRACT_INSPECTION.md) — source-backed findings and unresolved questions.
 - [Roadmap and readiness](docs/ROADMAP.md) — milestones and verification gates.
 - [Documentation index](DOCUMENTATION_INDEX.md) — documentation entry points.
+- [ADP Agent Onboarding](AgentOnboarding.md) — mandatory exact-commit admission and host-control boundaries.
 - [Agent onboarding and contribution policy](AGENTS.md) — ownership boundaries, branch/release guardrails, safety invariants, and documentation/evidence rules.
 - [UML documentation](docs/UML/README.md) — source-grounded diagram policy and inventory.
 
