@@ -46,6 +46,7 @@ public sealed class GitHubRepositoryOperationHostTests
         Assert.NotNull(host.ActionsDispatcher);
         Assert.NotNull(host.ProvenanceReader);
         Assert.NotNull(host.RepairEvidence);
+        Assert.NotNull(host.OnboardingAdmissionVerifier);
     }
 
     [Fact]
