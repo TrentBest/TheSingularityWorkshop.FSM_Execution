@@ -47,7 +47,7 @@ public static class CiAiDispatchSubmissionCoordinator
         // Validate ordinary mapping fields before contacting the host. For governed
         // repositories, admission is fetched and evaluated asynchronously before any
         // durable intent or dispatcher side effect can occur.
-        mapping.ValidateForDispatchPreflight();
+        mapping.Validate(requireAdmissionEvidence: false);
         if (AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository))
         {
             if (admissionVerifier is null)
