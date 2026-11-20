@@ -13,13 +13,19 @@ public sealed class GitHubRepositoryOperationHost
         GitHubRepositoryOperationAdapter repositoryOperations,
         GitHubActionsWorkflowDispatcher actionsDispatcher,
         GitHubActionsArtifactProvenanceReader provenanceReader,
-        GitHubActionsRepairEvidenceCoordinator repairEvidence)
+        GitHubActionsRepairEvidenceCoordinator repairEvidence,
+        GitHubAgentOnboardingAdmissionVerifier onboardingAdmissionVerifier,
+        PersistentWorkTaskCoordinator tasks)
     {
         RepositoryOperations = repositoryOperations;
         ActionsDispatcher = actionsDispatcher;
         ProvenanceReader = provenanceReader;
         RepairEvidence = repairEvidence;
+        OnboardingAdmissionVerifier = onboardingAdmissionVerifier;
+        _tasks = tasks;
     }
+
+    private readonly PersistentWorkTaskCoordinator _tasks;
 
     /// <summary>Capability-gated repository-operation adapter to register with Foundry's host dispatcher.</summary>
     public GitHubRepositoryOperationAdapter RepositoryOperations { get; }
@@ -32,6 +38,18 @@ public sealed class GitHubRepositoryOperationHost
 
     /// <summary>Lease-bound bridge from verified CI evidence to durable task repair decisions.</summary>
     public GitHubActionsRepairEvidenceCoordinator RepairEvidence { get; }
+
+    /// <summary>Exact-development-SHA verifier backed by CiAi's pinned authoritative validator.</summary>
+    public GitHubAgentOnboardingAdmissionVerifier OnboardingAdmissionVerifier { get; }
+
+    /// <summary>Revalidates restored governed tasks before a host accepts lifecycle work.</summary>
+    public ValueTask InitializeAsync(CancellationToken cancellationToken = default) =>
+        _tasks.InitializeAsync(OnboardingAdmissionVerifier, cancellationToken);
+
+    /// <summary>Host-owned task admission; governed targets are checked before durable creation.</summary>
+    public ValueTask<WorkTaskSnapshot> SubmitTaskAsync(WorkTaskRequest request,
+        CancellationToken cancellationToken = default) =>
+        _tasks.SubmitAsync(request, OnboardingAdmissionVerifier, cancellationToken);
 
     /// <summary>
     /// Creates the complete GitHub host composition. Both clients must have automatic redirects
@@ -85,8 +103,11 @@ public sealed class GitHubRepositoryOperationHost
         var repairEvidence = new GitHubActionsRepairEvidenceCoordinator(
             dispatcher, provenanceReader, dispatchJournal, tasks, repairAttempts,
             requiredJobNames, maximumRepairDuration, clock);
+        var onboardingAdmissionVerifier = new GitHubAgentOnboardingAdmissionVerifier(
+            apiClient, tokens, repositoryPolicy);
 
         return new GitHubRepositoryOperationHost(
-            repositoryAdapter, dispatcher, provenanceReader, repairEvidence);
+            repositoryAdapter, dispatcher, provenanceReader, repairEvidence,
+            onboardingAdmissionVerifier, tasks);
     }
 }
