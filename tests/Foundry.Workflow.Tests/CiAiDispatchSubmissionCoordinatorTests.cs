@@ -32,12 +32,13 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
     {
         public int Calls { get; private set; }
         public bool Reject { get; init; }
+        public int? RejectOnCall { get; init; }
 
         public ValueTask<AgentOnboardingAdmissionEvidence> VerifyAsync(
             string repository, string targetSha, CancellationToken cancellationToken = default)
         {
             Calls++;
-            if (Reject)
+            if (Reject || Calls == RejectOnCall)
                 throw new UnauthorizedAccessException("Exact-SHA onboarding rejected.");
             return ValueTask.FromResult(new AgentOnboardingAdmissionEvidence(
                 repository, targetSha, "AgentOnboarding.md", "ciai.agent-onboarding.v1",
@@ -70,7 +71,7 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
             await CiAiDispatchSubmissionCoordinator.SubmitAsync(
                 journal, GovernedMapping(), dispatcher, verifier);
 
-            Assert.Equal(1, verifier.Calls);
+            Assert.Equal(2, verifier.Calls);
             Assert.Equal(1, dispatcher.Calls);
             Assert.Equal("ELIGIBLE", journal.Get("request-1").Mapping.AdmissionEvidence!.Outcome);
         }
@@ -95,6 +96,28 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
             Assert.Equal(0, dispatcher.Calls);
             Assert.Empty(journal.GetAll());
             Assert.False(File.Exists(path) && new FileInfo(path).Length > 0);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task TargetHeadChangeAfterIntentCreationPreventsDispatch()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-dispatch-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var journal = new JsonlCiAiRequestTaskMappingJournal(path);
+            var dispatcher = new RecordingDispatcher();
+            var verifier = new RecordingAdmissionVerifier { RejectOnCall = 2 };
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                CiAiDispatchSubmissionCoordinator.SubmitAsync(
+                    journal, GovernedMapping(), dispatcher, verifier));
+
+            Assert.Equal(2, verifier.Calls);
+            Assert.Equal(0, dispatcher.Calls);
+            Assert.Single(journal.GetAll());
+            Assert.NotNull(journal.Get("request-1").Mapping.AdmissionEvidence);
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
