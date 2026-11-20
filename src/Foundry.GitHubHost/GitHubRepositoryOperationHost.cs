@@ -52,6 +52,23 @@ public sealed class GitHubRepositoryOperationHost
         _tasks.SubmitAsync(request, OnboardingAdmissionVerifier, cancellationToken);
 
     /// <summary>
+    /// Creates the last-mile repository dispatcher with the host's trusted onboarding verifier
+    /// already wired. Callers cannot accidentally omit governed-target revalidation.
+    /// </summary>
+    public AuthorizedRepositoryOperationDispatcher CreateAuthorizedRepositoryOperationDispatcher(
+        WorkTaskCapabilityRegistry capabilities,
+        IRepositoryOperationAuditJournal auditJournal,
+        Func<DateTimeOffset>? clock = null) =>
+        new(_tasks, capabilities, RepositoryOperations, auditJournal, clock, OnboardingAdmissionVerifier);
+
+    /// <summary>Creates a HeadlessAi turn coordinator with the host verifier already wired.</summary>
+    public FoundryHeadlessAiTurnCoordinator CreateHeadlessAiTurnCoordinator(
+        IHeadlessAiAgentTurnClient client,
+        JsonlHeadlessAiTurnJournal journal,
+        TimeProvider? timeProvider = null) =>
+        new(_tasks, client, journal, timeProvider, OnboardingAdmissionVerifier);
+
+    /// <summary>
     /// Creates the complete GitHub host composition. Both clients must have automatic redirects
     /// disabled. The API client must be rooted at https://api.github.com/ and have no default
     /// Authorization header; credentials are supplied per request by the host token provider.
