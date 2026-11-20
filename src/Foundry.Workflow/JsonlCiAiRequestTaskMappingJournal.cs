@@ -35,7 +35,7 @@ public sealed record CiAiRequestTaskMapping(
 
     public const int CurrentSchemaVersion = 1;
 
-    public CiAiRequestTaskMapping Validate()
+    public CiAiRequestTaskMapping Validate(bool requireAdmissionEvidence = true)
     {
         static bool Clean(string? value, int max = 256) =>
             !string.IsNullOrWhiteSpace(value) && value.Length <= max && !value.Any(char.IsControl);
