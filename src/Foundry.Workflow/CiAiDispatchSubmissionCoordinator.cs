@@ -69,6 +69,19 @@ public static class CiAiDispatchSubmissionCoordinator
         if (intent == CiAiRequestMappingAppendOutcome.Duplicate)
             return new(CiAiDispatchSubmissionOutcome.ExistingIntentRequiresReconciliation, mapping.RequestId);
 
+        // Revalidate at the last possible boundary before crossing the dispatcher/network
+        // side effect. If the target head moved after intent creation, leave the intent durable
+        // but do not dispatch a stale task; reconciliation must resolve that pending intent.
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository))
+        {
+            var finalEvidence = await admissionVerifier!.VerifyAsync(
+                mapping.Repository, mapping.CandidateSha, cancellationToken).ConfigureAwait(false);
+            finalEvidence.ValidateFor(mapping.Repository, mapping.CandidateSha);
+            if (!finalEvidence.IsEligible || finalEvidence != mapping.AdmissionEvidence)
+                throw new UnauthorizedAccessException(
+                    "The exact-SHA AgentOnboarding result changed before CI dispatch; the durable intent was not dispatched.");
+        }
+
         // The durable intent exists before any external side effect. If this call
         // throws or is cancelled, its outcome may be ambiguous; do not resubmit it.
         await dispatcher.DispatchAsync(mapping, cancellationToken).ConfigureAwait(false);
