@@ -400,6 +400,74 @@ public sealed class AuthorizedRepositoryOperationDispatcherTests
         Assert.Equal(0, fixture.Adapter.Calls);
     }
 
+    [Fact]
+    public async Task GovernedOperationRevalidatesAdmissionBeforeTransportAndFailsClosedOnDrift()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "foundry-governed-operation-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            const string governedRepository = "TrentBest/WebPage";
+            var evidence = new AgentOnboardingAdmissionEvidence(
+                governedRepository, BaseSha, AgentOnboardingAdmissionEvidence.RequiredPath,
+                AgentOnboardingAdmissionEvidence.RequiredContractVersion, true, "ELIGIBLE",
+                null, "Exact-SHA CiAi contract passed.", new string('f', 64));
+            var tasks = new PersistentWorkTaskCoordinator(
+                new JsonlWorkTaskStore(Path.Combine(directory, "tasks.jsonl")));
+            var request = new WorkTaskRequest(1, "task-39", "correlation-39", governedRepository, 39,
+                "https://github.com/TrentBest/WebPage/issues/39", BaseSha,
+                new[] { "src" }, 3);
+            await tasks.SubmitAsync(request, new FixedAdmissionVerifier(evidence));
+            var task = tasks.Claim("task-39", "agent-a", TimeSpan.FromMinutes(20), Now);
+            var capabilities = new WorkTaskCapabilityRegistry();
+            var capability = capabilities.Grant(task, "work/task-39", BaseSha,
+                new[] { "src" }, new[] { WorkTaskAction.WriteFiles }, Now, TimeSpan.FromMinutes(10));
+            var adapter = new FakeAdapter();
+            var journal = new JsonlRepositoryOperationJournal(Path.Combine(directory, "operations.jsonl"));
+            var verifier = new RejectingAdmissionVerifier(evidence, rejectOnCall: 2);
+            var dispatcher = new AuthorizedRepositoryOperationDispatcher(
+                tasks, capabilities, adapter, journal, () => Now.AddMinutes(1), verifier);
+            var operation = new WriteRepositoryFileOperation(
+                "task-39", governedRepository, "work/task-39", BaseSha, "src/Example.cs", "content");
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await dispatcher.ExecuteAsync(capability.CapabilityId, operation, Now.AddMinutes(1)));
+
+            Assert.Equal(2, verifier.Calls);
+            Assert.Equal(0, adapter.Calls);
+            Assert.Equal(RepositoryOperationAuditStatus.Failed, Assert.Single(journal.GetAll()).Status);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private sealed class FixedAdmissionVerifier(AgentOnboardingAdmissionEvidence evidence)
+        : IAgentOnboardingAdmissionVerifier
+    {
+        public ValueTask<AgentOnboardingAdmissionEvidence> VerifyAsync(
+            string repository, string targetSha, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(evidence);
+    }
+
+    private sealed class RejectingAdmissionVerifier(
+        AgentOnboardingAdmissionEvidence evidence, int rejectOnCall)
+        : IAgentOnboardingAdmissionVerifier
+    {
+        public int Calls { get; private set; }
+
+        public ValueTask<AgentOnboardingAdmissionEvidence> VerifyAsync(
+            string repository, string targetSha, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            if (Calls == rejectOnCall)
+                throw new UnauthorizedAccessException("Exact-SHA onboarding changed before repository transport.");
+            return ValueTask.FromResult(evidence);
+        }
+    }
+
     private static WorkflowDefinition Definition() =>
         new("repository-operation-proof", "Repository operation proof",
             WorkflowDefinition.SupportedSchemaVersion,
