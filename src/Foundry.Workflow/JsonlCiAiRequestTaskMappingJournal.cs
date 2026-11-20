@@ -75,7 +75,7 @@ public sealed record CiAiRequestTaskMapping(
         }
         else if (AdmissionEvidence is not null)
         {
-            AdmissionEvidence.ValidateFor(Repository, CandidateSha);
+            AdmissionEvidence.ValidateFor(Repository!, CandidateSha);
         }
         return this;
     }
