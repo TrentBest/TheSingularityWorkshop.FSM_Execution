@@ -153,6 +153,26 @@ public sealed class JsonlCiAiRequestTaskMappingJournal
     public CiAiRequestMappingAppendOutcome CreateDispatchIntent(CiAiRequestTaskMapping mapping)
     {
         ArgumentNullException.ThrowIfNull(mapping);
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository))
+            throw new UnauthorizedAccessException(
+                "Owner-designated autonomous targets can create dispatch intents only through the trusted admission coordinator.");
+        return CreateDispatchIntentCore(mapping);
+    }
+
+    internal CiAiRequestMappingAppendOutcome CreateDispatchIntentAfterAdmission(
+        CiAiRequestTaskMapping mapping)
+    {
+        ArgumentNullException.ThrowIfNull(mapping);
+        mapping.Validate();
+        if (!AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository) ||
+            mapping.AdmissionEvidence is not { IsEligible: true })
+            throw new UnauthorizedAccessException(
+                "The trusted admission path requires eligible exact-SHA evidence for an owner-designated target.");
+        return CreateDispatchIntentCore(mapping);
+    }
+
+    private CiAiRequestMappingAppendOutcome CreateDispatchIntentCore(CiAiRequestTaskMapping mapping)
+    {
         mapping.Validate();
         lock (_gate)
         {
