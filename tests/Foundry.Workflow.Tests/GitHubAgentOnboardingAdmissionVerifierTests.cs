@@ -10,7 +10,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
 {
     private const string Repository = "TrentBest/Sample";
     private const string Sha = "abcdef0123456789abcdef0123456789abcdef01";
-    private const string OtherSha = "123456789abcdef0123456789abcdef0123456789";
+    private const string OtherSha = "123456789abcdef0123456789abcdef012345678";
 
     private const string ValidOnboarding = """
         # Agent Onboarding
