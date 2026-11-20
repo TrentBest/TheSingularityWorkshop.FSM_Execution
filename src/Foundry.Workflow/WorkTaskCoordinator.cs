@@ -130,7 +130,7 @@ public sealed class WorkTaskCoordinator
         evidence.ValidateFor(request.Repository, request.BaseSha);
         if (!evidence.IsEligible)
             throw new UnauthorizedAccessException("Ineligible AgentOnboarding evidence cannot create a task.");
-        return SubmitValidated(request with { AdmissionEvidence = evidence }.Validate());
+        return SubmitValidated((request with { AdmissionEvidence = evidence }).Validate());
     }
 
     private WorkTaskSnapshot SubmitValidated(WorkTaskRequest validated)
