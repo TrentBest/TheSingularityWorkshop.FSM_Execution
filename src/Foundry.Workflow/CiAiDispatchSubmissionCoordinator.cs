@@ -61,7 +61,9 @@ public static class CiAiDispatchSubmissionCoordinator
         }
         mapping.Validate();
 
-        var intent = journal.CreateDispatchIntent(mapping);
+        var intent = AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository)
+            ? journal.CreateDispatchIntentAfterAdmission(mapping)
+            : journal.CreateDispatchIntent(mapping);
         if (intent == CiAiRequestMappingAppendOutcome.Conflict)
             return new(CiAiDispatchSubmissionOutcome.Conflict, mapping.RequestId);
         if (intent == CiAiRequestMappingAppendOutcome.Duplicate)
