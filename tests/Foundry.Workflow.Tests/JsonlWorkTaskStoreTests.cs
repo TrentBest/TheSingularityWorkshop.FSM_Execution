@@ -172,6 +172,66 @@ public sealed class JsonlWorkTaskStoreTests
         }
     }
 
+    [Fact]
+    public async Task PersistentGovernedSubmissionRejectsBeforeMemoryOrJournalMutation()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var store = new JsonlWorkTaskStore(path);
+            var coordinator = new PersistentWorkTaskCoordinator(store);
+            var request = GovernedRequest();
+            Assert.Throws<UnauthorizedAccessException>(() => coordinator.Submit(request));
+
+            var rejecting = new TestAdmissionVerifier(EligibleEvidence() with
+            {
+                IsEligible = false,
+                Outcome = "NOT_ELIGIBLE",
+                FailureCode = "onboarding.missing",
+                ContentSha256 = null
+            });
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await coordinator.SubmitAsync(request, rejecting));
+            Assert.Equal(1, rejecting.Calls);
+            Assert.Empty(store.GetAll());
+            Assert.False(File.Exists(path));
+            Assert.Throws<KeyNotFoundException>(() => coordinator.GetSnapshot(request.TaskId));
+
+            var accepting = new TestAdmissionVerifier(EligibleEvidence());
+            var created = await coordinator.SubmitAsync(request, accepting);
+            Assert.Equal(1, accepting.Calls);
+            Assert.Equal(EligibleEvidence(), created.Request.AdmissionEvidence);
+            Assert.Equal(EligibleEvidence(), new JsonlWorkTaskStore(path).Get(request.TaskId).Request.AdmissionEvidence);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    private static WorkTaskRequest GovernedRequest() => new(1, "governed-task", "governed-correlation",
+        "TrentBest/TheSingularityWorkshop.ServerSC2", 39,
+        "https://github.com/TrentBest/TheSingularityWorkshop.ServerSC2/issues/39",
+        new string('a', 40), new[] { "src" }, 3);
+
+    private static AgentOnboardingAdmissionEvidence EligibleEvidence() => new(
+        "TrentBest/TheSingularityWorkshop.ServerSC2", new string('a', 40),
+        AgentOnboardingAdmissionEvidence.RequiredPath, AgentOnboardingAdmissionEvidence.RequiredContractVersion,
+        true, "ELIGIBLE", null, "Exact-SHA CiAi contract passed.", new string('f', 64));
+
+    private sealed class TestAdmissionVerifier(AgentOnboardingAdmissionEvidence evidence)
+        : IAgentOnboardingAdmissionVerifier
+    {
+        public int Calls { get; private set; }
+
+        public ValueTask<AgentOnboardingAdmissionEvidence> VerifyAsync(string repository, string targetSha,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return ValueTask.FromResult(evidence);
+        }
+    }
+
     private static WorkTaskRequest Request() => new(1, "task-1", "correlation-1",
         "TrentBest/TheSingularityWorkshop.Foundry", 8,
         "https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/8",
