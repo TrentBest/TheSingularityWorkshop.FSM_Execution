@@ -34,6 +34,34 @@ public sealed class PersistentWorkTaskCoordinator
         }
     }
 
+    /// <summary>Verifies governed onboarding before either in-memory mutation or durable creation.</summary>
+    public async ValueTask<WorkTaskSnapshot> SubmitAsync(WorkTaskRequest request,
+        IAgentOnboardingAdmissionVerifier admissionVerifier,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(admissionVerifier);
+        var validated = request.Validate(requireAdmissionEvidence: false);
+        AgentOnboardingAdmissionEvidence? evidence = null;
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(validated.Repository))
+        {
+            evidence = await admissionVerifier.VerifyAsync(validated.Repository, validated.BaseSha,
+                cancellationToken).ConfigureAwait(false);
+            evidence.ValidateFor(validated.Repository, validated.BaseSha);
+            if (!evidence.IsEligible)
+                throw new UnauthorizedAccessException("The repository's AgentOnboarding contract is not eligible for autonomous task creation.");
+        }
+
+        lock (_gate)
+        {
+            EnsureHealthy();
+            var snapshot = evidence is null
+                ? _coordinator.Submit(validated with { AdmissionEvidence = null })
+                : _coordinator.SubmitAdmitted(validated, evidence);
+            return Persist(snapshot, create: true);
+        }
+    }
+
     public WorkTaskSnapshot Claim(string taskId, string agentId, TimeSpan leaseDuration, DateTimeOffset now)
     {
         lock (_gate)
