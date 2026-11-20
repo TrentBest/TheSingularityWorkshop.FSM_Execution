@@ -144,7 +144,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifier : IAgentOnboardingAdm
         {
             // Preserve a deterministic CiAi rejection for invalid UTF-8 by supplying a
             // string that is guaranteed not to satisfy the required document contract.
-            content = "\uFFFD";
+            content = "\uD800";
         }
 
         return new AgentOnboardingSourceObservation(repository, targetSha, resolvedSha,
