@@ -52,7 +52,8 @@ public sealed class GitHubAgentOnboardingAdmissionVerifier : IAgentOnboardingAdm
         // content read uses targetSha, never the mutable branch name.
         using var refResponse = await SendAsync(
             HttpMethod.Get, $"repos/{repository}/git/ref/heads/development",
-            token, cancellationToken).ConfigureAwait(false);
+            token, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("GitHub did not return the development ref response.");
         using var refJson = await ReadJsonAsync(refResponse, cancellationToken).ConfigureAwait(false);
         var refRoot = refJson.RootElement;
         var resolvedRef = GetString(refRoot, "ref");
@@ -68,7 +69,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifier : IAgentOnboardingAdm
             throw new UnauthorizedAccessException(
                 "The requested onboarding target is not the repository's current development head.");
 
-        var source = await ReadOnboardingSourceAsync(repository, targetSha, resolvedSha,
+        var source = await ReadOnboardingSourceAsync(repository, targetSha, resolvedSha!,
             token, cancellationToken).ConfigureAwait(false);
         var result = AgentOnboardingValidator.Evaluate(source);
         var evidence = new AgentOnboardingAdmissionEvidence(
