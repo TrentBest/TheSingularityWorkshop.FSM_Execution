@@ -12,6 +12,7 @@ public sealed class PersistentWorkTaskCoordinator
     private readonly JsonlWorkTaskStore _store;
     private readonly JsonlWorkTaskRepairAttemptJournal? _repairAttemptJournal;
     private Exception? _persistenceFailure;
+    private bool _admissionReady = true;
 
     public PersistentWorkTaskCoordinator(JsonlWorkTaskStore store,
         JsonlWorkTaskRepairAttemptJournal? repairAttemptJournal = null,
@@ -20,8 +21,41 @@ public sealed class PersistentWorkTaskCoordinator
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _repairAttemptJournal = repairAttemptJournal;
         _coordinator = new WorkTaskCoordinator(recoveryReceiptVerifier);
-        foreach (var snapshot in _store.GetAll())
+        var restored = _store.GetAll();
+        foreach (var snapshot in restored)
             _coordinator.Restore(snapshot);
+        _admissionReady = !restored.Any(snapshot =>
+            AgentOnboardingTargetPolicy.RequiresAdmission(snapshot.Request.Repository));
+    }
+
+    /// <summary>
+    /// Revalidates every restored governed task against the trusted host before the coordinator
+    /// exposes any task lifecycle operation after process restart.
+    /// </summary>
+    public async ValueTask InitializeAsync(IAgentOnboardingAdmissionVerifier admissionVerifier,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admissionVerifier);
+        var restored = _store.GetAll();
+        foreach (var snapshot in restored)
+        {
+            if (!AgentOnboardingTargetPolicy.RequiresAdmission(snapshot.Request.Repository))
+                continue;
+            var stored = snapshot.Request.AdmissionEvidence ?? throw new UnauthorizedAccessException(
+                "A restored governed task is missing immutable AgentOnboarding admission provenance.");
+            var current = await admissionVerifier.VerifyAsync(snapshot.Request.Repository,
+                snapshot.Request.BaseSha, cancellationToken).ConfigureAwait(false);
+            current.ValidateFor(snapshot.Request.Repository, snapshot.Request.BaseSha);
+            if (!current.IsEligible || current != stored)
+                throw new UnauthorizedAccessException(
+                    $"Restored task '{snapshot.Request.TaskId}' no longer has matching exact-SHA AgentOnboarding admission.");
+        }
+
+        lock (_gate)
+        {
+            EnsurePersistenceHealthy();
+            _admissionReady = true;
+        }
     }
 
     public WorkTaskSnapshot Submit(WorkTaskRequest request)
@@ -149,6 +183,14 @@ public sealed class PersistentWorkTaskCoordinator
     }
 
     private void EnsureHealthy()
+    {
+        EnsurePersistenceHealthy();
+        if (!_admissionReady)
+            throw new InvalidOperationException(
+                "Restored governed tasks are unavailable until InitializeAsync revalidates their exact-SHA AgentOnboarding evidence.");
+    }
+
+    private void EnsurePersistenceHealthy()
     {
         if (_persistenceFailure is not null)
             throw new InvalidOperationException(
