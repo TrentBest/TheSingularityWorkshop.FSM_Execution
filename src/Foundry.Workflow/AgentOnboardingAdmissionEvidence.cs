@@ -70,9 +70,11 @@ public sealed record AgentOnboardingAdmissionEvidence(
 }
 
 /// <summary>
-/// Trusted host port. Implementations must read AgentOnboarding.md from the requested immutable
-/// commit, invoke CiAi's AgentOnboardingValidator, and return its complete result. A caller-created
-/// evidence record is not proof; Foundry must call this verifier at each governed boundary.
+/// Trusted host port. Implementations must first resolve the repository's current
+/// refs/heads/development head and require it to equal targetSha, then read AgentOnboarding.md
+/// from that exact immutable commit, invoke CiAi's AgentOnboardingValidator, and return its
+/// complete result. A caller-created evidence record is not proof; Foundry calls this verifier
+/// before each governed task, model, and dispatch boundary, including after restart.
 /// </summary>
 public interface IAgentOnboardingAdmissionVerifier
 {
