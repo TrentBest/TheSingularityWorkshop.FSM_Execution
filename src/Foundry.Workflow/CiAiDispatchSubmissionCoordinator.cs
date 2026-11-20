@@ -38,11 +38,27 @@ public static class CiAiDispatchSubmissionCoordinator
         JsonlCiAiRequestTaskMappingJournal journal,
         CiAiRequestTaskMapping mapping,
         ICiAiWorkflowDispatcher dispatcher,
+        IAgentOnboardingAdmissionVerifier? admissionVerifier = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(journal);
         ArgumentNullException.ThrowIfNull(mapping);
         ArgumentNullException.ThrowIfNull(dispatcher);
+        // Validate ordinary mapping fields before contacting the host. For governed
+        // repositories, admission is fetched and evaluated asynchronously before any
+        // durable intent or dispatcher side effect can occur.
+        mapping.ValidateForDispatchPreflight();
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository))
+        {
+            if (admissionVerifier is null)
+                throw new UnauthorizedAccessException("A trusted exact-SHA onboarding verifier is required for this repository.");
+            var evidence = await admissionVerifier.VerifyAsync(
+                mapping.Repository, mapping.CandidateSha, cancellationToken).ConfigureAwait(false);
+            evidence.ValidateFor(mapping.Repository, mapping.CandidateSha);
+            if (!evidence.IsEligible)
+                throw new UnauthorizedAccessException("CiAi AgentOnboarding validation rejected this target.");
+            mapping = mapping with { AdmissionEvidence = evidence };
+        }
         mapping.Validate();
 
         var intent = journal.CreateDispatchIntent(mapping);
