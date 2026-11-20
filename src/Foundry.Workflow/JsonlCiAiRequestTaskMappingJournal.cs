@@ -30,6 +30,9 @@ public sealed record CiAiRequestTaskMapping(
     DateTimeOffset CreatedAt,
     DateTimeOffset ExpiresAt)
 {
+    /// <summary>Immutable CiAi admission evidence for owner-designated autonomous targets.</summary>
+    public AgentOnboardingAdmissionEvidence? AdmissionEvidence { get; init; }
+
     public const int CurrentSchemaVersion = 1;
 
     public CiAiRequestTaskMapping Validate()
@@ -62,6 +65,18 @@ public sealed record CiAiRequestTaskMapping(
         ValidateHttpsOrigin(AcknowledgementDestination, nameof(AcknowledgementDestination), originOnly: false);
         if (CreatedAt == default || ExpiresAt <= CreatedAt || ExpiresAt - CreatedAt > TimeSpan.FromDays(7))
             throw new ArgumentException("Mapping expiry must be after creation and no more than seven days later.");
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(Repository))
+        {
+            if (AdmissionEvidence is null)
+                throw new UnauthorizedAccessException("Owner-designated autonomous targets require exact-SHA AgentOnboarding admission before a dispatch intent can be persisted.");
+            AdmissionEvidence.ValidateFor(Repository, CandidateSha);
+            if (!AdmissionEvidence.IsEligible)
+                throw new UnauthorizedAccessException("AgentOnboarding admission rejected this repository target.");
+        }
+        else if (AdmissionEvidence is not null)
+        {
+            AdmissionEvidence.ValidateFor(Repository, CandidateSha);
+        }
         return this;
     }
 
