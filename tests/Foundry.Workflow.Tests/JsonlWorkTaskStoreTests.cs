@@ -209,6 +209,42 @@ public sealed class JsonlWorkTaskStoreTests
         }
     }
 
+    [Fact]
+    public async Task RestoredGovernedTasksRemainUnavailableUntilExactShaAdmissionIsRevalidated()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var request = GovernedRequest();
+            var evidence = EligibleEvidence();
+            var initial = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
+            await initial.SubmitAsync(request, new TestAdmissionVerifier(evidence));
+
+            var restored = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
+            Assert.Throws<InvalidOperationException>(() => restored.GetSnapshot(request.TaskId));
+
+            var rejected = evidence with
+            {
+                IsEligible = false,
+                Outcome = "NOT_ELIGIBLE",
+                FailureCode = "onboarding.revoked",
+                ContentSha256 = null
+            };
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await restored.InitializeAsync(new TestAdmissionVerifier(rejected)));
+            Assert.Throws<InvalidOperationException>(() => restored.GetSnapshot(request.TaskId));
+
+            var verifier = new TestAdmissionVerifier(evidence);
+            await restored.InitializeAsync(verifier);
+            Assert.Equal(1, verifier.Calls);
+            Assert.Equal(evidence, restored.GetSnapshot(request.TaskId).Request.AdmissionEvidence);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     private static WorkTaskRequest GovernedRequest() => new(1, "governed-task", "governed-correlation",
         "TrentBest/TheSingularityWorkshop.ServerSC2", 39,
         "https://github.com/TrentBest/TheSingularityWorkshop.ServerSC2/issues/39",
