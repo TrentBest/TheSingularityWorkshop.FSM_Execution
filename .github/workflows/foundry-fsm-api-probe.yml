@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - development
+      - feature/foundry-agent-onboarding-admission
   pull_request:
     branches:
       - development
