@@ -76,5 +76,23 @@ public sealed record AgentOnboardingAdmissionEvidence(
 /// </summary>
 public interface IAgentOnboardingAdmissionVerifier
 {
-    AgentOnboardingAdmissionEvidence Verify(string repository, string targetSha);
+    ValueTask<AgentOnboardingAdmissionEvidence> VerifyAsync(
+        string repository, string targetSha, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Owner-designated repositories whose autonomous task creation and CI dispatch require
+/// exact-SHA onboarding admission. This allowlist is deliberately closed and narrow.
+/// </summary>
+public static class AgentOnboardingTargetPolicy
+{
+    private static readonly HashSet<string> Repositories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TrentBest/TheSingularityWorkshop.SingularityBot",
+        "TrentBest/TheSingularityWorkshop.ServerSC2",
+        "TrentBest/WebPage"
+    };
+
+    public static bool RequiresAdmission(string repository) =>
+        Repositories.Contains(repository);
 }
