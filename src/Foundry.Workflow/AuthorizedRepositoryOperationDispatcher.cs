@@ -186,9 +186,9 @@ public sealed class AuthorizedRepositoryOperationDispatcher
             throw new ArgumentException("Operation time is required.", nameof(now));
 
         var task = _tasks.GetSnapshot(operation.TaskId);
-        await VerifyAdmissionAsync(task, cancellationToken).ConfigureAwait(false);
         if (!string.Equals(task.Request.Repository, operation.Repository, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("Operation repository does not match the durable task.");
+        await VerifyAdmissionAsync(task, cancellationToken).ConfigureAwait(false);
 
         _capabilities.Demand(capabilityId, task, operation.Branch, operation.CandidateSha,
             operation.Action, operation.Path, now);
@@ -209,9 +209,9 @@ public sealed class AuthorizedRepositoryOperationDispatcher
                 // Lifecycle mutations for this task use the same reservation. This final
                 // demand therefore remains valid through adapter completion and audit commit.
                 var latestTask = _tasks.GetSnapshot(operation.TaskId);
-                await VerifyAdmissionAsync(latestTask, token).ConfigureAwait(false);
                 if (!string.Equals(latestTask.Request.Repository, operation.Repository, StringComparison.OrdinalIgnoreCase))
                     throw new UnauthorizedAccessException("Operation repository no longer matches the durable task.");
+                await VerifyAdmissionAsync(latestTask, token).ConfigureAwait(false);
                 _capabilities.Demand(capabilityId, latestTask, operation.Branch, operation.CandidateSha,
                     operation.Action, operation.Path, _clock());
                 token.ThrowIfCancellationRequested();
