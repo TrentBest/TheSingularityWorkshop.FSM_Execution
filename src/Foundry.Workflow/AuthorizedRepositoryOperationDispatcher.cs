@@ -159,19 +159,22 @@ public sealed class AuthorizedRepositoryOperationDispatcher
     private readonly IRepositoryOperationAdapter _adapter;
     private readonly IRepositoryOperationAuditJournal _journal;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly IAgentOnboardingAdmissionVerifier? _admissionVerifier;
 
     public AuthorizedRepositoryOperationDispatcher(
         PersistentWorkTaskCoordinator tasks,
         WorkTaskCapabilityRegistry capabilities,
         IRepositoryOperationAdapter adapter,
         IRepositoryOperationAuditJournal journal,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        IAgentOnboardingAdmissionVerifier? admissionVerifier = null)
     {
         _tasks = tasks ?? throw new ArgumentNullException(nameof(tasks));
         _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
         _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         _journal = journal ?? throw new ArgumentNullException(nameof(journal));
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _admissionVerifier = admissionVerifier;
     }
 
     public async ValueTask<RepositoryOperationResult> ExecuteAsync(
@@ -183,6 +186,7 @@ public sealed class AuthorizedRepositoryOperationDispatcher
             throw new ArgumentException("Operation time is required.", nameof(now));
 
         var task = _tasks.GetSnapshot(operation.TaskId);
+        await VerifyAdmissionAsync(task, cancellationToken).ConfigureAwait(false);
         if (!string.Equals(task.Request.Repository, operation.Repository, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("Operation repository does not match the durable task.");
 
@@ -205,6 +209,7 @@ public sealed class AuthorizedRepositoryOperationDispatcher
                 // Lifecycle mutations for this task use the same reservation. This final
                 // demand therefore remains valid through adapter completion and audit commit.
                 var latestTask = _tasks.GetSnapshot(operation.TaskId);
+                await VerifyAdmissionAsync(latestTask, token).ConfigureAwait(false);
                 if (!string.Equals(latestTask.Request.Repository, operation.Repository, StringComparison.OrdinalIgnoreCase))
                     throw new UnauthorizedAccessException("Operation repository no longer matches the durable task.");
                 _capabilities.Demand(capabilityId, latestTask, operation.Branch, operation.CandidateSha,
@@ -240,5 +245,21 @@ public sealed class AuthorizedRepositoryOperationDispatcher
                 _journal.Fail(audit.OperationId, exception, _clock());
             throw;
         }
+
+    private async ValueTask VerifyAdmissionAsync(WorkTaskSnapshot task, CancellationToken cancellationToken)
+    {
+        if (!AgentOnboardingTargetPolicy.RequiresAdmission(task.Request.Repository))
+            return;
+        var verifier = _admissionVerifier ?? throw new UnauthorizedAccessException(
+            "A trusted exact-SHA AgentOnboarding verifier is required before governed repository operations.");
+        var stored = task.Request.AdmissionEvidence ?? throw new UnauthorizedAccessException(
+            "The governed task has no persisted AgentOnboarding admission evidence.");
+        var current = await verifier.VerifyAsync(task.Request.Repository, task.Request.BaseSha,
+            cancellationToken).ConfigureAwait(false);
+        current.ValidateFor(task.Request.Repository, task.Request.BaseSha);
+        if (!current.IsEligible || current != stored)
+            throw new UnauthorizedAccessException(
+                "The current exact-SHA AgentOnboarding result no longer matches the task's immutable admission provenance.");
+    }
     }
 }
