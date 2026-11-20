@@ -245,6 +245,7 @@ public sealed class AuthorizedRepositoryOperationDispatcher
                 _journal.Fail(audit.OperationId, exception, _clock());
             throw;
         }
+    }
 
     private async ValueTask VerifyAdmissionAsync(WorkTaskSnapshot task, CancellationToken cancellationToken)
     {
@@ -260,6 +261,5 @@ public sealed class AuthorizedRepositoryOperationDispatcher
         if (!current.IsEligible || current != stored)
             throw new UnauthorizedAccessException(
                 "The current exact-SHA AgentOnboarding result no longer matches the task's immutable admission provenance.");
-    }
     }
 }
