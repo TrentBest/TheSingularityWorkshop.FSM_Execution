@@ -1,198 +1,307 @@
 <!-- The Singularity Workshop moniker -->
 <p align="center"><a href="https://github.com/TrentBest"><img src="https://raw.githubusercontent.com/TrentBest/TheSingularityWorkshop.Visualize/development/docs/assets/moniker.svg" alt="The Singularity Workshop animated moniker" width="720" /></a></p>
 
-# Execution Model Theory
+# Execution Theory
 
-**Execution is the act of causing a defined computation to progress under explicit semantics, bounded authority, and observable outcomes.**
+**Execution is the controlled progression of a defined computation through time, under explicit semantics, bounded authority, and observable evidence.**
 
-This repository owns the host-neutral execution boundary for The Singularity Workshop. Its domain is not limited to workflows, jobs, scripts, or one scheduling strategy. It is the infrastructure through which a host can instantiate and run a declared execution model.
+FSM_Execution owns the host-neutral boundary that admits an execution model, selects or hosts an appropriate engine, governs its lifecycle, and reports what can truthfully be known about its outcome. It is not synonymous with a workflow runner, scheduler, thread pool, process launcher, or universal interpreter.
 
-The phrase **anything executable** describes the breadth of the domain, not permission to execute arbitrary input. Every executable model must declare what its instructions mean, what capabilities it requires, how progress is scheduled, how effects are bounded, and how its outcomes are observed.
+The domain is intentionally broad: anything may become an execution model when its meaning, inputs, progress rules, effects, and outcomes can be explicitly described. That breadth is not permission to execute arbitrary input. A definition is data; it does not grant itself authority or turn text into executable code.
 
-## 1. The central distinction: model versus engine
+## 1. The fundamental vocabulary
 
-An execution model defines the rules of a computation. An execution engine realizes those rules.
+These terms describe different layers and must not be collapsed into one abstraction.
 
-A model answers:
+| Term | Meaning | Question answered |
+|---|---|---|
+| **Execution model** | The rules that define a class of computation | What does this computation mean? |
+| **Definition** | A versioned declaration of one requested model instance | What exactly is requested? |
+| **Engine** | An implementation that realizes a model's semantics | How is this model progressed? |
+| **Scheduler** | A policy/mechanism that decides when eligible work receives execution capacity | When may work run? |
+| **Executor** | A component that performs a bounded unit of admitted work | Who performs this operation? |
+| **Host** | The environment that composes engines and supplies concrete capabilities | Where does it run, and what may it access? |
+| **Execution instance** | One admitted attempt to realize a definition | Which run and attempt are being observed? |
+| **Trace/evidence** | Immutable observations and provenance associated with an instance | What happened, and what supports that claim? |
 
-- What is the unit of work?
-- What makes work eligible to begin?
-- What order or concurrency constraints apply?
-- What state changes are legal?
-- What counts as completion, failure, cancellation, or timeout?
-- Which external effects may occur?
-- What evidence must be produced?
+A workflow is one model. A dependency graph is another. A finite-state behavior, simulation, event processor, request/response operation, and distributed task are also models. A thread pool is not a model: it is one possible resource mechanism used by an engine or scheduler.
+
+The model defines semantics. The engine implements them. The scheduler allocates opportunities to progress. The host supplies environmental authority. FSM_Execution governs the admitted instance and its outcome.
+
+## 2. Model versus engine
+
+An execution model defines:
+
+- the fundamental unit of work;
+- valid inputs and outputs;
+- dependencies and ordering constraints;
+- state transitions and completion conditions;
+- whether and how work may overlap;
+- time, clock, and deadline semantics;
+- effects, idempotency, and recovery rules;
+- required evidence and failure meanings.
 
 An engine answers:
 
-- How is a model instance admitted and validated?
-- Which implementation is selected for its declared semantics?
-- How are capabilities supplied and fenced?
-- How is progress driven and bounded?
-- How are lifecycle and outcomes retained?
-- How is execution stopped, recovered, or handed off?
+- how the definition is validated and admitted;
+- how model semantics are interpreted;
+- how eligible work is advanced;
+- how resources and capabilities are obtained;
+- how cancellation, faults, and timeouts are handled;
+- how observations and outcomes are retained.
 
-Execution must not confuse a model with a particular engine implementation. A sequential workflow runner is one engine for one model. It is not the definition of all execution.
+One model may have several engines (for example, an in-process and a remote engine) if they preserve the same declared semantics. One engine may host multiple model families only when it has explicit model adapters; it must not quietly reinterpret one model as another.
 
-## 2. The model-neutral execution envelope
+A sequential workflow runner is an engine for an ordered-step workflow. It is not the definition of execution.
 
-Every model implementation should fit a common envelope without erasing its own semantics:
+## 3. The shared execution envelope
+
+Every supported model should enter and leave through a common envelope without flattening its semantics.
 
 ```text
 ExecutionRequest
-      |
-      v
- model identity + version + definition
-      |
-      v
- validation and semantic preflight
-      |
-      v
- capability requirements + host grants
-      |
-      v
- execution plan / admitted instance
-      |
-      v
- model-specific progress engine
-      |
-      +---- lifecycle observations
-      +---- bounded effects
-      +---- trace and evidence
-      |
-      v
- terminal outcome or explicit handoff
+  -> identity + model type/version + immutable definition
+  -> structural and semantic validation
+  -> preflight + resource/capability requirements
+  -> host authorization and admission decision
+  -> admitted execution instance + correlation identity
+  -> model-specific engine <-> scheduler / clock / event source
+  -> lifecycle observations + bounded effects + trace/evidence
+  -> terminal outcome OR explicit handoff / indeterminate state
 ```
 
-The envelope standardizes admission, authority, lifecycle, observability, and outcome reporting. The model owns its instruction language, transition rules, dependency meaning, and completion criteria.
+The shared envelope owns identity, admission, authority checks, lifecycle, cancellation request, observation, and outcome reporting. The model owns the meaning of its units, dependency rules, legal transitions, and completion criteria. The host owns concrete credentials, process/network/device access, and policy decisions.
 
-A model that cannot state these contracts is not ready to be executed by the shared runtime.
+A descriptor should declare its model identifier, schema and semantic version, engine compatibility, definition, determinism class, progress driver, concurrency constraints, resource claims, capability requirements, effect/replay policy, and outcome vocabulary. Unsupported or unspecified semantics are rejected or explicitly treated as unknown; they are not filled in with permissive defaults.
 
-## 3. Execution models are plural
+## 4. Families of execution models
 
-The same host-neutral envelope can support different kinds of computation. These are model families, not promises that every engine already exists in this repository.
-
-| Model family | Fundamental unit | Progress rule | Typical Workshop relationship |
+| Family | Unit of work | Progress driver | Characteristic semantics |
 |---|---|---|---|
-| Sequential workflow | Ordered step | Run next step after prior outcome | Current version-1 workflow runner |
-| Dependency graph / dataflow | Node and dependency edge | A node becomes eligible when prerequisites satisfy its rule | CiAi pipelines, build graphs, scientific pipelines |
-| Finite-state behavior | State, transition, context | An explicit update/event selects legal transitions | FSM_API supplies the state-machine primitive |
-| Event-driven / reactive | Event and subscription | Matching events make handlers or transitions eligible | User I/O, services, interactive experiences |
-| Fixed-step simulation | Model state and timestep | Advance by declared timestep and integration rules | Physics experiments and simulation hosts |
-| Continuous / real-time process | Process and control interval | A scheduler supplies bounded execution opportunities | Device, rendering, and control hosts |
-| Request/response operation | Typed request and response | Invoke a declared operation through a granted capability | FSM_REST and service adapters |
-| Distributed / remote execution | Task, partition, and remote attempt | Dispatch through an explicit transport and reconcile evidence | Future multi-host execution |
+| Sequential workflow | Ordered step | Workflow runner | Declared order; next step follows prior outcome |
+| Dependency graph / dataflow | Node and edge | Graph scheduler | Eligibility follows prerequisite results |
+| FSM behavior | State, transition, context | Update loop or event | Legal state transitions and guards |
+| Event-driven / reactive | Event and subscription | Event source / dispatcher | Events make handlers or transitions eligible |
+| Request/response | Typed request | Invocation engine | One bounded operation and response |
+| Fixed-step simulation | State and timestep | Simulation clock | Discrete advancement by declared step size |
+| Continuous / real-time | Process and control interval | Clock / real-time scheduler | Timing, deadlines, and missed-frame policy |
+| Stream processing | Event/window/partition | Stream engine | Ordering, watermark, backpressure, checkpoint |
+| Batch / map-reduce | Partition or batch | Worker scheduler | Partitioning, aggregation, retry semantics |
+| Distributed task | Task, partition, remote attempt | Coordinator + remote workers | Transport, leases, reconciliation, partial failure |
+| Interactive experience | Input/event + evolving state | Host input loop / simulation | Responsiveness, pause/resume, deterministic input capture |
 
-These families may compose. A workflow step may launch a simulation; a state machine may govern a service; a dependency graph may build the artifacts consumed by a runtime. Composition does not make their semantics interchangeable.
+These are families, not claims that every engine is implemented here. A composed system may combine them: a graph node may invoke a workflow; a workflow step may run a simulation; an FSM may govern an event processor; a batch job may dispatch distributed tasks. Composition preserves the boundary between each model's semantics.
 
-## 4. What the neighboring repositories teach us
+## 5. Time: synchronous, asynchronous, periodic, and continuous
 
-Execution should embrace proven Workshop boundaries rather than recreate them.
+Time is part of execution semantics, not a decoration on an API.
 
-- **FSM_API** demonstrates a compact behavioral primitive: definitions, instances, contexts, transitions, and an explicit update path. Execution may host an FSM-driven model, but it must not become a second FSM implementation or assume every model is an FSM.
-- **FSM_COS** demonstrates the value of a distinct composition phase. It resolves a requested MicroBundle dependency closure and returns a stable RuntimeAssembly. Composition prepares a system; Execution governs the progress of a computation. A RuntimeAssembly is not an execution request or result.
-- **Physics** demonstrates evidence-bounded modeling. A model declares quantities, units, assumptions, valid ranges, and limitations; experiments record inputs and sampled states. Execution should carry model identity, run configuration, trace, and provenance without claiming that a successful run proves physical truth.
-- **Learning** demonstrates the problem-to-proof progression: state a problem, model changing facts, express rules, run a deterministic trace, render the result, and compare against explicit expectations. Execution should make this evidence chain first-class while keeping renderers observational.
-- **CiAi** demonstrates why authority and evidence are separate. A model response, valid definition, or green status is not permission to mutate a repository. Host-issued capabilities and exact-scope gates remain authoritative.
+**Synchronous execution** means the caller's operation does not complete until the operation's declared completion point is reached. It does not necessarily mean the CPU is busy the whole time. A synchronous call may block while waiting for I/O or a lock.
 
-These are architectural lessons, not dependencies to add indiscriminately. Reuse a repository's actual contract when a tested integration needs it.
+**Asynchronous execution** means the caller can yield control while the operation remains incomplete and later observes completion, failure, or cancellation. Async is a control-flow and resource-management property; it does not imply simultaneous CPU execution or parallelism. An asynchronous operation may be a single operation waiting on one network response.
 
-## 5. The execution contract has independent dimensions
+**Concurrent execution** means multiple operations have overlapping lifetimes or are in progress during the same interval. They may take turns on one CPU, interleave at awaits, or run on different resources.
 
-A model descriptor should declare at least the following dimensions. A model may choose a supported value or explicitly state that a dimension is not applicable; silence must not be interpreted as a safe default.
+**Parallel execution** means multiple operations are actively making progress at the same instant, typically on separate cores, devices, or machines. Parallelism is one possible implementation of concurrency, not a synonym for it.
 
-1. **Identity and version** — stable model identifier, schema version, implementation compatibility.
-2. **Definition** — immutable, inspectable data describing the requested computation.
-3. **Semantics** — ordering, dependencies, transition rules, determinism, and concurrency.
-4. **Admission** — validation and preflight checks completed before side effects.
-5. **Capabilities** — named operations required, their scope, and the host authority that grants them.
-6. **Progress** — who advances the model: runner, scheduler, event source, clock, or remote worker.
-7. **Lifecycle** — accepted, ready, running, suspended, cancelling, succeeded, failed, cancelled, timed out, or indeterminate, where applicable.
-8. **Effects and recovery** — idempotency, checkpoints, retries, compensation, replay, and uncertainty after interruption.
-9. **Evidence** — trace, timestamps, input/configuration identity, implementation identity, diagnostics, and terminal outcome.
+**Periodic execution** advances or samples a model according to a declared clock or interval. A fixed-step simulation may execute synchronously inside each tick while the overall simulation is driven asynchronously by a host loop.
 
-Not every model needs every lifecycle state or recovery feature. The model must define its own valid subset and the engine must not invent semantics on its behalf.
+**Continuous-time modeling** describes behavior as evolving over a continuous time variable. Its numerical engine may still approximate that behavior through discrete integration steps or event times. The model's mathematical time must not be confused with wall-clock execution duration.
 
-## 6. Authority is not part of the definition
+These dimensions are independent. An API may be asynchronous while its engine serializes all work. A synchronous call may dispatch parallel work and block until it joins. A periodic simulation may use parallel kernels within each step but must synchronize at defined boundaries. A remote operation may be asynchronous from the caller's perspective without exposing its internal scheduling.
 
-An execution definition is data. It may request a capability, but it cannot grant itself that capability.
+### Clock domains
 
-The host is the authority boundary. It supplies explicit capability implementations and grants them within a scope that can include:
+An execution model must say which clock governs each time-sensitive rule:
 
-- exact execution instance and correlation;
-- repository, branch, base commit, candidate commit, and permitted paths;
-- resource, tenant, environment, or destination;
-- expiry, concurrency budget, and invocation budget;
-- cancellation and revocation behavior.
+- **Wall clock**: calendar/UTC time for expiry, audit timestamps, and external deadlines.
+- **Monotonic clock**: elapsed duration and timeout measurement; it must not move backward when wall time is adjusted.
+- **Model clock**: simulated or logical time advanced by model rules.
+- **Event/sequence time**: ordering established by source sequence, offsets, or logical clocks when physical timestamps are insufficient.
 
-The engine validates that each requested operation maps to a currently granted capability before execution. A model cannot broaden a grant by changing its own definition or returning a persuasive result.
+Never compare timestamps from unrelated clock domains as if they were interchangeable. Persisted deadlines need an explicit clock/expiry interpretation. Replay of a simulation should use recorded model time and inputs, not the current wall clock.
 
-No model-authored expression, shell command, script, provider response, or serialized object becomes executable merely because it parses.
+## 6. Concurrency and parallelism
 
-## 7. Determinism, replay, and the evidence boundary
+Concurrency changes the set of possible interleavings. Parallelism changes which operations can physically overlap. Both can change observable behavior and external effects.
 
-Determinism is a declared property, not a universal guarantee. A pure calculation with fixed inputs may be repeatable. An event-driven service, network call, or physical simulation may depend on time, environment, external observations, or nondeterministic scheduling.
+A model must declare:
 
-Every model should identify which parts are:
+1. which units may be eligible simultaneously;
+2. which dependencies must complete first;
+3. which resource claims are exclusive, shared, or bounded;
+4. whether output order is significant;
+5. how shared state is isolated or synchronized;
+6. how failure and cancellation propagate;
+7. how much concurrency the host may allocate;
+8. what fairness, starvation, and backpressure rules apply.
 
-- deterministic and replayable;
-- deterministic only with recorded external inputs;
-- externally effectful and not safely replayable;
-- uncertain after interruption.
-
-A trace records what the engine observed. It does not automatically prove that an external side effect happened exactly once, that a remote system accepted a request, or that a scientific model is accurate. Those claims require domain-specific evidence and verification.
-
-Rendering is downstream observation. An SVG, chart, GUI, or visualization may explain a trace, but it must not become the source of execution state or proof.
-
-## 8. Composition is not execution
-
-The Workshop has distinct boundaries:
-
-```text
-FSM_API       behavioral primitives
-MicroBundle  reusable capability/content/behavior
-FSM_COS       dependency resolution and composition
-FSM_Execution admission, authority, progress, lifecycle, outcomes
-Host          environment, concrete capabilities, and presentation
-```
-
-A host may ask FSM_COS to assemble a RuntimeAssembly, then submit an appropriate executable model to FSM_Execution. This does not mean every assembly is executable, nor that every execution requires MicroBundles. The integration must declare how the assembly is consumed and what the model's semantics are.
-
-Likewise, a host-scheduled FSM_API update, a workflow step, a physics timestep, and a CI job are not the same operation. They may share lower-level lifecycle or observation contracts only when a source-backed adapter and tests establish that equivalence.
-
-## 9. Failure is a first-class outcome
-
-An engine must not report success when required work did not run or when its result is unknown.
+### Dependency types
 
 At minimum, distinguish:
 
-- **Invalid** — definition or preflight failed before execution.
-- **Rejected** — host policy or capability admission denied the request.
-- **Succeeded** — the model's declared completion condition was satisfied.
-- **Failed** — execution observed a terminal error.
-- **Cancelled** — cancellation was observed and its semantics are known.
-- **Timed out** — the declared time budget expired; this does not prove that an uncooperative external operation stopped.
-- **Indeterminate** — execution crossed an effect boundary but cannot establish the external outcome.
+- **Data dependency**: a consumer requires a value produced by another unit.
+- **Ordering dependency**: one operation must happen before another even if no data is passed.
+- **Resource exclusion**: operations contend for a mutable or capacity-limited resource.
+- **Evidence dependency**: an action is eligible only after a particular result is validated.
+- **Lifecycle dependency**: a task, incident, or instance must be in an allowed state.
+- **Human/authority gate**: execution waits for a host-authenticated decision.
 
-A model may add domain-specific outcomes. It must not collapse indeterminate into failure or success merely to simplify a caller.
+A graph scheduler must reject missing dependencies and cycles before effects begin, define how failed prerequisites affect descendants, and prevent a changed graph from silently altering an in-flight instance.
 
-## 10. A disciplined path from the current implementation
+### Safe parallel admission
 
-The existing sequential workflow runtime is a useful first concrete model. Preserve its validated-before-side-effects behavior, explicit host handler registry, structured outcomes, cooperative cancellation, and retained lifecycle.
+A conservative scheduler admits work only when all prerequisites are satisfied and its resource claims are compatible with active work. Read-only source inspections may overlap when their scopes are immutable and independent. Two writes to the same candidate branch generally require serialization or an explicit merge protocol. A CI result must remain bound to the exact candidate SHA it tested.
 
-Extend by proving one model at a time:
+Parallel execution must not weaken task lease fencing, capability scope, evidence provenance, or human approval. Concurrency limits must be explicit at several levels: per instance, per host, per tenant/resource, and globally where necessary. A worker count alone is not a complete resource policy.
 
-1. Formalize a versioned model descriptor and execution request without breaking the current workflow contract.
-2. Extract the common admission, capability, lifecycle, and evidence seams only where more than one model needs them.
-3. Keep the sequential workflow engine as the reference implementation.
-4. Add a second model with genuinely different semantics—preferably a dependency-graph model or an FSM_API-backed model—to prove the envelope is model-neutral.
-5. Add bounded scheduling, persistence, and recovery only with explicit semantics and failure-injection tests.
-6. Add remote execution only after transport, identity, authority, replay, and indeterminate-outcome contracts are proven.
+### Cancellation and joining
 
-Do not build a speculative universal interpreter. Build a small, explicit execution kernel with model-specific engines and verifiable boundaries.
+Cancellation is a request to stop, not proof that work stopped. An engine must record which units observed cancellation, which completed before it, which were skipped, and which could not be stopped. Before reporting a terminal aggregate outcome, the model must define whether active child work is joined, detached, or handed off. Detached work needs an identity and owner; it cannot disappear from accounting.
+
+## 7. Scheduling and resource governance
+
+A scheduler selects eligible work and allocates finite resources. It may be centralized, cooperative, event-driven, work-stealing, device-specific, or distributed. The policy should be separate from the model's meaning.
+
+A scheduler contract should define:
+
+- eligibility and priority;
+- capacity and admission limits;
+- fairness and starvation handling;
+- resource acquisition and release;
+- preemption or non-preemption;
+- deadline and missed-deadline behavior;
+- backpressure and queue bounds;
+- cancellation and shutdown;
+- observability of queued, ready, running, suspended, and blocked work.
+
+Do not introduce a universal scheduler before a second genuinely different model demonstrates the shared need. A sequential workflow engine does not need a graph scheduler merely because the future domain includes graphs. A real-time simulation scheduler and a remote job dispatcher may share admission or lifecycle contracts while retaining very different timing and failure semantics.
+
+## 8. Effects, retries, idempotency, and recovery
+
+Execution may be pure computation, local mutation, or an external effect. The engine must know which boundary it crossed.
+
+A pure calculation can often be repeated from the same inputs. A file write may be repeatable only with a defined replacement/commit protocol. A network request may have reached the remote system even if the client timed out. A physical actuator may have moved even if acknowledgement was lost.
+
+Every effectful operation should define an idempotency identity or reconciliation method. Retry policy must distinguish:
+- known-not-started;
+- known-failed-with-no-effect;
+- completed;
+- possibly-effectful / indeterminate.
+
+A timeout does not prove an operation stopped. Cancellation does not imply rollback. Compensation is a new domain operation, not a universal undo button. Exactly-once external effects cannot be claimed merely because a local journal records one invocation.
+
+## 9. Lifecycle and outcome semantics
+
+A shared lifecycle vocabulary may include:
+
+`Created -> Validating -> Admitted -> Ready -> Running <-> Suspended -> {Succeeded, Failed, Cancelled, TimedOut, Indeterminate, Rejected}`
+
+This is an illustrative envelope, not a universal state machine. A model may add states or use a smaller valid subset. An execution instance must have stable identity, attempt identity, correlation identity, timestamps with clock provenance, and a defined owner for every active child operation.
+
+Outcomes must be truthful:
+
+- **Invalid**: the definition or semantic preflight is unacceptable.
+- **Rejected**: host policy or capability admission denied execution.
+- **Succeeded**: the model's declared completion condition is satisfied.
+- **Failed**: a terminal error is known.
+- **Cancelled**: cancellation was observed and the model's cancellation condition is satisfied.
+- **Timed out**: a declared deadline expired; external work may still be running.
+- **Indeterminate**: an effect may have occurred but cannot yet be established.
+- **Suspended / handed off**: progress is intentionally paused or delegated with explicit ownership and resume conditions.
+
+Do not collapse timeout into cancellation, rejection into failure, or indeterminate into success/failure for caller convenience.
+
+## 10. Authority, isolation, and host boundaries
+
+The model may request named capabilities. Only the host can grant them. The grant should be scoped to the exact execution instance, task, resource, repository/branch/SHA/path, destination, budget, expiry, and permitted action. It must be revocable and revalidated at the last responsible moment before a side effect.
+
+A valid definition, successful model response, schema-valid tool call, green CI result, or agreement among multiple models is not authorization. Model output is untrusted data. No serialized expression or shell-like string becomes executable because it parses.
+
+The host owns credentials, process and device access, networking, persistence locations, and external transport. FSM_Execution owns the host-neutral contract and must not import WPF, browser APIs, provider SDKs, or ambient machine privileges into the core.
+
+## 11. Determinism, replay, and evidence
+
+Determinism is a declared property, not a universal promise. Classify each model or operation as:
+- deterministic from fixed inputs;
+- deterministic only when external observations and ordering are recorded;
+- nondeterministic by design;
+- externally effectful and not safely replayable;
+- uncertain after interruption.
+
+A useful trace records definition/version, engine/version, exact inputs, model clock, external observations, scheduling decisions where relevant, resource/capability identities (without secrets), child identities, outputs, diagnostics, and outcome provenance.
+
+A trace records what the engine observed. It does not automatically prove an external side effect occurred exactly once, a remote worker accepted a task, or a scientific model is physically accurate. A renderer, SVG, chart, or GUI is an observation of evidence, not the source of execution state or proof.
+
+## 12. Composition across the Workshop
+
+The ownership boundaries are distinct:
+
+```text
+FSM_API        finite-state behavior primitives
+MicroBundles   reusable capabilities, content, and behavior
+FSM_COS        dependency resolution and composition -> RuntimeAssembly
+FSM_Execution  admission, scheduling contracts, lifecycle, outcomes
+Host           environment, concrete capabilities, policy, presentation
+```
+
+FSM_COS composes a runtime assembly; it does not implicitly execute it. FSM_Execution governs an admitted execution model; it does not recompose MicroBundles. A host may request composition and then submit an explicitly defined model that consumes the assembly. The adapter must state which parts of the assembly are executable and how their semantics are defined.
+
+Physics contributes model assumptions, units, constraints, and experimental evidence. Learning contributes problem-to-proof progression. CiAi contributes exact-run evidence and deterministic verdict boundaries. HeadlessAi contributes model invocation, not execution authority. GUI and Renderer present traces and state without becoming the authoritative loop.
+
+## 13. A model-neutral contract checklist
+
+Before a model is admitted as a supported FSM_Execution model, answer all of the following:
+
+1. What is its stable identity and version?
+2. What is the immutable definition and schema?
+3. What do its instructions mean?
+4. What are its units of work and dependency types?
+5. Is progress synchronous, asynchronous, event-driven, periodic, continuous, or remote?
+6. What clock domains and deadlines apply?
+7. Which work may be concurrent or parallel, and why?
+8. What resource claims and bounds apply?
+9. What capabilities are required, and which host grants them?
+10. What are its legal lifecycle states and completion conditions?
+11. How are cancellation, timeout, shutdown, and child work handled?
+12. Which effects are pure, idempotent, compensatable, or indeterminate?
+13. What can be replayed, and which observations must be captured?
+14. What evidence supports each reported outcome?
+15. What happens when the host, scheduler, process, network, or persistence layer fails?
+
+A missing answer is a design gap, not an invitation for the engine to guess.
+
+## 14. An evidence-led implementation path
+
+The current sequential workflow implementation is the reference model. Preserve its validated-before-side-effects behavior, host-registered handlers, ordered execution, structured outcomes, cooperative cancellation, and retained lifecycle.
+
+Advance the domain in this order:
+
+1. Formalize a versioned model descriptor and execution request around the existing workflow contract.
+2. Separate common admission, capability, lifecycle, trace, and outcome concerns only where multiple models demonstrate the same need.
+3. Specify asynchronous completion and child-operation ownership without equating async with parallel.
+4. Prove a dependency-graph model with bounded concurrency, explicit dependencies, resource claims, cancellation, and deterministic tests.
+5. Prove an FSM_API-backed behavior model or fixed-step simulation model to demonstrate a distinct progress driver.
+6. Add durable checkpoints and recovery only after effect and replay semantics are explicit.
+7. Add remote/distributed execution only after identity, transport trust, leases, partial failure, reconciliation, and indeterminate outcomes are tested.
+
+Do not build a speculative universal interpreter or scheduler. Build a small execution envelope and model-specific engines. Promote an abstraction only when at least two real models need it and a contract test demonstrates the shared invariant.
+
+## 15. What is implemented versus conceptual
+
+The repository currently implements a sequential version-1 workflow runner and retained in-process workflow lifecycle, alongside separate governed work-task lifecycle, lease, capability, evidence, persistence, and host-adapter components at their documented maturity levels.
+
+The following remain conceptual or future work unless a specific source, test, and exact-head CI run prove otherwise: general dependency-graph scheduling, parallel workflow steps, bounded worker pools, general asynchronous child orchestration, real-time scheduling, distributed leases, cross-host scheduling, exactly-once external effects, universal checkpoint/replay, and a universal execution manifest.
+
+Do not infer implementation from this theory. Each capability must be labelled with its evidence level in the roadmap and domain documentation.
 
 ---
 
 ## Design invariant
 
-**The model defines what execution means. The host grants what execution may do. FSM_Execution governs how an admitted instance progresses and what can truthfully be said about its outcome.**
+**The model defines what execution means. The engine realizes that model. The scheduler decides when eligible work receives resources. The host grants what execution may do. FSM_Execution governs the admitted instance and what can truthfully be said about its outcome.**
+
+---
+
+<!-- THE SINGULARITY WORKSHOP FOOTER -->
+<p align="center"><img src="https://raw.githubusercontent.com/TrentBest/FSM_API/master/Documentation/Branding/TheSingularityWorkshop.png" alt="The Singularity Workshop" width="200" /></p>
