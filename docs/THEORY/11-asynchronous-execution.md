@@ -158,6 +158,13 @@ Define:
 
 Then explain why making all three operations `async` does not automatically make them safe to run in parallel.
 
+## Further reading
+
+- [Execution Theory](../EXECUTION_MODEL_THEORY.md)
+- [Chapter 08 — Scheduling, dependencies, and concurrency](08-scheduling-and-concurrency.md)
+- [Chapter 12 — Parallel execution, graphs, and resource scheduling](12-parallel-execution-and-scheduling.md)
+- [Workflow semantics](../WORKFLOW_SEMANTICS.md)
+
 ---
 
 <!-- THE SINGULARITY WORKSHOP FOOTER -->
