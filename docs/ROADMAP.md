@@ -121,9 +121,29 @@ These overlap notes are a merge-planning aid, not permission to merge. Preserve 
 ### Identity and domain theory
 - [PR #43 — FSM_Execution identity and execution theory](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/43) — current canonical rename, 12-chapter theory, workflow timeout semantics, and identity regression guard.
 
-The last verified code heads for all 9 remaining open PRs passed their recorded repository workflow during the 2026-11-21 audit. PR #43's current head passed exact-head CI run #44887348069. PR #15 and PR #26 have documentation-only follow-ups after their last verified code runs; no executable code changed in those commits. PR #32 also has documentation-only follow-ups after its passing code/test run. PR #25's capability gate is in PR #34, PR #14's ingress work/docs and PR #16's pinned transport in PR #15, PR #18's host approval plus PR #30's lease-reclaim guard in PR #32, and PR #27's design contract in PR #26; all six donor PRs are closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
+### Exact-head CI and branch-policy audit — 2026-11-21 09:05 UTC
 
-**Integration caution:** the 8 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
+The repository has 9 open draft PRs. This audit distinguishes executable proof from branch-policy status and from documentation-only commits:
+
+| PR | Current head | Executable workflow evidence | Branch policy |
+|---|---|---|---|
+| #43 — identity and theory | `0561be668e3986c671d34b1e4a7b9da33fa68cd6` | PASS — run [#44887752514](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887752514); identity guard, workflow tests, build, FSM_API probe, and deterministic fox/sheepdog evidence all passed | FAIL — run [#44887747959](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887747959); 22 branches remain |
+| #26 — repository-operation host | `4137b4dbb0ddc0da6056da51d7ceec58e92bd9ab` | FAIL — run [#44887576952](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887576952); workflow runtime tests failed, so build and downstream proofs were skipped | FAIL |
+| #15 — CiAi evidence pipeline | `c92b1e915c52aceff4ef02e8f1ae8320250a5ad4` | No executable workflow is attached to this documentation-follow-up head; its prior code-head evidence must not be presented as current-head proof | FAIL |
+| #32 — FSM_API task lifecycle | `bea768e29b842273b7717bf3bef04e1b79070a91` | PASS — run [#44887422901](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887422901) | No branch-policy check on this head |
+| #34 — capability lifecycle fence | `d203230145ff203b96223e90d301bded1009321d` | PASS — run [#44886017125](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44886017125) | FAIL |
+| #40 — onboarding and host integration | `42e5cff724f1944e0939b5a3360848ed971f3973` | PASS — run [#44877359974](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44877359974); live trusted dispatch remains unproven | FAIL |
+| #29 — FSM_API workflow lifecycle | `7d67fbefc59691e95dbae824da766905f1727c14` | PASS — run [#42394058538](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/42394058538) | No branch-policy check on this head |
+| #31 — status projection | `c0b8367f94990cfdcbde5ed36ebd85bad72f7548` | PASS — run [#42394449841](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/42394449841) | FAIL |
+| #19 — Hub execution contract | `7debafc207f66a73f4f3493793440bd8b4a704b9` | PASS — run [#41331824452](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41331824452) | No branch-policy check on this head |
+
+PR #43 is green for its executable proof, not for Sith Policy. PR #26 is not green: its current exact head fails the workflow runtime test stage. PR #15's current head has no executable check run, so its earlier code-head pass is historical evidence only. The remaining listed passing runs apply to the exact SHAs shown, not to later rebases or integrations.
+
+The branch inventory is 22 branches, not the required two (`master` and `development`). No branch has been deleted. The donor-branch audit and one-batch cleanup remain separate work; do not infer deletion readiness from a closed PR.
+
+PR #25's capability gate is in PR #34, PR #14's ingress work/docs and PR #16's pinned transport in PR #15, PR #18's host approval plus PR #30's lease-reclaim guard in PR #32, and PR #27's design contract in PR #26; those six donor PRs are closed. A green run is bounded evidence for its exact SHA; it does not establish that live privileged paths ran, that a PR is integrated, or that a branch is ready to merge.
+
+**Integration caution:** the functional/design PRs still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and port/rebase each candidate onto the canonical Execution identity, preserving exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
 
 ## Readiness rubric
 
