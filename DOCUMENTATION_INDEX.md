@@ -12,7 +12,7 @@
 - [Agent onboarding](AGENTS.md) — repository-specific contribution, safety, branch, release, and documentation rules.
 - [Gallery](Gallery.md) — demonstrations and recipes.
 - [Execution Theory](docs/EXECUTION_MODEL_THEORY.md) — canonical model-neutral theory of models, engines, schedulers, time, async, concurrency, parallelism, effects, evidence, and outcomes.
-- [Execution Theory Learning Path](docs/THEORY/README.md) — guided reading map and evidence boundaries.
+- [Execution Theory Learning Path](docs/THEORY/README.md) — 12-chapter guided reading map, including dedicated async and parallel scheduling chapters, with evidence boundaries.
 - [Domain and ownership](docs/DOMAIN.md) — domain boundaries, ownership, safety invariants, and implemented workflow slice.
 - [Workflow semantics](docs/WORKFLOW_SEMANTICS.md) — version-1 execution model, bounded per-run context, validation, outcomes, and explicit limitations.
 - [Workflow execution context](docs/WORKFLOW_EXECUTION_CONTEXT.md) — typed JSON inputs/outputs, enforced size limits, host ownership, and data-only safety boundary.
