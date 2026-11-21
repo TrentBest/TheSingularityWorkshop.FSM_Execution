@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Foundry.GitHubHost;
 using Xunit;
@@ -49,13 +50,11 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         {
             calls.Add(request.RequestUri!);
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
-                return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
+                return Task.FromResult(Json(HttpStatusCode.OK, DevelopmentRefJson()));
             Assert.Equal("/repos/TrentBest/Sample/contents/AgentOnboarding.md", request.RequestUri.AbsolutePath);
             Assert.Equal($"?ref={Sha}", request.RequestUri.Query);
             var bytes = Encoding.UTF8.GetBytes(ValidOnboarding);
-            return Task.FromResult(Json(HttpStatusCode.OK,
-                $$"""{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":{{{bytes.Length}}},"content":"{{{Convert.ToBase64String(bytes)}}}"}"""));
+            return Task.FromResult(Json(HttpStatusCode.OK, FileContentJson(bytes)));
         });
         var verifier = CreateVerifier(client);
 
@@ -76,8 +75,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         using var client = CreateClient((request, _) =>
         {
             calls++;
-            return Task.FromResult(Json(HttpStatusCode.OK,
-                $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
+            return Task.FromResult(Json(HttpStatusCode.OK, DevelopmentRefJson()));
         });
         var verifier = CreateVerifier(client);
 
@@ -93,8 +91,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         using var client = CreateClient((request, _) =>
         {
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
-                return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
+                return Task.FromResult(Json(HttpStatusCode.OK, DevelopmentRefJson()));
             Assert.Equal($"?ref={Sha}", request.RequestUri.Query);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         });
@@ -110,8 +107,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         using var client = CreateClient((request, _) =>
         {
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
-                return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
+                return Task.FromResult(Json(HttpStatusCode.OK, DevelopmentRefJson()));
             return Task.FromResult(Json(HttpStatusCode.OK,
                 """{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":2,"content":"//4="}"""));
         });
@@ -127,16 +123,37 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         using var client = CreateClient((request, _) =>
         {
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
-                return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
+                return Task.FromResult(Json(HttpStatusCode.OK, DevelopmentRefJson()));
             return Task.FromResult(Json(HttpStatusCode.OK,
-                $$"""{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":{{{AgentOnboardingValidator.MaximumContentBytes + 1}}},"content":""}"""));
+                JsonSerializer.Serialize(new
+                {
+                    path = "AgentOnboarding.md",
+                    type = "file",
+                    encoding = "base64",
+                    size = AgentOnboardingValidator.MaximumContentBytes + 1,
+                    content = string.Empty
+                })));
         });
         var evidence = await CreateVerifier(client).VerifyAsync(Repository, Sha);
 
         Assert.False(evidence.IsEligible);
         Assert.Equal("onboarding.exceeds-size-limit", evidence.FailureCode);
     }
+
+    private static string DevelopmentRefJson() => JsonSerializer.Serialize(new
+    {
+        @ref = "refs/heads/development",
+        @object = new { sha = Sha, type = "commit" }
+    });
+
+    private static string FileContentJson(byte[] bytes) => JsonSerializer.Serialize(new
+    {
+        path = "AgentOnboarding.md",
+        type = "file",
+        encoding = "base64",
+        size = bytes.Length,
+        content = Convert.ToBase64String(bytes)
+    });
 
     private static GitHubAgentOnboardingAdmissionVerifier CreateVerifier(HttpClient client) =>
         new(client, new TestTokenProvider(), new GitHubRepositoryOperationPolicy([Repository]));
