@@ -93,8 +93,7 @@ The following draft PRs are the current implementation queue. Grouping is by dom
 
 ### Runtime and task lifecycle
 - [PR #29 — FSM_API workflow lifecycle](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/29) — foundational workflow-run FSM integration.
-- [PR #32 — FSM_API task lifecycle](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/32) — explicitly stacked on PR #29's branch.
-- [PR #30 — expired CODE RED lease reclaim](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/30) — stale-lease recovery safety.
+- [PR #32 — FSM_API task lifecycle + expired-lease fence](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/32) — explicitly stacked on PR #29's branch and already contains PR #30's stricter CODE RED/ReviewReady lease-reclaim guard and regression test. PR #30 is closed as superseded.
 - [PR #34 — capability lifecycle fence + ReviewReady handoff](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/34) — invalidates grants after task events and permits only a draft-PR capability after evidence-derived ReviewReady. The unique PR #25 implementation/tests were ported here; PR #25 is closed as superseded.
 - [PR #18 — host-owned CODE RED approval](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/18) — selected Option B ownership boundary.
 
@@ -114,7 +113,7 @@ The following draft PRs are the current implementation queue. Grouping is by dom
 The following PRs cannot be treated as independent, clean merges because they change overlapping source/test surfaces:
 
 - **Workflow FSM + identity rename:** PR #29 changes the workflow coordinator and adds the FSM_API lifecycle adapter; PR #43 renames the same workflow projects and coordinator surface. Reconcile the FSM_API lifecycle adapter against the Execution paths and timeout implementation before integration.
-- **Task lifecycle stack:** PR #32, PR #18, and PR #30 all change `WorkTaskCoordinator` and/or `PersistentWorkTaskCoordinator` / `JsonlWorkTaskStore`. Integrate the FSM_API-backed task state, host-owned CODE RED approval, and expired-lease reclaim as one coherent lifecycle rather than merging these independently.
+- **Task lifecycle stack:** PR #32 and PR #18 change `WorkTaskCoordinator` and/or `PersistentWorkTaskCoordinator` / `JsonlWorkTaskStore`. PR #32 already carries PR #30's expired-lease reclaim guard. Integrate the FSM_API-backed task state, host-owned CODE RED approval, and lease recovery as one coherent lifecycle rather than merging these independently.
   - **Authority constraint:** PR #32 still accepts and re-authenticates signed recovery receipts; PR #18 routes recovery through a host-owned `ICodeRedRecoveryApprovalGate` and records the approved incident/task sequence. The selected Option B makes the host gate authoritative. The combined implementation must retain old receipt fields only for legacy journal deserialization, not as a new authorization mechanism, while preserving FSM_API transition validation and the incident/task sequence recheck.
 - **Capability policy:** PR #34 now combines the former PR #25 ReviewReady gate with lifecycle event-sequence invalidation. Preserve both invariants: a `ReviewReady` task can receive only a draft-PR handoff capability, and any later lifecycle event invalidates an earlier grant. PR #25 is closed and its donor branch is safe for the cleanup batch.
 - **Repository host integration:** PR #40 declares that it integrates the PR #26 host operation boundary while preserving PR #26's review history. Compare the exact source/test trees before choosing one canonical implementation; PR #40's passing ordinary CI does not exercise live trusted dispatch.
@@ -125,9 +124,9 @@ These overlap notes are a merge-planning aid, not permission to merge. Preserve 
 ### Identity and domain theory
 - [PR #43 — FSM_Execution identity and execution theory](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/43) — current canonical rename, 12-chapter theory, workflow timeout semantics, and identity regression guard.
 
-All 13 remaining open PR heads passed their recorded repository workflow during the 2026-11-21 audit; PR #25's capability gate was ported into PR #34 and PR #14's ingress work/docs were ported into PR #15. Both donor PRs are closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
+All 12 remaining open PR heads passed their recorded repository workflow during the 2026-11-21 audit; PR #25's capability gate was ported into PR #34, PR #14's ingress work/docs into PR #15, and PR #30's lease-reclaim guard into PR #32. All three donor PRs are closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
 
-**Integration caution:** the 12 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
+**Integration caution:** the 11 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
 
 ## Readiness rubric
 
