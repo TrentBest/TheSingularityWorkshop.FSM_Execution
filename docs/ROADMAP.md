@@ -106,9 +106,8 @@ The following draft PRs are the current implementation queue. Grouping is by dom
 - [PR #31 — Autonomous Development status projection](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/31) — read-only operational projection.
 
 ### CiAi evidence and artifact transport
-- [PR #14 — artifact notice ingress/retrieval](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/14) — persisted dispatch-intent validation.
-- [PR #16 — DNS-pinned HTTPS transport](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/16) — constrained artifact transport.
-- [PR #15 — provenance-bound report consumer](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/15) — report consumption and repair feedback; its description records selective porting from PR #14.
+- [PR #15 — CiAi ingress, pinned transport, and provenance-bound report consumer](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/15) — contains the four notice-ingress/retrieval components and tests from PR #14, the adapter-boundary document, report consumer, host composition, and repair feedback.
+- [PR #16 — DNS-pinned HTTPS transport](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/16) — constrained artifact transport. PR #14 is closed as superseded by PR #15.
 
 ### File-overlap and integration gates
 
@@ -125,9 +124,9 @@ These overlap notes are a merge-planning aid, not permission to merge. Preserve 
 ### Identity and domain theory
 - [PR #43 — FSM_Execution identity and execution theory](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/43) — current canonical rename, 12-chapter theory, workflow timeout semantics, and identity regression guard.
 
-All 14 remaining open PR heads passed their recorded repository workflow during the 2026-11-21 audit; the superseded PR #25 capability gate was ported into PR #34 and its donor PR was closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
+All 13 remaining open PR heads passed their recorded repository workflow during the 2026-11-21 audit; PR #25's capability gate was ported into PR #34 and PR #14's ingress work/docs were ported into PR #15. Both donor PRs are closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
 
-**Integration caution:** the 14 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
+**Integration caution:** the 12 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
 
 ## Readiness rubric
 
