@@ -105,8 +105,8 @@ The following draft PRs are the current implementation queue. Grouping is by dom
 - [PR #31 — Autonomous Development status projection](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/31) — read-only operational projection.
 
 ### CiAi evidence and artifact transport
-- [PR #15 — CiAi ingress, pinned transport, and provenance-bound report consumer](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/15) — contains the four notice-ingress/retrieval components and tests from PR #14, the adapter-boundary document, report consumer, host composition, and repair feedback.
-- [PR #16 — DNS-pinned HTTPS transport](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/16) — constrained artifact transport. PR #14 is closed as superseded by PR #15.
+- [PR #15 — CiAi ingress and provenance-bound report consumer](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/15) — contains the four notice-ingress/retrieval components and tests from PR #14, the adapter-boundary document, report consumer, host composition, and repair feedback. Its `ICiAiArtifactTransport` is still host-supplied.
+- [PR #16 — DNS-pinned HTTPS client factory](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/16) — supplies the constrained HeadlessAi-host HTTP client factory; wiring it into a concrete PR #15 `ICiAiArtifactTransport` adapter remains an integration gate. PR #14 is closed as superseded by PR #15.
 
 ### File-overlap and integration gates
 
@@ -117,14 +117,14 @@ The following PRs cannot be treated as independent, clean merges because they ch
   - **Authority constraint:** PR #32 still accepts and re-authenticates signed recovery receipts; PR #18 routes recovery through a host-owned `ICodeRedRecoveryApprovalGate` and records the approved incident/task sequence. The selected Option B makes the host gate authoritative. The combined implementation must retain old receipt fields only for legacy journal deserialization, not as a new authorization mechanism, while preserving FSM_API transition validation and the incident/task sequence recheck.
 - **Capability policy:** PR #34 now combines the former PR #25 ReviewReady gate with lifecycle event-sequence invalidation. Preserve both invariants: a `ReviewReady` task can receive only a draft-PR handoff capability, and any later lifecycle event invalidates an earlier grant. PR #25 is closed and its donor branch is safe for the cleanup batch.
 - **Repository host integration:** PR #40 declares that it integrates the PR #26 host operation boundary while preserving PR #26's review history. Compare the exact source/test trees before choosing one canonical implementation; PR #40's passing ordinary CI does not exercise live trusted dispatch.
-- **CiAi evidence pipeline:** PR #14 defines notice/ingress/retrieval contracts, PR #16 supplies constrained artifact transport, and PR #15 consumes provenance-bound reports while selectively porting PR #14 work. Review these as one end-to-end evidence chain, not as three unrelated features.
+- **CiAi evidence pipeline:** PR #15 now contains PR #14's notice/ingress/retrieval contracts and adapter-boundary documentation plus the provenance-bound report consumer. PR #16 supplies the pinned HTTP client factory, but is not yet wired into the PR #15 transport interface. Review these as one end-to-end evidence chain, not as unrelated features.
 
 These overlap notes are a merge-planning aid, not permission to merge. Preserve each PR's exact-head evidence and re-run CI after resolving conflicts or porting changes to the Execution identity.
 
 ### Identity and domain theory
 - [PR #43 — FSM_Execution identity and execution theory](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/43) — current canonical rename, 12-chapter theory, workflow timeout semantics, and identity regression guard.
 
-All 12 remaining open PR heads passed their recorded repository workflow during the 2026-11-21 audit; PR #25's capability gate was ported into PR #34, PR #14's ingress work/docs into PR #15, and PR #30's lease-reclaim guard into PR #32. All three donor PRs are closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
+The last verified code heads for all 12 remaining open PRs passed their recorded repository workflow during the 2026-11-21 audit. The current PR #15 and PR #43 heads contain docs-only updates after their last verified runs and need a fresh exact-head run before being marked review-ready. PR #25's capability gate is in PR #34, PR #14's ingress work/docs in PR #15, and PR #30's lease-reclaim guard in PR #32; all three donor PRs are closed. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
 
 **Integration caution:** the 11 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
 
