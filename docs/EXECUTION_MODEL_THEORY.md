@@ -74,6 +74,24 @@ The shared envelope owns identity, admission, authority checks, lifecycle, cance
 
 A descriptor should declare its model identifier, schema and semantic version, engine compatibility, definition, determinism class, progress driver, concurrency constraints, resource claims, capability requirements, effect/replay policy, and outcome vocabulary. Unsupported or unspecified semantics are rejected or explicitly treated as unknown; they are not filled in with permissive defaults.
 
+```mermaid
+flowchart TD
+    Definition[Versioned model definition] --> Validate[Validate model semantics]
+    Host[Host policy and capability grants] --> Admit{Admit this instance?}
+    Validate --> Admit
+    Admit -->|Rejected| Rejected[Rejected outcome]
+    Admit -->|Admitted| Instance[Execution instance]
+    Instance --> Engine[Model-specific engine]
+    Engine --> Progress[Scheduler, clock, or event source]
+    Progress --> Executor[Bounded executor]
+    Executor --> Effects[Model-defined effects]
+    Executor --> Trace[Trace and evidence]
+    Effects --> Outcome[Outcome or explicit handoff]
+    Trace --> Outcome
+```
+
+The host's grant is an admission input, not a property the model can assign to itself. The engine and scheduler may be supplied by the host, but their mechanism must preserve the model's declared semantics.
+
 ## 4. Families of execution models
 
 | Family | Unit of work | Progress driver | Characteristic semantics |
