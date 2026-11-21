@@ -3,7 +3,7 @@
 
 # Foundry Roadmap and Readiness
 
-**Readiness: early implementation; no current percentage is asserted.** The previous 35% estimate predates the governed-work lifecycle and is not comparable to the expanded scope. The version-1 workflow runtime passed its development CI gate; the governed-work feature branch passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768) on exact head `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`, including workflow timeout/cancellation tests. This is not a release-readiness claim. The signed host-issued CODE RED recovery receipt boundary passed [feature-branch CI run #294](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41172622514) on exact head 0ef31369daa115fb652e46b79d208ea66ab8fc83.
+**Readiness: early implementation; no current percentage is asserted.** The previous 35% estimate predates the governed-work lifecycle and is not comparable to the expanded scope. The version-1 workflow runtime passed its development CI gate; the governed-work feature branch passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768) on exact head `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`, including workflow timeout/cancellation tests. This is not a release-readiness claim. The host-owned CODE RED approval gate and FSM_API-backed task lifecycle passed [exact-head CI run #1179](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887223110) on head `409a7c1886667c10233b77c88a7bac246c1fbf59`; signed v1 receipt fields remain replay-only compatibility data.
 
 ## Milestones
 
@@ -66,7 +66,7 @@ The completed items below are implemented on PR #10's feature branch and are not
 - [x] Add append-only local task, CODE RED incident, and CI repair-attempt journals with restart replay and fail-closed corruption handling.
 - [x] Add host-issued, short-lived capabilities scoped to task, lease, branch, candidate SHA, paths, and explicit actions.
 - [x] Add credential-free CODE RED incident records and validated active/cleared notice projections.
-- [x] Require a short-lived, signed host approval receipt for CODE RED recovery, bound to the active incident sequence and exact task-event sequence; persist the complete signed receipt in the task audit.
+- [x] Require a host-owned approval gate for CODE RED recovery, bound to the exact active incident and task-event sequence; persist incident ID/sequence in the task audit. Retain signed v1 receipt payloads only for legacy journal replay, never as the current authorization mechanism.
 - [x] Add exact-CI-attempt provenance checks and bounded deterministic repair decisions.
 - [x] Add a concrete `Foundry.HeadlessAiHost` adapter that maps Foundry turns to HeadlessAi's immutable request/executor without moving lifecycle or authorization into HeadlessAi; build it against pinned HeadlessAi source in CI run #337.
 - [x] Add `Foundry.HeadlessAiHost.Console` as a manual host composition root and compile it in CI run #352.
@@ -82,7 +82,7 @@ The completed items below are implemented on PR #10's feature branch and are not
 |---|---:|---|
 | Purpose and dependency boundaries | 15% | Source-level contract inspection plus an initial domain proposal |
 | Contracts and implementation | 20% | Version-1 workflow runtime on development; PR #10 adds the governed task/lease/journal/capability/repair-policy slice |
-| Automated tests | 20% | Workflow runtime, task lifecycle, strict journal replay, repair policy, signed CODE RED recovery receipt validation, and persistence tests passed on PR #10 exact head in CI run #294 (112 tests) |
+| Automated tests | 20% | Workflow runtime, task lifecycle, strict journal replay, repair policy, host-gated CODE RED recovery, legacy receipt replay compatibility, FSM_API transition replay, and persistence tests pass on the current lifecycle integration branch |
 | CI execution and security | 20% | Pinned-action workflow has read-only contents permission and a 15-minute timeout; broader threat cases pending |
 | Demonstration and reproducibility | 15% | Successful basic probe plus fox/dog state assertions, cross-FSM transition, repeatable trace/SVG, and uploaded artifact |
 | Documentation/UML completeness | 10% | Bootstrap docs, lifecycle UML, and Hub integration boundary; source-derived UML and complete reader journey remain |
