@@ -80,4 +80,4 @@ Publication, release, and deployment remain separate actions and require Trent's
 
 ## Execution theory
 
-Read [Execution Theory](docs/EXECUTION_MODEL_THEORY.md) for the model-neutral domain, including synchronous and asynchronous progress, concurrency and parallelism, scheduling, clock semantics, distributed execution, bounded effects, and truthful outcomes. The [theory learning path](docs/THEORY/README.md) provides a guided tour. These are domain contracts and future model families; the current implementation status remains explicit in the roadmap.
+Read [Execution Theory](docs/EXECUTION_MODEL_THEORY.md) for the model-neutral domain, including synchronous and asynchronous progress, concurrency and parallelism, scheduling, clock semantics, distributed execution, bounded effects, and truthful outcomes. The [12-chapter theory learning path](docs/THEORY/README.md) provides a guided tour. These are domain contracts and future model families; the current implementation status remains explicit in the roadmap.
