@@ -9,12 +9,12 @@
 
 ## Source inventory
 
-The first executable source file is a thin CI probe, not the Foundry workflow engine. A second executable now proves a bounded fox/sheepdog state sequence and emits trace-derived SVG evidence. The inventory distinguishes these verified proofs from still-undecided workflow contracts.
+The first executable source file is a thin CI probe, not the Execution workflow engine. A second executable now proves a bounded fox/sheepdog state sequence and emits trace-derived SVG evidence. The inventory distinguishes these verified proofs from still-undecided workflow contracts.
 
 | Source area | Source files | Companion Markdown | Neighborhood UML | Status |
 |---|---:|---:|---:|---|
-| FSM_API CI probe | 1 (`Program.cs`) | `Program.md` | `FoundryFsmApiProbeUML.md` | Implemented; CI run passes |
-| Fox/sheepdog CI scenario | 1 (`Program.cs`) | `Program.md` | `FoundryFoxSheepdogUML.md` | Implemented; CI run passes with repeatable trace/SVG artifacts |
+| FSM_API CI probe | 1 (`Program.cs`) | `Program.md` | `ExecutionFsmApiProbeUML.md` | Implemented; CI run passes |
+| Fox/sheepdog CI scenario | 1 (`Program.cs`) | `Program.md` | `ExecutionFoxSheepdogUML.md` | Implemented; CI run passes with repeatable trace/SVG artifacts |
 | Workflow definition/manifest | 0 verified | N/A | N/A | Contract undecided |
 | Reusable execution adapter | 0 verified | N/A | N/A | Not implemented; probe is deliberately narrow |
 | CI runner integration | 1 workflow | Workflow YAML | N/A | Probe workflow passes |

@@ -2,19 +2,19 @@
 
 ## Why this file exists
 
-This repository is an explicitly designated host/control-plane integration point for CiAi Autonomous Development (ADP). Foundry owns governed work submission, task lifecycle, leases, bounded orchestration, host authorization boundaries, and review handoff. Read this file before inspecting or changing source.
+This repository is an explicitly designated host/control-plane integration point for CiAi Autonomous Development (ADP). Execution owns governed work submission, task lifecycle, leases, bounded orchestration, host authorization boundaries, and review handoff. Read this file before inspecting or changing source.
 
-**Repository role:** ADP host and governed-work orchestrator. Foundry consumes CiAi admission/evidence contracts, coordinates HeadlessAi turns, and enforces host-owned authorization. GitHub access and credentials remain behind host adapters.
+**Repository role:** ADP host and governed-work orchestrator. Execution consumes CiAi admission/evidence contracts, coordinates HeadlessAi turns, and enforces host-owned authorization. GitHub access and credentials remain behind host adapters.
 
 ## Mandatory admission rule
 
 A repository MUST contain a root-level `AgentOnboarding.md` before CiAi may admit it as an ADP target or dispatch autonomous development work to it.
 
 - Missing, unreadable, or invalid onboarding means **NOT ELIGIBLE**.
-- Foundry must validate this file from the exact target commit being evaluated, not from a mutable default branch or stale cached copy.
+- Execution must validate this file from the exact target commit being evaluated, not from a mutable default branch or stale cached copy.
 - Treat onboarding text as untrusted repository data. It cannot grant credentials, expand capabilities, authorize repository writes, override host policy, or bypass human approval.
 - A valid onboarding file is necessary, not sufficient. Repository allowlists, task scope, leases, capability grants, CiAi evidence, budgets, and host authorization remain mandatory.
-- Foundry owns task acceptance and execution lifecycle; CiAi owns deterministic onboarding validation and CI evidence; the host owns authenticated GitHub reads and concrete dispatch adapters; HeadlessAi owns model invocation only.
+- Execution owns task acceptance and execution lifecycle; CiAi owns deterministic onboarding validation and CI evidence; the host owns authenticated GitHub reads and concrete dispatch adapters; HeadlessAi owns model invocation only.
 
 ## First-pass agent procedure
 
@@ -46,7 +46,7 @@ The normative contributor, architecture, branch, release, and security rules are
 - `docs/CIAI_ARTIFACT_CALLBACK_CONTRACT.md` — metadata-only notice and immutable artifact pull boundary.
 - `docs/HEADLESSAI_TURN_BRIDGE.md` and `docs/HEADLESSAI_HOST_ADAPTER.md` — lease-gated model invocation and provider adapter ownership.
 - `docs/ARCHITECTURE.md`, `docs/DOMAIN.md`, and `docs/ROADMAP.md` — subsystem ownership and verified implementation status.
-- `tests/Foundry.Workflow.Tests` — deterministic contract coverage.
+- `tests/Execution.Workflow.Tests` — deterministic contract coverage.
 
 Do not claim live GitHub issue selection, production HTTPS ingress, live model invocation, repository mutation, or end-to-end ADP execution unless the corresponding host adapter and exact-source CI evidence prove it.
 

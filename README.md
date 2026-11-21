@@ -7,17 +7,17 @@
 [![License: MIT](https://img.shields.io/github/license/TrentBest/TheSingularityWorkshop.FSM_Execution)](LICENSE)
 
 [![Sith Policy](assets/sith-policy.svg)](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/workflows/sith-policy.yml)
-**Execution is the host-neutral execution pipeline for The Singularity Workshop Hub.** It accepts explicit work, validates it before side effects, coordinates execution, and reports authoritative lifecycle state and structured outcomes. GUI may present that state when the Hub chooses to appear; GUI is not the executor.
+**FSM_Execution is the host-neutral execution substrate for The Singularity Workshop.** It can host any explicitly defined execution model whose semantics, required capabilities, progress rules, lifecycle, and outcomes are declared and validated. The current sequential workflow runner is its first concrete model—not the limit of the domain. It accepts explicit work, validates it before side effects, coordinates execution, and reports authoritative lifecycle state and structured outcomes. GUI may present that state when the Hub chooses to appear; GUI is not the executor.
 
 > **Implementation status:** the version-1 sequential workflow runner and retained workflow lifecycle are implemented on `development` and were verified by [development CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40546957980). The current governed-work PR adds versioned task envelopes, fenced leases, append-only local journals, host-issued scoped capabilities, CODE RED incident notices with signed, single-use recovery approval receipts, bounded exact-CI repair decisions, and an optional cooperative workflow timeout with a distinct `TimedOut` outcome. The combined workflow-timeout and governed-work implementation passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41170698768) on code/test commit `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`. The CODE RED mutation-suspension/recovery hardening passed [feature-branch CI run #286](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41170937860) on exact code/test commit cab0102230cdb689324f40379305656197cd242d; the README/roadmap follow-up passed [feature-branch CI run #287](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41171004313) on exact head 025580cf27b8f9d94c7cfbe496cc706091ae851f. The host-issued CODE RED recovery receipt implementation passed [feature-branch CI run #294](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41172622514) on exact head 0ef31369daa115fb652e46b79d208ea66ab8fc83, including all 112 workflow tests, build, separate-process FSM_API probe, repeatable fox/sheepdog scenario, and evidence artifact upload. The new HeadlessAi turn bridge provides lease-gated invocation, strict result provenance, and a durable at-most-once turn journal; the complete Execution tests, build, separate-process FSM_API probe, repeatable fox/sheepdog proof, and artifact upload passed [combined-stack run #319](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41174088415) on exact head `667d759e319fe3c2785b92687a7ae4f842c43a0b`, rebased onto the latest governed-work PR #10 head `00e7f8180d71a173eada9826f4fc2b27c4c939da`. Coverage includes durable completed-result replay, restart-safe indeterminate-call suppression, cancellation-before-reservation, and exact prior-candidate result provenance. The bridge also enforces HeadlessAi's paired prior-turn/prior-candidate rule. PR #11 now includes a concrete source-pinned `Execution.HeadlessAiHost` adapter, compiled in [CI run #337](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41221916732) on exact head `d410afd4e23aaf459bdf2ce526faf964d3d36274`. The manual `Execution.HeadlessAiHost.Console` composition root is also built by [CI run #352](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41222737607); it reads provider credentials from the host environment and performs one explicit OpenAI Responses API turn when manually invoked. No live provider invocation has yet been verified. No package publication or deployment is part of this work.
 
-## 01 — Why Execution exists
+## 01 — Why FSM_Execution exists
 
 Workflow meaning should not be buried in a desktop window, browser component, or CI YAML. Execution provides a small, inspectable execution boundary that hosts can use without depending on GUI or a particular platform. Workflow definitions are data; hosts explicitly register the capabilities that definitions may invoke.
 
 ## 02 — Ownership boundaries
 
-- **Execution executes:** validates workflows; accepts and starts runs; coordinates lifecycle and cancellation; exposes status snapshots and structured outcomes.
+- **FSM_Execution executes:** validates workflows; accepts and starts runs; coordinates lifecycle and cancellation; exposes status snapshots and structured outcomes.
 - **The / Architect owns the Hub experience:** decides what work to request and when the Hub should present itself.
 - **GUI presents:** renders the Hub workbench and maps explicit user intents to supported commands. It does not own execution state or the authoritative loop.
 - **FSM_COS composes:** resolves MicroBundles and returns a `RuntimeAssembly`. Composition is not workflow execution.
@@ -26,9 +26,9 @@ Workflow meaning should not be buried in a desktop window, browser component, or
 
 Execution deliberately does not force workflow steps, WebPage process-group ticks, and FSM_COS `RuntimeAssembly` into one abstraction. They remain distinct until a source-backed, tested integration demonstrates the correct seam.
 
-## 03 — See it in a minute
+## 03 — See the current workflow model in a minute
 
-Start with the [version-1 workflow definition](src/Foundry.Workflow/WorkflowDefinition.cs), [sequential runner](src/Foundry.Workflow/WorkflowRunner.cs), and [retained execution coordinator](src/Foundry.Workflow/WorkflowExecutionCoordinator.cs).
+Start with [Execution Model Theory](docs/EXECUTION_MODEL_THEORY.md), then the [version-1 workflow definition](src/Execution.Workflow/WorkflowDefinition.cs), [sequential runner](src/Execution.Workflow/WorkflowRunner.cs), and [retained execution coordinator](src/Execution.Workflow/WorkflowExecutionCoordinator.cs).
 
 A host can:
 1. Register allowed operations in `WorkflowHandlerRegistry`.
@@ -39,7 +39,7 @@ A host can:
 
 The first version executes named handlers sequentially. It validates the complete definition before invoking any handler, stops after failure, distinguishes cancellation from failure and timeout, and records remaining steps as skipped. Cancellation and timeout are cooperative: a handler that ignores its token cannot be forcibly stopped. The coordinator retains snapshots only in memory.
 
-The separate [FSM_API probe](src/Foundry.FsmApiProbe/Program.cs) and [fox/sheepdog scenario](src/Foundry.FoxSheepdog/Program.cs) remain deterministic state-execution demonstrations. They exercise real FSM_API behavior and generate reproducible evidence; they are not automatically treated as Hub workflows.
+The separate [FSM_API probe](src/Execution.FsmApiProbe/Program.cs) and [fox/sheepdog scenario](src/Execution.FoxSheepdog/Program.cs) remain deterministic state-execution demonstrations. They exercise real FSM_API behavior and generate reproducible evidence; they are not automatically treated as Hub workflows.
 
 ## 04 — Contracts, tests, and boundaries
 
