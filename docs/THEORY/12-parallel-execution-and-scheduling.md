@@ -133,6 +133,13 @@ Take the source-inspection / analysis / patch / CI / evidence / draft-PR example
 
 Create a dependency graph and assign resource claims. Identify the operations that may overlap, the operations that must serialize, and the exact evidence required before the next stage becomes eligible. Then simulate one worker timing out after it may have committed a remote side effect. State which outcome is known, which is indeterminate, and how the coordinator should reconcile before retry.
 
+## Further reading
+
+- [Execution Theory](../EXECUTION_MODEL_THEORY.md)
+- [Chapter 08 — Scheduling, dependencies, and concurrency](08-scheduling-and-concurrency.md)
+- [Chapter 11 — Asynchronous execution and work ownership](11-asynchronous-execution.md)
+- [Workflow semantics](../WORKFLOW_SEMANTICS.md)
+
 ---
 
 <!-- THE SINGULARITY WORKSHOP FOOTER -->
