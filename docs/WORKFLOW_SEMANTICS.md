@@ -3,7 +3,7 @@
 
 # Workflow Semantics — Version 1
 
-**Status:** implementation-backed theory for the first Execution runtime slice. The sequential runner and retained run lifecycle passed development CI run #84; the optional timeout extension and its cancellation-precedence tests passed feature-branch [Execution CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41170698768). This feature-branch extension is not yet part of `development`. This does not describe persisted manifests, distributed execution, or a general automation engine.
+**Status:** implementation-backed theory for the first Execution runtime slice. The sequential runner and retained run lifecycle passed development CI run #84. The optional timeout extension, cancellation-precedence behavior, and non-cooperative-handler tests are included in PR #43 and passed exact-head [Execution CI run #44883996126](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44883996126); the earlier timeout proof also passed feature-branch run #276. This remains a cooperative deadline, not forcible termination. Until PR #43 is merged, these changes are present on its feature branch rather than `development`. This does not describe persisted manifests, distributed execution, or a general automation engine.
 
 ## The execution model
 
