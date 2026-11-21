@@ -307,7 +307,7 @@ Do not build a speculative universal interpreter or scheduler. Build a small exe
 
 ## 15. What is implemented versus conceptual
 
-The repository currently implements a sequential version-1 workflow runner and retained in-process workflow lifecycle, alongside separate governed work-task lifecycle, lease, capability, evidence, persistence, and host-adapter components at their documented maturity levels.
+The repository currently implements a sequential version-1 workflow runner and retained in-process workflow lifecycle, including optional cooperative per-run timeouts with a distinct `TimedOut` outcome. A timeout requests cancellation; it cannot forcibly stop a handler that ignores its token. Separate governed work-task lifecycle, lease, capability, evidence, persistence, and host-adapter components exist at their documented maturity levels.
 
 The following remain conceptual or future work unless a specific source, test, and exact-head CI run prove otherwise: general dependency-graph scheduling, parallel workflow steps, bounded worker pools, general asynchronous child orchestration, real-time scheduling, distributed leases, cross-host scheduling, exactly-once external effects, universal checkpoint/replay, and a universal execution manifest.
 
