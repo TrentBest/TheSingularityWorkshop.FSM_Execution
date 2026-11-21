@@ -39,6 +39,20 @@ Not all edges mean the same thing:
 
 A graph validator should reject missing nodes, duplicate identities, illegal edge types, and cycles before side effects begin. It should define whether a failed prerequisite blocks descendants, marks them skipped, or allows an alternate path. It should also freeze the admitted graph version so an in-flight execution cannot silently change meaning when the source definition is edited.
 
+```mermaid
+flowchart LR
+    Admit[Validate and admit graph] --> Inspect[Inspect immutable source]
+    Admit --> Gather[Gather independent evidence]
+    Inspect --> Analyze[Analyze combined inputs]
+    Gather --> Analyze
+    Analyze --> Patch[Create candidate change]
+    Patch --> CI[Run CI against exact candidate SHA]
+    CI --> Verify[Verify evidence and policy]
+    Verify --> Handoff[Draft PR handoff]
+```
+
+The inspection and evidence-gathering nodes may overlap only if their inputs are immutable and their resource claims are compatible. Analysis waits for both; patching and exact-SHA CI remain ordered.
+
 ## 04 — Safe parallel admission
 
 Two nodes may run together only when:
