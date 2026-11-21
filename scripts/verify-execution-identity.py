@@ -27,10 +27,12 @@ if stale_code:
     sys.exit(1)
 
 stale_projects = []
-for path in root.rglob("*.csproj"):
-    content = path.read_text(encoding="utf-8")
-    if "Foundry." in content:
-        stale_projects.append(str(path.relative_to(root)))
+for relative in tracked:
+    if relative.endswith(".csproj"):
+        path = root / relative
+        content = path.read_text(encoding="utf-8")
+        if "Foundry." in content:
+            stale_projects.append(relative)
 
 if stale_projects:
     print("Stale Foundry project identities/references:")
