@@ -7,7 +7,7 @@
 
 `CiAiArtifactNoticeIngress` is the host-neutral coordinator between an authenticated HTTP adapter and FSM_Execution's existing notice validator and receipt ledger. It prevents an adapter from accidentally persisting a notice before validating it against the exact dispatch intent.
 
-The outer notice remains the persisted `foundry.ciai-artifact-ingress.v1` wire contract. The retrieved report payload is UTF-8 JSON `ciai.workflow-evidence.v2`; it is distinct from the outer notice envelope and must not be reinterpreted as `ciai.test-results.v1`.
+The outer notice remains the persisted `foundry.ciai-artifact-ingress.v1` wire contract. The retrieved report payload is UTF-8 JSON `ciai.workflow-evidence.v2`; it is distinct from the outer notice envelope and must not be reinterpreted as `ciai.test-results.v1`. PR #15's report verifier/consumer applies a 1 MiB report limit. PR #16's generic artifact transport policy documents a separate 16 MiB retrieval ceiling; do not conflate the report schema limit with the transport's generic byte bound.
 
 The ingress sequence is:
 
@@ -36,7 +36,7 @@ After ingress accepts a notice, `CiAiArtifactRetrievalCoordinator` can retrieve 
 - applies a bounded cancellation timeout (30 seconds by default; host-configurable up to five minutes); and
 - passes the exact bytes to `CiAiArtifactContentVerifier` for expiry, exact length, and fixed-time SHA-256 verification.
 
-The transport remains a security-critical host boundary. PR #15 supplies `PinnedHttpsCiAiArtifactTransport` backed by `PinnedHttpsArtifactHttpClientFactory`: it disables automatic redirects, resolves DNS for each new connection, rejects the complete answer set if any address violates the public-unicast policy, pins the socket to a vetted IP while preserving the registered hostname for TLS validation/SNI, and sends no credentials. The host must register exact origins from trusted provider registration. Unit tests cover origin allowlists, invalid URIs, duplicate registrations, and disposal, but they do not open a real network connection or prove production egress. The host still owns HTTPS ingress, JWT validation, provider credentials, remote acknowledgement, and a live provider integration test.
+The transport remains a security-critical host boundary. PR #16 separately supplies `PinnedHttpsArtifactHttpClientFactory` in the HeadlessAi host: it disables redirects and ambient proxy use, resolves DNS for each new connection, rejects the complete answer set if any address violates the public-unicast policy, and connects to a vetted IP while preserving the registered hostname for TLS validation/SNI. That factory is not yet wired as a concrete `ICiAiArtifactTransport` adapter in PR #15; PR #15's `CiAiArtifactRetrievalCoordinator` still depends on a host-supplied transport interface. Integrating the PR #16 factory into that adapter is an explicit merge gate. Unit tests cover address classification and origin validation, but they do not open a real network connection or prove production egress. The host still owns HTTPS ingress, JWT validation, provider credentials, remote acknowledgement, and a live provider integration test.
 
 ## Guarantees and limits
 
