@@ -14,7 +14,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
         var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
         try
         {
-            var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
+            using var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
             var incidents = new JsonlCodeRedIncidentStore(incidentPath);
             var (lease, incident) = CreateCodeRedTask(tasks);
             incidents.Create(incident);
@@ -34,7 +34,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
             Assert.Equal(incident.IncidentId, audit.RecoveryIncidentId);
             Assert.Equal(incident.Sequence, audit.RecoveryIncidentSequence);
 
-            var restarted = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
+            using var restarted = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
             var restored = restarted.GetSnapshot("task-recovery");
             Assert.Equal(WorkTaskStatus.Investigating, restored.Status);
             Assert.Equal(audit, restored.Events[^1]);
@@ -53,7 +53,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
         var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
         try
         {
-            var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
+            using var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
             var incidents = new JsonlCodeRedIncidentStore(incidentPath);
             var (lease, incident) = CreateCodeRedTask(tasks);
             incidents.Create(incident);
@@ -84,7 +84,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
         var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
         try
         {
-            var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
+            using var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
             var incidents = new JsonlCodeRedIncidentStore(incidentPath);
             var (lease, incident) = CreateCodeRedTask(tasks);
             incidents.Create(incident);
@@ -116,7 +116,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
         var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
         try
         {
-            var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
+            using var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
             var incidents = new JsonlCodeRedIncidentStore(incidentPath);
             var (lease, incident) = CreateCodeRedTask(tasks);
             incidents.Create(incident);
@@ -149,7 +149,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
         var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
         try
         {
-            var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
+            using var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(taskPath));
             var incidents = new JsonlCodeRedIncidentStore(incidentPath);
             var (lease, incident) = CreateCodeRedTask(tasks);
             incidents.Create(incident);
