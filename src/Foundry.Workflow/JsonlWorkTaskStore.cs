@@ -182,13 +182,18 @@ public sealed class JsonlWorkTaskStore
                 !(item.Current == WorkTaskStatus.Claimed &&
                     item.Previous is not (WorkTaskStatus.CodeRed or WorkTaskStatus.ReviewReady or WorkTaskStatus.HandedOff or WorkTaskStatus.Stopped or WorkTaskStatus.Failed)) &&
                 (!WorkTaskCoordinator.IsAllowedTransition(item.Previous, item.Current) &&
-                    !WorkTaskCoordinator.IsValidApprovedRecoveryEvent(item)) ||
+                    !(WorkTaskCoordinator.IsValidCodeRedRecoveryEvent(item) ||
+                      WorkTaskCoordinator.IsValidLegacyReceiptRecoveryEvent(item))) ||
+                (WorkTaskCoordinator.HasRecoveryMetadata(item) &&
+                    (!WorkTaskCoordinator.IsValidCodeRedRecoveryEvent(item) ||
+                     WorkTaskCoordinator.HasApprovalMetadata(item))) ||
                 (WorkTaskCoordinator.HasApprovalMetadata(item) &&
-                    !WorkTaskCoordinator.IsValidApprovedRecoveryEvent(item)) ||
+                    !WorkTaskCoordinator.IsValidLegacyReceiptRecoveryEvent(item)) ||
                 (item.ApprovalReceipt is { } approvalReceipt &&
                     approvalReceipt.TaskId != snapshot.Request.TaskId) ||
                 (item.Current == WorkTaskStatus.Investigating && item.Previous == WorkTaskStatus.CodeRed &&
-                    !WorkTaskCoordinator.IsValidApprovedRecoveryEvent(item)) ||
+                    !(WorkTaskCoordinator.IsValidCodeRedRecoveryEvent(item) ||
+                      WorkTaskCoordinator.IsValidLegacyReceiptRecoveryEvent(item))) ||
                 (item.ApprovalReceiptId is not null && snapshot.Events.Take(index)
                     .Any(previous => previous.ApprovalReceiptId == item.ApprovalReceiptId)) ||
                 string.IsNullOrWhiteSpace(item.AgentId) || item.AgentId.Length > 128 ||
