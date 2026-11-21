@@ -125,7 +125,7 @@ These overlap notes are a merge-planning aid, not permission to merge. Preserve 
 
 The repository has 9 open draft PRs. This audit distinguishes executable proof from branch-policy status and from documentation-only commits:
 
-| PR | Current head | Executable workflow evidence | Branch policy |
+| PR | Code head reviewed | Executable workflow evidence | Branch policy |
 |---|---|---|---|
 | #43 — identity and theory | `0561be668e3986c671d34b1e4a7b9da33fa68cd6` | PASS — run [#44887752514](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887752514); identity guard, workflow tests, build, FSM_API probe, and deterministic fox/sheepdog evidence all passed | FAIL — run [#44887747959](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887747959); 22 branches remain |
 | #26 — repository-operation host | `4137b4dbb0ddc0da6056da51d7ceec58e92bd9ab` | FAIL — run [#44887576952](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887576952); workflow runtime tests failed, so build and downstream proofs were skipped | FAIL |
@@ -140,6 +140,8 @@ The repository has 9 open draft PRs. This audit distinguishes executable proof f
 PR #43 is green for its executable proof, not for Sith Policy. PR #26 is not green: its current exact head fails the workflow runtime test stage. PR #15's current head has no executable check run, so its earlier code-head pass is historical evidence only. The remaining listed passing runs apply to the exact SHAs shown, not to later rebases or integrations.
 
 The branch inventory is 22 branches, not the required two (`master` and `development`). No branch has been deleted. The donor-branch audit and one-batch cleanup remain separate work; do not infer deletion readiness from a closed PR.
+
+This audit was committed as documentation-only follow-up `be35c3d88475462dbedf8eda1fb6556e9f458866`; the table records the executable code heads inspected immediately before that documentation commit. The follow-up's own build/test workflow is running; no executable source changed in the audit commit.
 
 PR #25's capability gate is in PR #34, PR #14's ingress work/docs and PR #16's pinned transport in PR #15, PR #18's host approval plus PR #30's lease-reclaim guard in PR #32, and PR #27's design contract in PR #26; those six donor PRs are closed. A green run is bounded evidence for its exact SHA; it does not establish that live privileged paths ran, that a PR is integrated, or that a branch is ready to merge.
 
