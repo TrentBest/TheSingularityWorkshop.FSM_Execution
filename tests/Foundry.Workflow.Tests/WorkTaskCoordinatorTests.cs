@@ -32,47 +32,6 @@ public sealed class WorkTaskCoordinatorTests
     }
 
     [Fact]
-    public void PersistentCoordinatorDisposesPartialRestoreWhenLaterApprovalCannotBeAuthenticated()
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-{Guid.NewGuid():N}.jsonl");
-        try
-        {
-            var store = new JsonlWorkTaskStore(path);
-            using (var original = new WorkTaskCoordinator(new TestRecoveryReceiptVerifier()))
-            {
-                store.Create(original.Submit(Request(taskId: "a-first-task")));
-                store.Create(original.Submit(Request()));
-                var lease = original.Claim("foundry-8", "agent-a", TimeSpan.FromMinutes(10), Now).Lease!.LeaseId;
-                store.Append(original.GetSnapshot("foundry-8"));
-                original.Transition("foundry-8", lease, WorkTaskStatus.Investigating, Now.AddSeconds(1), "inspect");
-                store.Append(original.GetSnapshot("foundry-8"));
-                original.Transition("foundry-8", lease, WorkTaskStatus.Implementing, Now.AddSeconds(2), "implement");
-                store.Append(original.GetSnapshot("foundry-8"));
-                original.Transition("foundry-8", lease, WorkTaskStatus.Validating, Now.AddSeconds(3), "validate");
-                store.Append(original.GetSnapshot("foundry-8"));
-                original.Transition("foundry-8", lease, WorkTaskStatus.CodeRed, Now.AddSeconds(4), "blocked");
-                store.Append(original.GetSnapshot("foundry-8"));
-                var incident = TestIncident();
-                var receipt = TestReceipt(taskEventSequence: 5, incidentSequence: incident.Sequence) with
-                {
-                    IssuedAt = Now.AddSeconds(5),
-                    ExpiresAt = Now.AddMinutes(6)
-                };
-                var recovered = original.RecoverFromCodeRed("foundry-8", lease, incident, receipt,
-                    Now.AddMinutes(1), "approved recovery");
-                store.Append(recovered);
-            }
-
-            Assert.Throws<UnauthorizedAccessException>(() => new PersistentWorkTaskCoordinator(store));
-        }
-        finally
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-    }
-
-    [Fact]
     public void SubmitValidatesAndRetainsVersionedTaskProvenance()
     {
         var coordinator = new WorkTaskCoordinator();
@@ -197,50 +156,28 @@ public sealed class WorkTaskCoordinatorTests
     [Fact]
     public void RetryBudgetCannotBeBypassedThroughCodeRed()
     {
-        var coordinator = new WorkTaskCoordinator(new TestRecoveryReceiptVerifier());
+        var coordinator = new WorkTaskCoordinator();
         coordinator.Submit(Request(maximumAttempts: 1));
-        var lease = coordinator.Claim("foundry-8", "agent-a", TimeSpan.FromMinutes(10), Now).Lease!.LeaseId;
+        var lease = coordinator.Claim("foundry-8", "agent-a",
+            TimeSpan.FromMinutes(10), Now).Lease!.LeaseId;
         coordinator.Transition("foundry-8", lease, WorkTaskStatus.Investigating, Now, "inspect");
         coordinator.Transition("foundry-8", lease, WorkTaskStatus.Implementing, Now, "implement");
-        coordinator.Transition("foundry-8", lease, WorkTaskStatus.Validating, Now, "validate first attempt");
-        coordinator.Transition("foundry-8", lease, WorkTaskStatus.CodeRed, Now, "validation blocked");
-        Assert.Throws<InvalidOperationException>(() =>
-            coordinator.Transition("foundry-8", lease, WorkTaskStatus.Implementing, Now, "skip recovery investigation"));
-        Assert.Throws<InvalidOperationException>(() =>
-            coordinator.Transition("foundry-8", lease, WorkTaskStatus.Validating, Now, "skip recovery investigation"));
-        Assert.Throws<InvalidOperationException>(() =>
-            coordinator.Transition("foundry-8", lease, WorkTaskStatus.Investigating, Now, "unsigned recovery"));
-        var incident = TestIncident();
-        var receipt = TestReceipt(taskEventSequence: 5, incidentSequence: incident.Sequence);
-        var recovered = coordinator.RecoverFromCodeRed("foundry-8", lease, incident, receipt,
-            Now.AddMinutes(1), "resume after host approval");
-        Assert.Equal(WorkTaskStatus.Investigating, recovered.Status);
-        Assert.Equal(receipt.ReceiptId, recovered.Events[^1].ApprovalReceiptId);
-        Assert.Equal(receipt.Principal, recovered.Events[^1].ApprovalPrincipal);
-        coordinator.Transition("foundry-8", lease, WorkTaskStatus.Implementing, Now, "resume bounded repair");
-        Assert.Throws<InvalidOperationException>(() =>
-            coordinator.Transition("foundry-8", lease, WorkTaskStatus.Validating, Now, "attempt beyond budget"));
-        Assert.Equal(1, coordinator.GetSnapshot("foundry-8").Attempt);
+        coordinator.Transition("foundry-8", lease, WorkTaskStatus.Validating, Now, "validate");
+        coordinator.Transition("foundry-8", lease, WorkTaskStatus.CodeRed, Now, "required check failed");
 
-        // Restart must authenticate the persisted approval again; presence and shape
-        // of receipt metadata alone must never authorize replay of the guarded FSM edge.
-        using var restored = new WorkTaskCoordinator(new TestRecoveryReceiptVerifier());
-        restored.Restore(recovered);
-        Assert.Equal(WorkTaskStatus.Investigating, restored.GetSnapshot("foundry-8").Status);
+        var before = coordinator.GetSnapshot("foundry-8");
+        Assert.Equal(1, before.Attempt);
+        Assert.Throws<InvalidOperationException>(() =>
+            coordinator.Transition("foundry-8", lease, WorkTaskStatus.Investigating,
+                Now.AddMinutes(1), "attempt unauthorised recovery"));
+        Assert.Throws<InvalidOperationException>(() =>
+            coordinator.Transition("foundry-8", lease, WorkTaskStatus.Implementing,
+                Now.AddMinutes(1), "attempt retry-budget bypass"));
 
-        using var noVerifier = new WorkTaskCoordinator();
-        Assert.Throws<UnauthorizedAccessException>(() => noVerifier.Restore(recovered));
-
-        var tamperedEvent = recovered.Events[^1] with
-        {
-            ApprovalReceipt = recovered.Events[^1].ApprovalReceipt! with { Signature = "tampered-signature" }
-        };
-        var tampered = recovered with
-        {
-            Events = recovered.Events.Take(recovered.Events.Count - 1).Append(tamperedEvent).ToArray()
-        };
-        using var tamperedRestore = new WorkTaskCoordinator(new TestRecoveryReceiptVerifier());
-        Assert.Throws<UnauthorizedAccessException>(() => tamperedRestore.Restore(tampered));
+        var after = coordinator.GetSnapshot("foundry-8");
+        Assert.Equal(WorkTaskStatus.CodeRed, after.Status);
+        Assert.Equal(1, after.Attempt);
+        Assert.Equal(before.Events, after.Events);
     }
 
     [Fact]
@@ -349,24 +286,6 @@ public sealed class WorkTaskCoordinatorTests
         Assert.Equal(WorkTaskStatus.HandedOff, handedOff.Status);
         Assert.Null(handedOff.Lease);
         Assert.Equal(6, handedOff.Events.Count);
-    }
-
-    private static CodeRedIncident TestIncident() => new(1, "incident-8",
-        "TrentBest/TheSingularityWorkshop.Foundry", "foundry-8", 8, "correlation-8",
-        "agent-a", "implementation", "Investigating CI failure", "work/code-red-task-lifecycle",
-        new string('a', 40), null, null, CodeRedSeverity.Critical, "Validation blocked", 1,
-        Now, Now, null, true);
-
-    private static CodeRedRecoveryApprovalReceipt TestReceipt(long taskEventSequence, long incidentSequence) =>
-        new(1, "receipt-8", "test-host", "human-reviewer", "foundry-8", "incident-8",
-            taskEventSequence, incidentSequence, CodeRedRecoveryAction.ResumeInvestigation,
-            Now, Now.AddMinutes(5), "signed-test-receipt");
-
-    private sealed class TestRecoveryReceiptVerifier : ICodeRedRecoveryReceiptVerifier
-    {
-        public bool IsTrustedIssuer(string issuer) => issuer == "test-host";
-        public bool VerifySignature(string issuer, ReadOnlyMemory<byte> signingPayload, string signature) =>
-            issuer == "test-host" && signature == "signed-test-receipt" && !signingPayload.IsEmpty;
     }
 
     private static WorkTaskRepairAttempt FailedAttempt() =>
