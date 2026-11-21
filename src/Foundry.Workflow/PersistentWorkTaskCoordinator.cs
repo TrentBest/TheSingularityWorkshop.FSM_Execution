@@ -15,12 +15,11 @@ public sealed class PersistentWorkTaskCoordinator : IDisposable
     private bool _disposed;
 
     public PersistentWorkTaskCoordinator(JsonlWorkTaskStore store,
-        JsonlWorkTaskRepairAttemptJournal? repairAttemptJournal = null,
-        ICodeRedRecoveryReceiptVerifier? recoveryReceiptVerifier = null)
+        JsonlWorkTaskRepairAttemptJournal? repairAttemptJournal = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _repairAttemptJournal = repairAttemptJournal;
-        _coordinator = new WorkTaskCoordinator(recoveryReceiptVerifier);
+        _coordinator = new WorkTaskCoordinator();
         try
         {
             foreach (var snapshot in _store.GetAll())
@@ -66,15 +65,15 @@ public sealed class PersistentWorkTaskCoordinator : IDisposable
         }
     }
 
-    /// <summary>Verifies and durably records a host-approved CODE RED recovery.</summary>
-    public WorkTaskSnapshot RecoverFromCodeRed(string taskId, Guid leaseId,
-        CodeRedIncident incident, CodeRedRecoveryApprovalReceipt receipt,
-        DateTimeOffset now, string reason)
+    /// <summary>Durably records a recovery already authorized by the host approval gate.</summary>
+    internal WorkTaskSnapshot RecoverFromCodeRed(string taskId, Guid leaseId,
+        CodeRedIncident incident, long expectedTaskEventSequence, DateTimeOffset now, string reason)
     {
         lock (_gate)
         {
             EnsureHealthy();
-            var snapshot = _coordinator.RecoverFromCodeRed(taskId, leaseId, incident, receipt, now, reason);
+            var snapshot = _coordinator.RecoverFromCodeRed(taskId, leaseId, incident,
+                expectedTaskEventSequence, now, reason);
             return Persist(snapshot);
         }
     }
