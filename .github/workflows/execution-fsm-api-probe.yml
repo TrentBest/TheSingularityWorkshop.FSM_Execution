@@ -42,28 +42,28 @@ jobs:
 
       - name: Restore projects
         run: |
-          dotnet restore src/Foundry.FsmApiProbe/Execution.FsmApiProbe.csproj
-          dotnet restore src/Foundry.FoxSheepdog/Execution.FoxSheepdog.csproj
-          dotnet restore tests/Foundry.Workflow.Tests/Execution.Workflow.Tests.csproj
-          dotnet restore src/Foundry.HeadlessAiHost/Execution.HeadlessAiHost.csproj
-          dotnet restore src/Foundry.HeadlessAiHost.Console/Execution.HeadlessAiHost.Console.csproj
+          dotnet restore src/Foundry.FsmApiProbe/Foundry.FsmApiProbe.csproj
+          dotnet restore src/Foundry.FoxSheepdog/Foundry.FoxSheepdog.csproj
+          dotnet restore tests/Foundry.Workflow.Tests/Foundry.Workflow.Tests.csproj
+          dotnet restore src/Foundry.HeadlessAiHost/Foundry.HeadlessAiHost.csproj
+          dotnet restore src/Foundry.HeadlessAiHost.Console/Foundry.HeadlessAiHost.Console.csproj
 
       - name: Test workflow runtime
-        run: dotnet test tests/Foundry.Workflow.Tests/Execution.Workflow.Tests.csproj --configuration Release --no-restore
+        run: dotnet test tests/Foundry.Workflow.Tests/Foundry.Workflow.Tests.csproj --configuration Release --no-restore
 
       - name: Build projects
         run: |
-          dotnet build src/Foundry.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-restore
-          dotnet build src/Foundry.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-restore
-          dotnet build src/Foundry.HeadlessAiHost/Execution.HeadlessAiHost.csproj --configuration Release --no-restore
-          dotnet build src/Foundry.HeadlessAiHost.Console/Execution.HeadlessAiHost.Console.csproj --configuration Release --no-restore
+          dotnet build src/Foundry.FsmApiProbe/Foundry.FsmApiProbe.csproj --configuration Release --no-restore
+          dotnet build src/Foundry.FoxSheepdog/Foundry.FoxSheepdog.csproj --configuration Release --no-restore
+          dotnet build src/Foundry.HeadlessAiHost/Foundry.HeadlessAiHost.csproj --configuration Release --no-restore
+          dotnet build src/Foundry.HeadlessAiHost.Console/Foundry.HeadlessAiHost.Console.csproj --configuration Release --no-restore
 
       - name: Verify basic FSM_API probe in separate processes
         shell: bash
         run: |
           mkdir -p artifacts
-          dotnet run --project src/Foundry.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-1.txt 2>&1
-          dotnet run --project src/Foundry.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-2.txt 2>&1
+          dotnet run --project src/Foundry.FsmApiProbe/Foundry.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-1.txt 2>&1
+          dotnet run --project src/Foundry.FsmApiProbe/Foundry.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-2.txt 2>&1
           diff -u artifacts/fsm-api-probe-run-1.txt artifacts/fsm-api-probe-run-2.txt
           cat artifacts/fsm-api-probe-run-1.txt
 
@@ -71,8 +71,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts/fox-run-1 artifacts/fox-run-2
-          dotnet run --project src/Foundry.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-1 | tee artifacts/fox-run-1.txt
-          dotnet run --project src/Foundry.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-2 | tee artifacts/fox-run-2.txt
+          dotnet run --project src/Foundry.FoxSheepdog/Foundry.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-1 | tee artifacts/fox-run-1.txt
+          dotnet run --project src/Foundry.FoxSheepdog/Foundry.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-2 | tee artifacts/fox-run-2.txt
           diff -u artifacts/fox-run-1/fox-sheepdog.trace artifacts/fox-run-2/fox-sheepdog.trace
           diff -u artifacts/fox-run-1/fox-sheepdog.svg artifacts/fox-run-2/fox-sheepdog.svg
           grep -q "PASS: dog-to-fox cross-FSM transition reached Mangled." artifacts/fox-run-1.txt
