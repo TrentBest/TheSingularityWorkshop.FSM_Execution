@@ -68,7 +68,7 @@ Likewise, cancellation is cooperative. A handler that ignores its cancellation t
 
 CODE RED is a fail-safe mutation suspension and escalation state. The host owns incident notification transport and authenticates the human approver.
 
-The current `development` lifecycle still verifies a signed, single-use host-issued recovery receipt inside FSM_Execution. The recorded architecture decision places human-approval enforcement in the host adapter. Draft PR [#18](https://github.com/TrentBest/TheSingularityWorkshop.Execution/pull/18) proposes the host-owned approval gate, rechecks incident/task sequences after approval, and retains receipt fields only for old journal replay. Its exact-head proof workflow passed, but it remains unmerged; until then, this implementation/decision discrepancy remains open.
+The current `development` lifecycle still verifies a signed, single-use host-issued recovery receipt inside FSM_Execution. The recorded architecture decision places human-approval enforcement in the host adapter. Draft PR [#18](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/18) proposes the host-owned approval gate, rechecks incident/task sequences after approval, and retains receipt fields only for old journal replay. Its exact-head proof workflow passed, but it remains unmerged; until then, this implementation/decision discrepancy remains open.
 
 No model response, issue comment, CI result, or task transition reason is a substitute for an authenticated human approval.
 
@@ -96,7 +96,7 @@ If any answer is missing, the operation should not inherit broad ambient authori
 3. [Capability registry](../../src/Execution.Workflow/WorkTaskCapabilityRegistry.cs) — host-issued scoped action grants.
 4. [HeadlessAi turn bridge](../../docs/HEADLESSAI_TURN_BRIDGE.md) — durable at-most-once invocation behavior and untrusted proposal boundary.
 5. [Work task persistence](../../src/Execution.Workflow/PersistentWorkTaskCoordinator.cs) — local persistence and fail-closed mutation behavior.
-6. [CiAi transport security proposal](https://github.com/TrentBest/TheSingularityWorkshop.Execution/blob/feature/foundry-pinned-artifact-transport/docs/CIAI_ARTIFACT_TRANSPORT_SECURITY.md) — feature-branch DNS-pinned transport design; not merged to development.
+6. [CiAi transport security proposal](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/blob/feature/foundry-pinned-artifact-transport/docs/CIAI_ARTIFACT_TRANSPORT_SECURITY.md) — feature-branch DNS-pinned transport design; not merged to development.
 7. [CiAi callback contract](../CIAI_ARTIFACT_CALLBACK_CONTRACT.md) — host-owned authenticated ingress contract; production endpoint remains unimplemented.
 
 Important remaining work includes production host authentication and authorization, secure credential provisioning and rotation, mandatory capability enforcement in a real GitHub adapter, authenticated CiAi callback deployment, hardened artifact retrieval integration, cross-process task coordination, journal backup/retention/reconciliation, production incident transport, and review/merge of the tested host-owned CODE RED approval proposal in draft PR #18.
