@@ -5,7 +5,7 @@
 
 The canonical cross-cutting model is [Execution Theory](../EXECUTION_MODEL_THEORY.md). It defines the vocabulary and invariants for execution models, engines, schedulers, hosts, synchronous and asynchronous progress, concurrency, parallelism, time, effects, evidence, and recovery.
 
-The chapters below develop the domain progressively. They are designed to teach the why and how, map theory to implementation, and clearly label the limits of current evidence.
+The twelve chapters below develop the domain progressively. They are designed to teach the why and how, map theory to implementation, and clearly label the limits of current evidence.
 
 ## Chapter map
 
@@ -21,13 +21,16 @@ The chapters below develop the domain progressively. They are designed to teach 
 | [08 — Scheduling, dependencies, and concurrency](08-scheduling-and-concurrency.md) | When may work overlap, what must remain ordered, and what does a scheduler owe? |
 | [09 — Observability, audit, and reproducibility](09-observability-and-reproducibility.md) | How can an operator reconstruct what happened and distinguish evidence from presentation? |
 | [10 — Security and failure containment](10-security-and-failure-containment.md) | How does execution fail safely when identity, authority, evidence, or external systems are uncertain? |
+| [11 — Asynchronous execution and work ownership](11-asynchronous-execution.md) | How does work outlive its caller while retaining identity, cancellation, and ownership? |
+| [12 — Parallel execution, graphs, and resource scheduling](12-parallel-execution-and-scheduling.md) | When may independent work run simultaneously, and how are resources and partial failures governed? |
 
 ## The execution dimensions
 
 The chapter sequence is supported by the central theory's explicit distinctions:
 
 - **Synchronous vs asynchronous:** whether the caller waits for completion is independent of whether the work runs in parallel.
-- **Concurrency vs parallelism:** overlapping lifetimes do not prove simultaneous progress on separate execution resources.
+- **Concurrency vs parallelism:** overlapping lifetimes do not prove simultaneous progress on separate execution resources. Chapter 12 develops dependency graphs, resource scheduling, partial failure, and distributed work.
+- **Async work ownership:** asynchronous completion does not make child work disappear; Chapter 11 defines structured ownership, cancellation propagation, joining, and backpressure.
 - **Sequential vs graph scheduling:** a declared order is not a dependency graph; parallel eligibility requires explicit dependency and resource semantics.
 - **Periodic vs continuous:** a model's time semantics differ from the wall-clock duration used to run its engine.
 - **Local vs distributed:** a local lease or journal does not imply cross-process exclusion, distributed consensus, or exactly-once external effects.
