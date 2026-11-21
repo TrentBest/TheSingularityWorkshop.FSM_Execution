@@ -50,12 +50,12 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
             calls.Add(request.RequestUri!);
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
                 return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{Sha}}","type":"commit"}}"""));
+                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
             Assert.Equal("/repos/TrentBest/Sample/contents/AgentOnboarding.md", request.RequestUri.AbsolutePath);
             Assert.Equal($"?ref={Sha}", request.RequestUri.Query);
             var bytes = Encoding.UTF8.GetBytes(ValidOnboarding);
             return Task.FromResult(Json(HttpStatusCode.OK,
-                $$"""{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":{{bytes.Length}},"content":"{{Convert.ToBase64String(bytes)}}"}"""));
+                $$"""{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":{{{bytes.Length}}},"content":"{{{Convert.ToBase64String(bytes)}}}"}"""));
         });
         var verifier = CreateVerifier(client);
 
@@ -77,7 +77,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         {
             calls++;
             return Task.FromResult(Json(HttpStatusCode.OK,
-                $$"""{"ref":"refs/heads/development","object":{"sha":"{{Sha}}","type":"commit"}}"""));
+                $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
         });
         var verifier = CreateVerifier(client);
 
@@ -94,7 +94,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         {
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
                 return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{Sha}}","type":"commit"}}"""));
+                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
             Assert.Equal($"?ref={Sha}", request.RequestUri.Query);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         });
@@ -111,7 +111,7 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         {
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
                 return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{Sha}}","type":"commit"}}"""));
+                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
             return Task.FromResult(Json(HttpStatusCode.OK,
                 """{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":2,"content":"//4="}"""));
         });
@@ -128,9 +128,9 @@ public sealed class GitHubAgentOnboardingAdmissionVerifierTests
         {
             if (request.RequestUri!.AbsolutePath.EndsWith("/git/ref/heads/development", StringComparison.Ordinal))
                 return Task.FromResult(Json(HttpStatusCode.OK,
-                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{Sha}}","type":"commit"}}"""));
+                    $$"""{"ref":"refs/heads/development","object":{"sha":"{{{Sha}}}","type":"commit"}}"""));
             return Task.FromResult(Json(HttpStatusCode.OK,
-                $$"""{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":{{AgentOnboardingValidator.MaximumContentBytes + 1}},"content":""}"""));
+                $$"""{"path":"AgentOnboarding.md","type":"file","encoding":"base64","size":{{{AgentOnboardingValidator.MaximumContentBytes + 1}}},"content":""}"""));
         });
         var evidence = await CreateVerifier(client).VerifyAsync(Repository, Sha);
 
