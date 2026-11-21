@@ -3,7 +3,7 @@
 
 # Foundry Roadmap and Readiness
 
-**Readiness: early implementation; no current percentage is asserted.** The previous 35% estimate predates the governed-work lifecycle and is not comparable to the expanded scope. The version-1 workflow runtime passed its development CI gate; the governed-work feature branch passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768) on exact head `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`, including workflow timeout/cancellation tests. This is not a release-readiness claim. The signed host-issued CODE RED recovery receipt boundary passed [feature-branch CI run #294](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41172622514) on exact head 0ef31369daa115fb652e46b79d208ea66ab8fc83.
+**Readiness: early implementation; no current percentage is asserted.** The previous 35% estimate predates the governed-work lifecycle and is not comparable to the expanded scope. The version-1 workflow runtime passed its development CI gate; the governed-work feature branch passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768) on exact head `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`, including workflow timeout/cancellation tests. This is not a release-readiness claim. The host-owned CODE RED approval gate and FSM_API-backed task lifecycle passed [exact-head CI run #1179](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44887223110) on head `409a7c1886667c10233b77c88a7bac246c1fbf59`; signed v1 receipt fields remain replay-only compatibility data.
 
 ## Milestones
 
