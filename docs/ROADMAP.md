@@ -76,6 +76,17 @@ The completed items below are implemented on PR #10's feature branch and are not
 - [ ] Prove the red → evidence → bounded repair → green → draft-PR path with deterministic fake-provider/fake-GitHub tests.
 - [ ] Complete the first integrated MyVR pilot and preserve human review/merge authority.
 
+## Execution theory foundation
+
+- [x] Define model, definition, engine, scheduler, executor, host, instance, and trace/evidence as distinct concepts.
+- [x] Cover sequential, graph/dataflow, FSM, event/reactive, request/response, simulation, stream, batch, interactive, and distributed model families.
+- [x] Distinguish synchronous, asynchronous, concurrent, parallel, periodic, and continuous/model-time execution.
+- [x] Define clock domains, dependencies, resource claims, bounded scheduling, cancellation/join, idempotency, retries, recovery, and indeterminate effects.
+- [x] Establish authority, evidence, replay, composition, and outcome invariants.
+- [x] Add the [Execution Theory](EXECUTION_MODEL_THEORY.md) learning path.
+
+**Theory status is not implementation status.** The current concrete workflow engine remains sequential. General graph scheduling, parallel workflow steps, general asynchronous child orchestration, real-time scheduling, distributed leases, cross-host scheduling, and universal checkpoint/replay remain future capabilities until each has a source-backed contract, tests, and exact-head CI evidence.
+
 ## Readiness rubric
 
 | Gate | Weight | Current evidence |
