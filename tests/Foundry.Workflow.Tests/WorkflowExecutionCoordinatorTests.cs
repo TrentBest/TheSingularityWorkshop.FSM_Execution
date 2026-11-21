@@ -112,6 +112,35 @@ public sealed class WorkflowExecutionCoordinatorTests
     }
 
     [Fact]
+    public async Task CallerCancellationWinsWhenHandlerIgnoresBothCancellationTokens()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var timeoutRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var registry = new WorkflowHandlerRegistry();
+        registry.Register("wait", async token =>
+        {
+            using var registration = token.Register(() => timeoutRequested.TrySetResult());
+            entered.TrySetResult();
+            await release.Task; // Deliberately ignore cancellation and return successfully.
+        });
+        await using var coordinator = new WorkflowExecutionCoordinator(registry);
+        var accepted = coordinator.Submit(Definition(new WorkflowStep("step-1", "wait")));
+
+        var completion = coordinator.StartAsync(accepted.RunId, TimeSpan.FromMilliseconds(100));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await timeoutRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(coordinator.Cancel(accepted.RunId));
+        release.TrySetResult();
+
+        var result = await completion.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(WorkflowStatus.Cancelled, result.Status);
+        Assert.Equal(WorkflowRunStatus.Cancelled,
+            coordinator.GetSnapshot(accepted.RunId).Status);
+    }
+
+    [Fact]
     public async Task TimeoutDoesNotForceStopAHandlerThatIgnoresCancellation()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
