@@ -97,7 +97,10 @@ public sealed class WorkflowExecutionCoordinator : IAsyncDisposable
             if (state.Status != WorkflowRunStatus.Running)
                 return false;
 
-            // CancelAsync requests cancellation without running arbitrary callbacks under _gate.
+            // Record caller intent while holding _gate. Linked-token callbacks may run
+            // asynchronously, so the handler can otherwise finish before cancellation
+            // reaches its token. The terminal outcome must honor the accepted request.
+            state.CallerCancellationRequested = true;
             _ = state.Cancellation.CancelAsync();
             return true;
         }
@@ -176,11 +179,15 @@ public sealed class WorkflowExecutionCoordinator : IAsyncDisposable
 
         lock (_gate)
         {
-            // Evaluate both signals at the terminal-state boundary. If the caller has
-            // requested cancellation by this point, it wins even when timeout also fired.
-            if (result.Status != WorkflowStatus.Invalid &&
-                state.Timeout!.IsCancellationRequested &&
-                !state.Cancellation.IsCancellationRequested)
+            // Resolve terminal precedence from the intent recorded under _gate, not
+            // from linked-token callback timing. A caller cancellation accepted before
+            // this terminal transition wins over timeout and a handler that races to return.
+            if (result.Status != WorkflowStatus.Invalid && state.CallerCancellationRequested)
+            {
+                result = new WorkflowResult(result.WorkflowId, WorkflowStatus.Cancelled,
+                    result.Steps, result.Diagnostics);
+            }
+            else if (result.Status != WorkflowStatus.Invalid && state.Timeout!.IsCancellationRequested)
             {
                 result = new WorkflowResult(result.WorkflowId, WorkflowStatus.TimedOut,
                     result.Steps, result.Diagnostics);
@@ -228,6 +235,7 @@ public sealed class WorkflowExecutionCoordinator : IAsyncDisposable
         public WorkflowRunStatus Status { get; set; } = WorkflowRunStatus.Accepted;
         public WorkflowResult? Result { get; set; }
         public CancellationTokenSource Cancellation { get; } = new();
+        public bool CallerCancellationRequested { get; set; }
         public CancellationTokenSource? Timeout { get; set; }
         public CancellationTokenSource? ExecutionCancellation { get; set; }
         public TaskCompletionSource<WorkflowResult> Completion { get; } =
