@@ -41,7 +41,7 @@ The focused tests cover declared order, invalid definitions before side effects,
 | Dependency graph / parallel execution | Execute work based on graph dependencies | Not implemented |
 | Retry, compensation, recovery | Policy for repeating or undoing side effects | Not implemented |
 | Persisted manifest | Stable external representation and compatibility rules | Not selected or implemented |
-| Timeout enforcement | Bound execution time across handlers | Not implemented by the core runtime |
+| Cooperative workflow timeout | Optional per-run deadline requests cancellation and reports a distinct `TimedOut` outcome | Implemented in PR #43; not a hard handler kill |
 | Evidence provenance and retention | Durable, queryable evidence model | Only the existing CI proof artifacts are demonstrated |
 
 ## What FSM_Execution owns
@@ -81,7 +81,7 @@ FSM_COS remains a separate composition boundary when a workflow genuinely needs 
 - Presentation snapshots are observational; commands pass through the coordinator.
 - External publication and deployment remain disabled unless explicitly authorized.
 
-These invariants are scoped to the current implementation and its tests. Durable run history, retries, compensation, enforced timeouts, and cross-process orchestration remain outside the implemented contract.
+These invariants are scoped to the current implementation and its tests. Durable run history, retries, compensation, hard handler termination, and cross-process orchestration remain outside the implemented contract. The optional workflow timeout is cooperative: a handler that ignores its cancellation token may continue running.
 
 ## Next verification and theory work
 
