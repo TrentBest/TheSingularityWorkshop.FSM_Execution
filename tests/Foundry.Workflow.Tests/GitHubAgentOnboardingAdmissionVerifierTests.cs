@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using TheSingularityWorkshop.CiAi;
+using TheSingularityWorkshop.Foundry;
 using TheSingularityWorkshop.Foundry.GitHubHost;
 using Xunit;
 
