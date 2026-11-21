@@ -1,0 +1,94 @@
+name: FSM_Execution FSM_API and Fox/Sheepdog Proof
+
+on:
+  push:
+    branches:
+      - development
+  pull_request:
+    branches:
+      - development
+      - work/code-red-task-lifecycle
+      - feature/foundry-headlessai-turn-seam
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fsm-execution-ci-proof-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fsm-api-proof:
+    name: Build, execute, and capture state evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check out pinned HeadlessAi source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: TrentBest/TheSingularityWorkshop.HeadlessAi
+          ref: c87386f0deb5f2f9f8a34dadc6811f2d59727c9f
+          path: headlessai
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Verify repository identity
+        run: python3 scripts/verify-execution-identity.py
+
+      - name: Restore projects
+        run: |
+          dotnet restore src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj
+          dotnet restore src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj
+          dotnet restore tests/Execution.Workflow.Tests/Execution.Workflow.Tests.csproj
+          dotnet restore src/Execution.HeadlessAiHost/Execution.HeadlessAiHost.csproj
+          dotnet restore src/Execution.HeadlessAiHost.Console/Execution.HeadlessAiHost.Console.csproj
+
+      - name: Test workflow runtime
+        run: dotnet test tests/Execution.Workflow.Tests/Execution.Workflow.Tests.csproj --configuration Release --no-restore
+
+      - name: Build projects
+        run: |
+          dotnet build src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-restore
+          dotnet build src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-restore
+          dotnet build src/Execution.HeadlessAiHost/Execution.HeadlessAiHost.csproj --configuration Release --no-restore
+          dotnet build src/Execution.HeadlessAiHost.Console/Execution.HeadlessAiHost.Console.csproj --configuration Release --no-restore
+
+      - name: Verify basic FSM_API probe in separate processes
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          dotnet run --project src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-1.txt 2>&1
+          dotnet run --project src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-2.txt 2>&1
+          diff -u artifacts/fsm-api-probe-run-1.txt artifacts/fsm-api-probe-run-2.txt
+          cat artifacts/fsm-api-probe-run-1.txt
+
+      - name: Execute fox and sheepdog scenario twice
+        shell: bash
+        run: |
+          mkdir -p artifacts/fox-run-1 artifacts/fox-run-2
+          dotnet run --project src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-1 | tee artifacts/fox-run-1.txt
+          dotnet run --project src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-2 | tee artifacts/fox-run-2.txt
+          diff -u artifacts/fox-run-1/fox-sheepdog.trace artifacts/fox-run-2/fox-sheepdog.trace
+          diff -u artifacts/fox-run-1/fox-sheepdog.svg artifacts/fox-run-2/fox-sheepdog.svg
+          grep -q "PASS: dog-to-fox cross-FSM transition reached Mangled." artifacts/fox-run-1.txt
+
+      - name: Publish run evidence as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: execution-ci-state-evidence
+          path: |
+            artifacts/fsm-api-probe-run-*.txt
+            artifacts/fox-run-1.txt
+            artifacts/fox-run-1/fox-sheepdog.trace
+            artifacts/fox-run-1/fox-sheepdog.svg
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,7 +1,7 @@
 <!-- The Singularity Workshop moniker -->
 <p align="center"><a href="https://github.com/TrentBest"><img src="https://raw.githubusercontent.com/TrentBest/TheSingularityWorkshop.Visualize/development/docs/assets/moniker.svg" alt="The Singularity Workshop animated moniker" width="720" /></a></p>
 
-# Foundry UML and Source Documentation
+# Execution UML and Source Documentation
 
 **Status:** source-grounded UML policy and manual views exist for the initial probe and the retained workflow lifecycle coordinator. Automated generation remains absent.
 
@@ -36,8 +36,8 @@ Only add a view when there is sufficient evidence. Mark unimplemented flows as t
 ## Current inventory
 
 - [WorkflowExecutionCoordinator neighborhood](WorkflowExecutionCoordinatorUML.md) — retained run lifecycle and its relationship to the existing runner.
-- [Coordinator source companion](../../src/Foundry.Workflow/WorkflowExecutionCoordinator.md) — purpose, public commands, limits, and tests.
-- [FSM_API probe companion](../../src/Foundry.FsmApiProbe/Program.md) and [probe neighborhood](FoundryFsmApiProbeUML.md) — the original state-execution proof.
+- [Coordinator source companion](../../src/Execution.Workflow/WorkflowExecutionCoordinator.md) — purpose, public commands, limits, and tests.
+- [FSM_API probe companion](../../src/Execution.FsmApiProbe/Program.md) and [probe neighborhood](ExecutionFsmApiProbeUML.md) — the original state-execution proof.
 
 The workflow runtime views are maintained manually and are not generated output. The broader type inventory, source-span provenance, and stale-view detection remain future work.
 

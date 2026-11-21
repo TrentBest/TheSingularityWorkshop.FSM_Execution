@@ -3,7 +3,7 @@
 
 # Repository Instructions for AI Agents
 
-This file is Foundry's contributor and agent onboarding guide. It adapts the Workshop-wide policy in [FSM_COS AGENTS.md](https://github.com/TrentBest/TheSingularityWorkshop.FSM_COS/blob/development/AGENTS.md) to Foundry's actual ownership boundaries. The shared editorial and evidence rules are defined in [FSM_COS DOCUMENTATION_STANDARD.md](https://github.com/TrentBest/TheSingularityWorkshop.FSM_COS/blob/development/DOCUMENTATION_STANDARD.md); read it before substantial documentation work.
+This file is Execution's contributor and agent onboarding guide. It adapts the Workshop-wide policy in [FSM_COS AGENTS.md](https://github.com/TrentBest/TheSingularityWorkshop.FSM_COS/blob/development/AGENTS.md) to Execution's actual ownership boundaries. The shared editorial and evidence rules are defined in [FSM_COS DOCUMENTATION_STANDARD.md](https://github.com/TrentBest/TheSingularityWorkshop.FSM_COS/blob/development/DOCUMENTATION_STANDARD.md); read it before substantial documentation work.
 
 ## Branch and release policy — mandatory
 
@@ -18,19 +18,21 @@ Never delete or rewrite a branch on the owner's behalf. Before recommending reti
 
 A green CI run is not merge or release authorization. Do not merge, tag, deploy, publish a NuGet package, or replace `master` unless the owner explicitly authorizes that exact action. Keep package-publishing jobs gated or skipped by default.
 
-## Foundry owns execution lifecycle
+### FSM_Execution owns the model-neutral execution boundary
 
-Foundry is the host-neutral execution and work-control boundary for the Workshop Hub.
+Read [Execution Model Theory](docs/EXECUTION_MODEL_THEORY.md) before designing a new execution model. The current sequential workflow runner is one model-specific engine. Do not make workflow semantics universal by accident. Model definitions are data, capabilities are host-granted, and execution outcomes must distinguish indeterminate external effects.
 
-- **Foundry owns:** workflow validation and execution lifecycle, task claims/leases, correlation, cancellation, status, bounded orchestration, authorization boundaries, audit, handoff, and authoritative outcomes.
+FSM_Execution is the host-neutral execution and work-control boundary for the Workshop Hub.
+
+- **FSM_Execution owns:** workflow validation and execution lifecycle, task claims/leases, correlation, cancellation, status, bounded orchestration, authorization boundaries, audit, handoff, and authoritative outcomes.
 - **WorkflowRunner** remains the sequential step executor. **WorkflowExecutionCoordinator** owns the retained in-process workflow lifecycle around it. Extend these contracts when they fit; do not introduce a competing runner or scheduler.
-- **FSM_COS composes:** it resolves and validates MicroBundles and returns a `RuntimeAssembly`. It does not own Foundry workflow execution or host lifecycle. Foundry must not recompose an assembly.
-- **GUI presents:** it may display Foundry snapshots and send explicit commands, but it does not own execution state or the authoritative loop.
-- **HeadlessAi invokes models:** it owns provider-neutral request/exchange contracts and invocation only. It does not own Foundry lifecycle, authorization, tool execution, repository mutation, or retry orchestration.
+- **FSM_COS composes:** it resolves and validates MicroBundles and returns a `RuntimeAssembly`. It does not own Execution workflow execution or host lifecycle. Execution must not recompose an assembly.
+- **GUI presents:** it may display Execution snapshots and send explicit commands, but it does not own execution state or the authoritative loop.
+- **HeadlessAi invokes models:** it owns provider-neutral request/exchange contracts and invocation only. It does not own Execution lifecycle, authorization, tool execution, repository mutation, or retry orchestration.
 - **CiAi evaluates CI:** it owns deterministic CI policy and exact-run evidence contracts. It is not the general agent coordinator and does not grant repository permissions.
 - **GitHub is the durable repository authority:** issues, branches, commits, workflow runs, evidence links, reviews, and pull requests remain source-of-truth artifacts.
 - **Hosts own concrete capabilities:** credentials, secure re-authentication, repository operations, provider configuration, network dispatch, and external notification transports stay behind explicit host adapters.
-- **FSM_API supplies FSM mechanics** where Foundry directly consumes them. Do not recreate FSM_API behavior in Foundry.
+- **FSM_API supplies FSM mechanics** where Execution directly consumes them. Do not recreate FSM_API behavior in Execution.
 
 Keep `WorkflowDefinition`, FSM_COS `RuntimeAssembly`, and legacy host work descriptors distinct unless source inspection and a deterministic test prove a safe adapter.
 
@@ -52,7 +54,7 @@ Keep `WorkflowDefinition`, FSM_COS `RuntimeAssembly`, and legacy host work descr
 
 1. Read this file and the shared [FSM_COS agent onboarding](https://github.com/TrentBest/TheSingularityWorkshop.FSM_COS/blob/development/AGENTS.md) plus [documentation standard](https://github.com/TrentBest/TheSingularityWorkshop.FSM_COS/blob/development/DOCUMENTATION_STANDARD.md).
 2. Inspect current `development`, the active feature branch, open pull requests, recent commits, assigned/open issues, and CI for the exact current head. Do not rely on a previous session's status summary.
-3. Read the relevant Foundry sources and contracts: [README](README.md), [Domain](docs/DOMAIN.md), [Architecture](docs/ARCHITECTURE.md), [Workflow Semantics](docs/WORKFLOW_SEMANTICS.md), [Hub Integration Boundary](docs/HUB_INTEGRATION_BOUNDARY.md), [Contract Inspection](docs/CONTRACT_INSPECTION.md), [Roadmap](docs/ROADMAP.md), and [UML index](docs/UML/README.md).
+3. Read the relevant Execution sources and contracts: [README](README.md), [Domain](docs/DOMAIN.md), [Architecture](docs/ARCHITECTURE.md), [Workflow Semantics](docs/WORKFLOW_SEMANTICS.md), [Hub Integration Boundary](docs/HUB_INTEGRATION_BOUNDARY.md), [Contract Inspection](docs/CONTRACT_INSPECTION.md), [Roadmap](docs/ROADMAP.md), and [UML index](docs/UML/README.md).
 4. Read the exact issue acceptance criteria and relevant upstream contracts before changing an integration. Coordinate rather than duplicating scope.
 5. Prefer a small deterministic fake-adapter proof before enabling live GitHub or provider operations.
 6. Run the relevant tests and inspect the exact commit's GitHub Actions result. State what was tested, against which SHA, and what remains unverified.
@@ -61,10 +63,10 @@ Keep `WorkflowDefinition`, FSM_COS `RuntimeAssembly`, and legacy host work descr
 
 Use the existing issue hierarchy; do not create competing roadmaps:
 
-- [Foundry #8 — CODE RED bounded CI-to-agent repair loop](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/8) is the current integration priority.
-- [Foundry #5 — governed issue-to-draft-PR loop](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/5) defines the first repository-local vertical slice.
-- [Foundry #6 — GitHub-native agent coordination](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/6) owns cross-repository claims, status, questions, dependencies, and handoffs.
-- [Foundry #7 — multi-model agent teams](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/7) owns fan-out/fan-in, provider roles, comparison, and arbitration.
+- [Execution #8 — CODE RED bounded CI-to-agent repair loop](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/issues/8) is the current integration priority.
+- [Execution #5 — governed issue-to-draft-PR loop](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/issues/5) defines the first repository-local vertical slice.
+- [Execution #6 — GitHub-native agent coordination](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/issues/6) owns cross-repository claims, status, questions, dependencies, and handoffs.
+- [Execution #7 — multi-model agent teams](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/issues/7) owns fan-out/fan-in, provider roles, comparison, and arbitration.
 - Coordinate with [HeadlessAi #10](https://github.com/TrentBest/TheSingularityWorkshop.HeadlessAi/issues/10) for resumable model turns and [CiAi #27](https://github.com/TrentBest/TheSingularityWorkshop.CiAi/issues/27) for exact-SHA evidence and bounded rerun contracts.
 - [MyVR #10](https://github.com/TrentBest/TheSingularityWorkshop.MyVR/issues/10) is the first end-to-end proving scenario. Do not claim the ecosystem loop is complete before that proof passes.
 
@@ -72,7 +74,7 @@ Use the existing issue hierarchy; do not create competing roadmaps:
 
 - Write for end users and maintainers who have not read private chat history. Explain the problem, ownership, how to use or verify the capability, and its limits.
 - Where applicable, README and major guides follow the five-part journey: **What**, **Why**, **How**, **See it in a minute**, **Choose your next step**.
-- Teach Foundry's own domain as a progressive theory path. Link to FSM_API, FSM_COS, HeadlessAi, CiAi, and other repositories for concepts they own; do not copy their manuals or claim their theory.
+- Teach Execution's own domain as a progressive theory path. Link to FSM_API, FSM_COS, HeadlessAi, CiAi, and other repositories for concepts they own; do not copy their manuals or claim their theory.
 - Every implementation claim must point to source, tests, CI, or a reproducible artifact. Label evidence as source-checked, tested, runtime-captured, conceptual, or planned. A green badge alone is not an explanation.
 - Keep operational documentation and explanatory theory; avoid internal TODO lists, speculative design notes, CI diary prose, and duplicated authoritative explanations.
 - Use the animated Workshop moniker once at the top of Markdown documents and the exact canonical Workshop PNG footer once at the very end. Do not substitute a personal avatar, `Avatar.jpg`, SVG moniker, or guessed mirror for the footer.

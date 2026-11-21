@@ -80,15 +80,15 @@ The byte budgets measure serialized JSON values; they do not represent an exact 
 
 ## Source and verification
 
-- [Context implementation](../src/Foundry.Workflow/WorkflowExecutionContext.cs)
-- [Handler registry](../src/Foundry.Workflow/WorkflowHandlerRegistry.cs)
-- [Sequential runner](../src/Foundry.Workflow/WorkflowRunner.cs)
-- [Coordinator](../src/Foundry.Workflow/WorkflowExecutionCoordinator.cs)
-- [Context tests](../tests/Foundry.Workflow.Tests/WorkflowExecutionContextTests.cs)
-- [Runner tests](../tests/Foundry.Workflow.Tests/WorkflowRunnerTests.cs)
-- [Coordinator tests](../tests/Foundry.Workflow.Tests/WorkflowExecutionCoordinatorTests.cs)
+- [Context implementation](../src/Execution.Workflow/WorkflowExecutionContext.cs)
+- [Handler registry](../src/Execution.Workflow/WorkflowHandlerRegistry.cs)
+- [Sequential runner](../src/Execution.Workflow/WorkflowRunner.cs)
+- [Coordinator](../src/Execution.Workflow/WorkflowExecutionCoordinator.cs)
+- [Context tests](../tests/Execution.Workflow.Tests/WorkflowExecutionContextTests.cs)
+- [Runner tests](../tests/Execution.Workflow.Tests/WorkflowRunnerTests.cs)
+- [Coordinator tests](../tests/Execution.Workflow.Tests/WorkflowExecutionCoordinatorTests.cs)
 
-The context implementation and focused bounds/clone tests are covered by the Foundry PR CI workflow. The context does not change the sequential execution model or the in-memory lifecycle boundary.
+The context implementation and focused bounds/clone tests are covered by the Execution PR CI workflow. The context does not change the sequential execution model or the in-memory lifecycle boundary.
 
 ---
 

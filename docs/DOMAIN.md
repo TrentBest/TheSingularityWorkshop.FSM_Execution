@@ -1,19 +1,22 @@
 <!-- The Singularity Workshop moniker -->
 <p align="center"><a href="https://github.com/TrentBest"><img src="https://raw.githubusercontent.com/TrentBest/TheSingularityWorkshop.Visualize/development/docs/assets/moniker.svg" alt="The Singularity Workshop animated moniker" width="720" /></a></p>
 
-# Foundry Domain and Ownership
+# FSM_Execution Domain and Ownership
 
-**Status:** the sequential workflow runner and retained in-process run lifecycle passed [development CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/40546957980).
+**Status:** the sequential workflow runner and retained in-process run lifecycle passed [development CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40546957980).
 
-## The problem Foundry owns
+## The problem FSM_Execution owns
 
-A workflow has identifiable steps, ordering, inputs, outcomes, failure paths, and evidence explaining what happened. When that meaning is buried in CI YAML or host-specific code, it is harder to validate before execution, reuse across hosts, test independently, and explain after failure.
+The complete model-neutral theory is documented in [Execution Model Theory](EXECUTION_MODEL_THEORY.md). Execution is not a universal script interpreter: each supported model declares its semantics, while the host grants concrete capabilities.
 
-**Foundry owns the definition, validation, coordinated execution, retained run lifecycle, and reporting of explicit workflows.** A CI provider or application is an execution host, not the owner of the workflow's domain semantics.
+
+An execution model has identifiable work units, semantics, inputs, outcomes, failure paths, and evidence explaining what happened. The current sequential workflow model is the first implemented instance of that broader contract. When that meaning is buried in CI YAML or host-specific code, it is harder to validate before execution, reuse across hosts, test independently, and explain after failure.
+
+**FSM_Execution owns the host-neutral admission, capability, progress, lifecycle, and outcome boundary for explicitly defined execution models.** A CI provider or application is an execution host, not the owner of the workflow's domain semantics.
 
 ## Core invariant
 
-> **A workflow definition describes work; Foundry validates and coordinates its execution; the host supplies capabilities and decides what to do with the result.**
+> **An execution model defines its semantics; FSM_Execution admits and governs its progress; the host grants capabilities and decides what to do with the result.**
 
 A definition is data, not permission to execute arbitrary code. Its meaning should be inspectable before execution, and a run should return structured outcomes rather than relying only on console text or a host-specific exit code.
 
@@ -21,7 +24,7 @@ A definition is data, not permission to execute arbitrary code. Its meaning shou
 
 The current runtime provides a version-1, in-memory workflow definition with ordered steps and handler keys; validation before any handler is invoked; a host-owned handler registry; sequential execution; and structured step/workflow outcomes. `WorkflowExecutionCoordinator` accepts work, starts a run once, exposes immutable snapshots, supports cancellation before or during execution, and waits for running handlers during asynchronous disposal.
 
-The focused tests cover declared order, invalid definitions before side effects, handled failure with later steps skipped, cancellation, pre-cancelled runs, duplicate handler registration, accepted/running/terminal lifecycle states, cancellation, and duplicate start rejection. These tests passed in [CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/40546957980).
+The focused tests cover declared order, invalid definitions before side effects, handled failure with later steps skipped, cancellation, pre-cancelled runs, duplicate handler registration, accepted/running/terminal lifecycle states, cancellation, and duplicate start rejection. These tests passed in [CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40546957980).
 
 ## Domain concepts and current limits
 
@@ -38,10 +41,10 @@ The focused tests cover declared order, invalid definitions before side effects,
 | Dependency graph / parallel execution | Execute work based on graph dependencies | Not implemented |
 | Retry, compensation, recovery | Policy for repeating or undoing side effects | Not implemented |
 | Persisted manifest | Stable external representation and compatibility rules | Not selected or implemented |
-| Timeout enforcement | Bound execution time across handlers | Not implemented by the core runtime |
+| Cooperative workflow timeout | Optional per-run deadline requests cancellation and reports a distinct `TimedOut` outcome | Implemented in PR #43; not a hard handler kill |
 | Evidence provenance and retention | Durable, queryable evidence model | Only the existing CI proof artifacts are demonstrated |
 
-## What Foundry owns
+## What FSM_Execution owns
 
 - The workflow-definition contract and validation rules.
 - Execution ordering and the semantics of success, failure, cancellation, and skipped steps within the supported runtime.
@@ -50,10 +53,10 @@ The focused tests cover declared order, invalid definitions before side effects,
 - Structured run outcomes that hosts can interpret.
 - Host-neutral behavior testable without a desktop UI or live CI provider.
 
-## What Foundry does not own
+## What FSM_Execution does not own
 
 - **Finite-state-machine primitives.** FSM_API owns those mechanics where a component directly uses that package.
-- **MicroBundle composition.** FSM_COS owns its composition boundary. A Foundry workflow is not an FSM_COS RuntimeManifest, and RuntimeAssembly is not a workflow result.
+- **MicroBundle composition.** FSM_COS owns its composition boundary. An Execution workflow is not an FSM_COS RuntimeManifest, and RuntimeAssembly is not a workflow result.
 - **Universal serialization.** FSM_Serialization is not presumed to provide a universal workflow schema.
 - **The host environment.** GitHub Actions, AnyApp, WebPage, or another host supplies triggers, permissions, and external capabilities.
 - **Arbitrary script evaluation.** Definitions cannot grant themselves environmental permissions; any future executable capability needs an explicit contract, permission boundary, and tests.
@@ -62,9 +65,9 @@ The focused tests cover declared order, invalid definitions before side effects,
 
 ## Relationship to neighboring Workshop technologies
 
-A host or CI provider supplies triggers, permissions, environment, and registered capabilities. Foundry defines, validates, coordinates, and reports a workflow. GUI is an optional presentation client for the Hub: it can display run snapshots and send explicit commands through a stable adapter, but it must not own execution state or duplicate the runner.
+A host or CI provider supplies triggers, permissions, environment, and registered capabilities. Execution defines, validates, coordinates, and reports a workflow. GUI is an optional presentation client for the Hub: it can display run snapshots and send explicit commands through a stable adapter, but it must not own execution state or duplicate the runner.
 
-FSM_COS remains a separate composition boundary when a workflow genuinely needs MicroBundle composition; it is not assumed to be the workflow executor. WebPage's process-group scheduling and legacy FSM ticks remain distinct until caller and test evidence proves which behaviors can be adapted safely. Foundry's current sequential runtime does not depend on FSM_COS, and no cross-repository integration should be added without a demonstrated requirement.
+FSM_COS remains a separate composition boundary when a workflow genuinely needs MicroBundle composition; it is not assumed to be the workflow executor. WebPage's process-group scheduling and legacy FSM ticks remain distinct until caller and test evidence proves which behaviors can be adapted safely. Execution's current sequential runtime does not depend on FSM_COS, and no cross-repository integration should be added without a demonstrated requirement.
 
 ## Safety and correctness invariants
 
@@ -78,11 +81,11 @@ FSM_COS remains a separate composition boundary when a workflow genuinely needs 
 - Presentation snapshots are observational; commands pass through the coordinator.
 - External publication and deployment remain disabled unless explicitly authorized.
 
-These invariants are scoped to the current implementation and its tests. Durable run history, retries, compensation, enforced timeouts, and cross-process orchestration remain outside the implemented contract.
+These invariants are scoped to the current implementation and its tests. Durable run history, retries, compensation, hard handler termination, and cross-process orchestration remain outside the implemented contract. The optional workflow timeout is cooperative: a handler that ignores its cancellation token may continue running.
 
 ## Next verification and theory work
 
-The immediate gate is a current CI result for the coordinator and runner tests. Then trace WebPage's real Hub callers and tests to identify which behaviors are actual workflows, host-scheduled work, or legacy group ticks. Preserve behavior before migrating it behind Foundry. The next useful theory topics are execution lifecycle and isolation, capability security, failure/cancellation semantics, evidence provenance, and a persisted representation only when a concrete interchange use case justifies it.
+The immediate gate is a current CI result for the coordinator and runner tests. Then trace WebPage's real Hub callers and tests to identify which behaviors are actual workflows, host-scheduled work, or legacy group ticks. Preserve behavior before migrating it behind Execution. The next useful theory topics are execution lifecycle and isolation, capability security, failure/cancellation semantics, evidence provenance, and a persisted representation only when a concrete interchange use case justifies it.
 
 Theory documentation should grow alongside tested contracts, not ahead of them. Every claimed capability must point to the source or tests that verify it.
 
