@@ -40,7 +40,7 @@ The proposed adapter therefore uses Git's object model directly:
 6. It re-reads the branch ref and commit metadata, verifies the new commit is the branch tip and has the authorized candidate as its parent, and returns the new candidate SHA.
 7. The host durably records the commit operation result and closes the staging batch.
 
-This gives the two operations distinct semantics: write stages content; commit advances the candidate. The PR #26 implementation on this branch now enforces this invariant: write results must retain the input candidate SHA, and only explicit commit operations may advance it. The concrete GitHub adapter must implement the corresponding staging and commit behavior.
+This gives the two operations distinct semantics: write stages content; commit advances the candidate. The PR #26 implementation on this branch now enforces this invariant: write results must retain the input candidate SHA, and only explicit commit operations may advance it. The concrete GitHub adapter in this branch implements the corresponding staging and commit behavior; live GitHub round-trip verification remains pending.
 
 ## 4. Operation mapping
 
