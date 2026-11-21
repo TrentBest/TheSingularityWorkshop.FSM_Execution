@@ -3,28 +3,41 @@
 
 # Execution Theory — Learning Path
 
-The canonical theory is [Execution Theory](../EXECUTION_MODEL_THEORY.md). It defines the vocabulary and invariants for execution models, engines, schedulers, hosts, asynchronous work, concurrency, parallelism, time, effects, evidence, and recovery.
+The canonical cross-cutting model is [Execution Theory](../EXECUTION_MODEL_THEORY.md). It defines the vocabulary and invariants for execution models, engines, schedulers, hosts, synchronous and asynchronous progress, concurrency, parallelism, time, effects, evidence, and recovery.
 
-## Reader journey
+The chapters below develop the domain progressively. They are designed to teach the why and how, map theory to implementation, and clearly label the limits of current evidence.
 
-Read the central theory in order. It is intentionally model-neutral: the sequential workflow runner is the first concrete model, not the limit of the domain.
+## Chapter map
 
-| Study area | Core question | Theory sections |
-|---|---|---|
-| Foundations | What is a model, definition, engine, scheduler, host, and execution instance? | 1–3 |
-| Model families | What different kinds of computation can be executed? | 4 |
-| Time and progress | What do synchronous, asynchronous, periodic, and continuous mean? | 5 |
-| Concurrency | What is concurrent, what is parallel, and what can safely overlap? | 6–7 |
-| Effects and lifecycle | How are cancellation, timeout, retries, recovery, and outcomes represented truthfully? | 8–9 |
-| Authority and evidence | Who grants capabilities, and what proves what happened? | 10–11 |
-| Composition | How does execution relate to FSM_API, FSM_COS, MicroBundles, Physics, Learning, CiAi, and hosts? | 12 |
-| Engineering discipline | What must a model specify, and how should new engines be proven? | 13–15 |
+| Chapter | Domain question |
+|---|---|
+| [01 — Work as an explicitly coordinated process](01-work-as-coordinated-process.md) | Why must work have a definition, owner, lifecycle, and observable outcome? |
+| [02 — Workflow definitions and execution semantics](02-workflow-definitions-and-execution.md) | How can declared work be validated and executed without ambient authority? |
+| [03 — Tasks, leases, and lifecycle ownership](03-tasks-leases-and-lifecycle.md) | How do we assign bounded work, fence stale agents, and preserve history? |
+| [04 — Capabilities and authority](04-capabilities-and-authority.md) | How do hosts grant narrowly scoped power and preserve human approval? |
+| [05 — Evidence, verdicts, and repair decisions](05-evidence-and-repair.md) | What makes a result trustworthy enough to drive a bounded next action? |
+| [06 — Persistence, replay, and recovery](06-persistence-and-recovery.md) | What can survive restart, and where do local journals stop providing guarantees? |
+| [07 — Hosts, adapters, and external systems](07-hosts-and-adapters.md) | How do different hosts participate without owning execution semantics? |
+| [08 — Scheduling, dependencies, and concurrency](08-scheduling-and-concurrency.md) | When may work overlap, what must remain ordered, and what does a scheduler owe? |
+| [09 — Observability, audit, and reproducibility](09-observability-and-reproducibility.md) | How can an operator reconstruct what happened and distinguish evidence from presentation? |
+| [10 — Security and failure containment](10-security-and-failure-containment.md) | How does execution fail safely when identity, authority, evidence, or external systems are uncertain? |
+
+## The execution dimensions
+
+The chapter sequence is supported by the central theory's explicit distinctions:
+
+- **Synchronous vs asynchronous:** whether the caller waits for completion is independent of whether the work runs in parallel.
+- **Concurrency vs parallelism:** overlapping lifetimes do not prove simultaneous progress on separate execution resources.
+- **Sequential vs graph scheduling:** a declared order is not a dependency graph; parallel eligibility requires explicit dependency and resource semantics.
+- **Periodic vs continuous:** a model's time semantics differ from the wall-clock duration used to run its engine.
+- **Local vs distributed:** a local lease or journal does not imply cross-process exclusion, distributed consensus, or exactly-once external effects.
+- **Observation vs evidence:** a rendered status or trace is not automatically proof of the underlying external event.
 
 ## Evidence discipline
 
-The theory describes the complete domain and target contracts. It does not claim that every model or engine exists today. Current implementation status is recorded in [Domain and ownership](../DOMAIN.md), [Architecture](../ARCHITECTURE.md), and the [Roadmap](../ROADMAP.md).
+Theory coverage is not implementation status. The current concrete workflow engine remains sequential. General dependency-graph scheduling, parallel workflow steps, general asynchronous child orchestration, real-time scheduling, distributed leases, cross-host scheduling, and universal checkpoint/replay remain future capabilities until each has a source-backed contract, tests, and exact-head CI evidence.
 
-A conceptual model becomes an implemented capability only when its contracts, source, tests, and exact-head CI evidence exist. A passing test proves only the behavior it exercises. A green build does not prove distributed correctness, live external integration, or authorization to publish or deploy.
+See [Domain and ownership](../DOMAIN.md), [Architecture](../ARCHITECTURE.md), and the [Roadmap](../ROADMAP.md) for current implementation boundaries. A passing test proves only the behavior and conditions it exercises. A fake adapter does not prove a live provider; a local journal does not prove distributed consistency; and a green build does not authorize merge, publication, or deployment.
 
 ## Neighboring domains
 
