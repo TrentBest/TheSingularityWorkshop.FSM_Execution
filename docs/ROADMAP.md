@@ -87,6 +87,37 @@ The completed items below are implemented on PR #10's feature branch and are not
 
 **Theory status is not implementation status.** The current concrete workflow engine remains sequential. General graph scheduling, parallel workflow steps, general asynchronous child orchestration, real-time scheduling, distributed leases, cross-host scheduling, and universal checkpoint/replay remain future capabilities until each has a source-backed contract, tests, and exact-head CI evidence.
 
+## Active integration queue
+
+The following draft PRs are the current implementation queue. Grouping is by domain responsibility, not an assertion that every branch is ready to merge.
+
+### Runtime and task lifecycle
+- [PR #29 — FSM_API workflow lifecycle](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/29) — foundational workflow-run FSM integration.
+- [PR #32 — FSM_API task lifecycle](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/32) — explicitly stacked on PR #29's branch.
+- [PR #30 — expired CODE RED lease reclaim](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/30) — stale-lease recovery safety.
+- [PR #34 — capability lifecycle fence](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/34) — invalidate grants after task transitions.
+- [PR #18 — host-owned CODE RED approval](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/18) — selected Option B ownership boundary.
+- [PR #25 — ReviewReady draft-PR handoff](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/25) — narrowly permits draft handoff only after evidence-derived readiness.
+
+### Host, repository, and Hub boundaries
+- [PR #27 — GitHub host adapter semantics](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/27) — adapter contract and operation meaning.
+- [PR #26 — capability-gated repository operations](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/26) — host-side repository operation boundary.
+- [PR #40 — exact-SHA AgentOnboarding admission](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/40) — integrates the admission donor and PR #26 host operation work; current exact-head CI passes, but live trusted dispatch remains unverified.
+- [PR #19 — host-facing Hub execution contract](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/19) — Hub command/query boundary.
+- [PR #31 — Autonomous Development status projection](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/31) — read-only operational projection.
+
+### CiAi evidence and artifact transport
+- [PR #14 — artifact notice ingress/retrieval](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/14) — persisted dispatch-intent validation.
+- [PR #16 — DNS-pinned HTTPS transport](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/16) — constrained artifact transport.
+- [PR #15 — provenance-bound report consumer](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/15) — report consumption and repair feedback; its description records selective porting from PR #14.
+
+### Identity and domain theory
+- [PR #43 — FSM_Execution identity and execution theory](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/pull/43) — current canonical rename, 12-chapter theory, workflow timeout semantics, and identity regression guard.
+
+All 15 open PR heads passed their recorded repository workflow during the 2026-11-21 audit. A green run is bounded evidence for that exact SHA; it does not establish that live privileged paths ran, that the PR is integrated, or that the branch is ready to merge.
+
+**Integration caution:** the 14 functional/design PR branches still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and decide whether to integrate functional work before the rename or port/rebase each candidate onto the canonical Execution identity. Preserve exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
+
 ## Readiness rubric
 
 | Gate | Weight | Current evidence |
