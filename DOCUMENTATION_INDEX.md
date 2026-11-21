@@ -16,6 +16,7 @@
 - [Workflow execution context](docs/WORKFLOW_EXECUTION_CONTEXT.md) — typed JSON inputs/outputs, enforced size limits, host ownership, and data-only safety boundary.
 - [Governed work task lifecycle](docs/WORK_TASK_LIFECYCLE.md) — task envelopes, fenced leases, local journals, capabilities, CODE RED notices, and exact-CI repair decisions.
 - [CiAi artifact callback contract](docs/CIAI_ARTIFACT_CALLBACK_CONTRACT.md) — callback wire contract and host security requirements.
+- [CiAi artifact ingress adapter](docs/CIAI_ARTIFACT_INGRESS_ADAPTER.md) — host authentication, strict notice validation, receipt persistence, and bounded artifact retrieval boundary.
 - [CiAi artifact host composition](docs/CIAI_ARTIFACT_HOST_COMPOSITION.md) — integrated host-neutral ingress, exact dispatch binding, bounded retrieval, report consumption, and same-task HeadlessAi handoff; concrete pinned HTTPS retrieval is implemented, while provider observation and nested source-archive verification remain open.
 - [CiAi artifact transport security](docs/CIAI_ARTIFACT_TRANSPORT_SECURITY.md) — DNS-pinned HTTPS client construction, concrete allowlisted CiAi transport adapter, strict origin policy, redirect isolation, and remaining production limits.
 - [Foundry–HeadlessAi turn bridge](docs/HEADLESSAI_TURN_BRIDGE.md) — task-lease-gated invocation, durable at-most-once journal, host adapter mapping, and remaining live-integration gates.
