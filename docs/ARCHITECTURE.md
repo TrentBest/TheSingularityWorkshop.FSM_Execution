@@ -3,7 +3,7 @@
 
 # FSM_Execution Architecture
 
-**Status:** the FSM_API integration probe, deterministic fox/sheepdog scenario, sequential workflow runner, and retained in-process lifecycle coordinator passed [development CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40546957980). Broader Hub migration and release readiness remain unverified.
+**Status:** the sequential workflow runtime, cooperative timeout behavior, FSM_API integration probe, deterministic fox/sheepdog scenario, identity guard, and retained in-process lifecycle passed exact PR-head [CI run #44885731400](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44885731400) on PR #43. These changes remain on the feature branch until reviewed and merged; broader Hub migration and release readiness remain unverified.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ FSM_Execution is the Workshop's host-neutral execution substrate. It accepts exp
 
 | System | Intended responsibility | Current evidence |
 |---|---|---|
-| Execution | Workflow definition/validation, run lifecycle, execution coordination, result reporting | Version-1 in-memory definition, preflight validator, registered-handler runner, retained lifecycle coordinator and immutable snapshots; CI verification pending |
+| FSM_Execution | Host-neutral execution envelope, model-specific engines, admission, lifecycle, outcomes, and evidence | Version-1 sequential workflow model, preflight validator, registered-handler runner, retained lifecycle coordinator, immutable snapshots, and cooperative per-run timeout; exact PR-head CI passes, but the feature branch is not merged |
 | The / Architect | Hub intent and human-facing coordination | Cross-repository ownership contract; Hub presentation is optional |
 | GUI | Optional Hub presentation and explicit user intents | GUI issue #53 tracks presentation contract; no execution authority |
 | FSM_API | FSM mechanics when directly consumed | Published 1.0.13 package restored, built, and exercised by the prior passing probe; no reusable adapter yet |
@@ -35,9 +35,11 @@ The existing `WorkflowRunner` remains the only sequential workflow executor. It 
 - Start an accepted run exactly once.
 - Query an immutable snapshot containing run identity, status, timestamps, and a terminal result when available.
 - Request cooperative cancellation before or during execution.
+- Optionally apply a positive finite or infinite per-run timeout; finite expiry requests cancellation and returns a distinct `TimedOut` outcome.
+- If caller cancellation and timeout are both requested before terminal commit, caller cancellation takes precedence.
 - Dispose by cancelling accepted/running work and awaiting completion.
 
-This is an in-process, in-memory lifecycle. It is not a durable queue, scheduler, persisted run history, or cross-process transport. The coordinator does not reinterpret `WorkflowResult`, add retries, or turn arbitrary handlers into safe transactional operations.
+This is an in-process, in-memory lifecycle. It is not a durable queue, general scheduler, persisted run history, or cross-process transport. A timeout is cooperative and cannot forcibly stop a handler that ignores its token. The coordinator does not reinterpret `WorkflowResult`, add retries, or turn arbitrary handlers into safe transactional operations. The runner remains sequential within each workflow; asynchronous APIs do not imply parallel steps or a dependency-graph scheduler.
 
 ## Keep neighboring concepts distinct
 
@@ -49,7 +51,9 @@ GUI consumes presentation-facing snapshots and sends explicit commands through a
 
 The `Execution.FsmApiProbe` project uses the published FSM_API package to create a named FSM, assert its initial state, execute the public update path, assert the transition, and perform scoped cleanup. The `Execution.FoxSheepdog` project exercises the fox/dog state sequence with scripted ticks, asserts the cross-FSM transition, and emits a TSV trace and SVG. The existing CI workflow compares repeat-run outputs byte-for-byte.
 
-These are deterministic state-execution demonstrations, not automatically treated as Execution workflows. The coordinator tests and deterministic state-evidence checks passed in [CI run #84](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40546957980).
+These are deterministic state-execution demonstrations, not automatically treated as Execution workflows. The coordinator tests and deterministic state-evidence checks passed in exact PR-head [CI run #44885731400](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44885731400).
+
+See [Chapter 11 — Asynchronous execution](THEORY/11-asynchronous-execution.md) and [Chapter 12 — Parallel execution and scheduling](THEORY/12-parallel-execution-and-scheduling.md) for the distinctions between async progress, concurrency, parallelism, and future scheduler capabilities.
 
 ## Safety boundaries
 
