@@ -36,6 +36,23 @@ Async execution changes the lifetime and ownership of work:
 
 An async API is not safe merely because it returns a future or task. The system must account for the work until its terminal outcome is known or ownership has been explicitly transferred.
 
+```mermaid
+flowchart TD
+    Parent[Parent execution scope] --> Read[Async remote read]
+    Parent --> Compute[CPU analysis operation]
+    Parent --> Write[Authorized repository write]
+    Cancel[Parent cancellation request] --> Read
+    Cancel --> Compute
+    Cancel --> Write
+    Read --> Join{Required children terminal?}
+    Compute --> Join
+    Write --> Join
+    Join --> Outcome[Parent outcome with child evidence]
+    Join --> Handoff[Explicit child handoff with new owner]
+```
+
+The diagram shows ownership, not an assertion that the three children may run simultaneously. The model's dependency and resource rules decide whether overlap is safe.
+
 ## 03 — Futures, tasks, callbacks, and event loops
 
 Different runtimes expose asynchronous completion differently:
