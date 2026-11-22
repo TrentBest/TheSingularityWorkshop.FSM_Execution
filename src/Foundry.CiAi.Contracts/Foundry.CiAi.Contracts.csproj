@@ -11,5 +11,9 @@
              Link="AgentOnboardingValidator.cs" />
     <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/RepositoryIdentity.cs"
              Link="RepositoryIdentity.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/DependencyReleaseGate.cs"
+             Link="DependencyReleaseGate.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiAiPipelineGateExpression.cs"
+             Link="CiAiPipelineGateExpression.cs" />
   </ItemGroup>
 </Project>
