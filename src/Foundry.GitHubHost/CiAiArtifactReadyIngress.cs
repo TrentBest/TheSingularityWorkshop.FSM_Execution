@@ -105,14 +105,14 @@ public sealed class CiAiArtifactReadyIngress
         string recipient;
         try
         {
-            using var document = JsonDocument.Parse(exactRequestBody, new JsonDocumentOptions { MaxDepth = 16 });
+            using var document = JsonDocument.Parse(exactRequestBody.ToArray(), new JsonDocumentOptions { MaxDepth = 16 });
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object ||
                 !TryString(root, "noticeId", out noticeId) ||
                 !TryString(root, "recipientIdentity", out recipient) ||
                 !root.TryGetProperty("manifest", out var manifest) || manifest.ValueKind != JsonValueKind.Object ||
                 !TryString(manifest, "idempotencyKey", out idempotencyKey) ||
-                !TryString(manifest, "repository", out repository))
+                !TryString(manifest, "providerRepository", out repository))
                 throw new UnauthorizedAccessException("Artifact-ready notice is missing its required recipient or manifest identity.");
             if (!string.Equals(recipient, _policy.RecipientIdentity, StringComparison.Ordinal) ||
                 !manifest.TryGetProperty("clientIdentity", out var client) ||
