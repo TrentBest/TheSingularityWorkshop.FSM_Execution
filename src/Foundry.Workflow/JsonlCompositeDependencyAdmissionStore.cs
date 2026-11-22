@@ -48,7 +48,7 @@ public sealed record CompositeDependencyAdmissionIdentity(
 
     internal static void ValidateSha(string value, string name)
     {
-        if (value is not { Length: 40 } && value is not { Length: 64 } ||
+        if (value is null || (value.Length != 40 && value.Length != 64) ||
             !value.All(Uri.IsHexDigit))
             throw new ArgumentException("A full hexadecimal SHA-256 or commit SHA is required.", name);
     }
