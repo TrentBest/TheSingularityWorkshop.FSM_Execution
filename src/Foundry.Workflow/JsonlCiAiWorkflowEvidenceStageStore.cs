@@ -46,7 +46,8 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
         ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
         ValidateText(receiptId, nameof(receiptId), 200);
         ValidateText(repository, nameof(repository), 256);
-        if (repository.Split('/') is not { Length: 2 } parts || parts.Any(string.IsNullOrWhiteSpace))
+        var parts = repository.Split('/');
+        if (parts.Length != 2 || parts.Any(string.IsNullOrWhiteSpace))
             throw new ArgumentException("Repository must use owner/name identity.", nameof(repository));
         if (runId <= 0 || runAttempt <= 0) throw new ArgumentOutOfRangeException(nameof(runId));
         if (packetBytes.IsEmpty || packetBytes.Length > 16 * 1024 * 1024)
