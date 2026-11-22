@@ -85,6 +85,31 @@ public sealed class CiAiArtifactReadyIngressTests
         finally { Delete(path); Delete(mappingPath); }
     }
 
+    [Fact]
+    public void NoticeMustMatchPersistedOperationAndExactCandidateSha()
+    {
+        var path = NewPath();
+        var mappingPath = NewPath();
+        using var key = RSA.Create(2048);
+        try
+        {
+            var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
+            var mappings = CreateMappingJournal(mappingPath);
+            var ingress = CreateIngress(key, ledger, mappings);
+            var token = "Bearer " + Token(key, new[] { ProviderRepository }, Now, Audience);
+
+            var wrongOperation = Encoding.UTF8.GetBytes(
+                NoticeJson("foundry-production").Replace("operation-001", "operation-002", StringComparison.Ordinal));
+            var wrongCandidate = Encoding.UTF8.GetBytes(
+                NoticeJson("foundry-production").Replace(new string('a', 40), new string('d', 40), StringComparison.Ordinal));
+
+            Assert.Throws<UnauthorizedAccessException>(() => ingress.Accept(token, wrongOperation));
+            Assert.Throws<UnauthorizedAccessException>(() => ingress.Accept(token, wrongCandidate));
+            Assert.Empty(ledger.GetAll());
+        }
+        finally { Delete(path); Delete(mappingPath); }
+    }
+
     private static CiAiArtifactReadyIngress CreateIngress(RSA key,
         JsonlCiAiArtifactNoticeReceiptLedger ledger, JsonlCiAiRequestTaskMappingJournal mappings)
     {
