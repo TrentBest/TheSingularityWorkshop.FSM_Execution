@@ -4,7 +4,7 @@
 # CiAi Artifact Callback Contract
 
 **Contract:** `foundry.ciai-artifact-ingress.v1`  
-**Status:** an RS256-authenticated ingress core, ASP.NET Core HTTPS route adapter, durable notice receipt, and bridge to CiAi's authoritative composite AND/OR evaluator are implemented on the FSM_Execution feature branch. Immutable artifact retrieval, complete workflow-evidence packet/provenance validation, provider acknowledgement, and event-driven task wake-up remain outstanding.  
+**Status:** an RS256-authenticated ingress core, ASP.NET Core HTTPS route adapter, durable notice receipt, CiAi authoritative composite AND/OR evaluator bridge, and bounded immutable artifact retrieval with manifest size/SHA-256 verification are implemented on the FSM_Execution feature branch. Full workflow-evidence packet/provenance validation, durable evidence staging, provider acknowledgement, and event-driven task wake-up remain outstanding.  
 **Owners:** Foundry owns the receiving endpoint, task correlation, authorization, durable receipt, evidence validation, and lifecycle decision. CiAi owns the evidence packet, immutable artifact publication, ready-notice delivery, and provider-side receipt ledger.
 
 ## Decision
@@ -110,9 +110,9 @@ An exact retry returns HTTP 200 with the same `receiptId` and `outcome: "duplica
 
 ## 5. Artifact retrieval and verification
 
-After durable notice acceptance, a host-owned worker retrieves the immutable artifact using read-only access. It does not execute, apply, or otherwise act on artifact contents.
+After durable notice acceptance, `CiAiArtifactRetrievalService` retrieves the immutable artifact using read-only access. It rechecks the exact receipt digest, accepted notice identity, registered sender, provider repository allowlist, receiver identity, request/operation/idempotency mapping, candidate source SHA, active exact GitHub run binding, and the pre-dispatch artifact origin before issuing a GET. It does not execute, apply, or otherwise act on artifact contents.
 
-The `retrievalUri` is treated as untrusted metadata and must match a provider-specific origin configured when the Foundry request was created. The host must enforce HTTPS, port 443, no user-info, query, or fragment (credentials must not be embedded in the URI), DNS/IP checks that block loopback/private/link-local/reserved destinations, bounded connection/read timeouts, no redirects by default, and revalidation of any explicitly permitted redirect. Do not forward Foundry credentials to a different origin. Provider read credentials are short-lived and scoped to this artifact; they are supplied by the host, never embedded in the notice URL or model context.
+The `retrievalUri` is treated as untrusted metadata and must match the provider-specific origin configured when the Foundry request was created. The production `CiAiArtifactHttpTransport` enforces HTTPS through the manifest/policy, port 443, no user-info/query/fragment, DNS/IP checks that reject loopback/private/link-local/reserved and other non-global destinations, no redirects, no proxy, no cookies, and no automatic decompression. DNS results are checked at connection time and the socket connects to a checked address. The host supplies short-lived provider-scoped authorization through `ICiAiArtifactCredentialProvider`; credentials are never embedded in the URI or model context and are not forwarded to another origin. The 10-second connection and 60-second total retrieval deadlines are enforced by the transport/service.
 
 V1 limits:
 
@@ -125,7 +125,7 @@ V1 limits:
 | HTTP connection timeout | 10 seconds |
 | Artifact retrieval deadline | 60 seconds |
 
-The worker streams the response and stops immediately if it exceeds the manifest size or the 16 MiB ceiling. It requires exact byte-count equality and SHA-256 equality with the immutable manifest before parsing. The artifact must deserialize as `ciai.workflow-evidence.v2`; packet v1 and unknown schema versions, malformed JSON, digest mismatch, size mismatch, or expired artifacts are rejected. The host stores the verified bytes in its controlled evidence store and retains the manifest, notice, digest, and retrieval outcome as audit provenance.
+`CiAiArtifactRetrievalService` streams the response and stops immediately if it exceeds the manifest size or the 16 MiB ceiling. It requires HTTP 200 from the exact configured URI, `application/json`, exact byte-count equality, and SHA-256 equality with the immutable manifest. The service returns a defensive-copy `CiAiVerifiedArtifact`; it does not yet parse the payload as `ciai.workflow-evidence.v2` or persist the bytes to a durable evidence store. Those are the next host-side validation and staging gates. Digest mismatch, size mismatch, redirect, expired artifact, wrong origin, disallowed DNS address, or non-JSON response is rejected.
 
 The parsed packet is reconciled against the manifest and Foundry's persisted request mapping: exact repository, workflow path, trusted workflow ref and approved workflow SHA, candidate feature ref and full candidate SHA, run ID, run attempt, and request correlation. The manifest `sourceSha` binds to `candidateSha`. The run-evidence URL and job evidence URLs must identify that exact workflow run. Foundry retains both SHA roles separately; GitHub's run-level workflow SHA is not the code-under-test candidate SHA. Missing discovery/jobs, an empty job set, non-terminal or unsuccessful outcomes, and required-check omissions are not success. After validation, Foundry retains the immutable packet and its receipt/provenance in the same task/correlation evidence history as prior attempts. The verified packet may be supplied as bounded, read-only context to the next HeadlessAi turn; it remains untrusted evidence and cannot grant capabilities or authorize the model's proposed actions.
 
