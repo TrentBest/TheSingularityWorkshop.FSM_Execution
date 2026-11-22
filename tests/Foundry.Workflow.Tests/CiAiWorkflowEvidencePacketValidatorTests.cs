@@ -51,8 +51,8 @@ public sealed class CiAiWorkflowEvidencePacketValidatorTests
 
         var valid = System.Text.Encoding.UTF8.GetString(Packet(fixture.Mapping.Mapping, fixture.Binding, CandidateSha));
         var duplicate = System.Text.Encoding.UTF8.GetBytes(valid.Replace(
-            "\"schema\":\"ciai.workflow-evidence.v2\"",
-            "\"schema\":\"ciai.workflow-evidence.v2\",\"schema\":\"ciai.workflow-evidence.v2\"",
+            "\"schema\": \"ciai.workflow-evidence.v2\"",
+            "\"schema\": \"ciai.workflow-evidence.v2\", \"schema\": \"ciai.workflow-evidence.v2\"",
             StringComparison.Ordinal));
         Assert.Throws<InvalidDataException>(() =>
             new CiAiWorkflowEvidencePacketValidator().Validate(duplicate, fixture.Mapping, Now));
