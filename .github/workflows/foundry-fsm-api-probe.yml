@@ -143,22 +143,22 @@ jobs:
               run: { id: $run_id, attempt: ($run_attempt | tonumber) }
             }' > artifacts/candidate-checkout-provenance.json
 
-      - name: Check out pinned CiAi onboarding contract source
+      - name: Check out pinned CiAi composite-gate contract source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.CiAi
-          ref: 18b6bb8b912e80d446b8423ada2061a2deaa7bf6
+          ref: d4d2aa01985cc03b1a102b00f98e4b77eb666ac6
           path: external/CiAi
           persist-credentials: false
 
-      - name: Verify pinned CiAi onboarding contract source
+      - name: Verify pinned CiAi composite-gate contract source
         shell: bash
         run: |
           set -euo pipefail
-          expected="18b6bb8b912e80d446b8423ada2061a2deaa7bf6"
+          expected="d4d2aa01985cc03b1a102b00f98e4b77eb666ac6"
           actual="$(git -C external/CiAi rev-parse HEAD)"
           test "$actual" = "$expected"
-          echo "Verified CiAi AgentOnboardingValidator source pin: $actual"
+          echo "Verified CiAi composite-gate source pin: $actual"
 
       - name: Check out pinned HeadlessAi source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
