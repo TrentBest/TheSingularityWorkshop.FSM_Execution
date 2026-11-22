@@ -122,7 +122,7 @@ public sealed class CiAiArtifactReadyIngressTests
     private static string NoticeJson(string recipient, string providerRepository = ProviderRepository) =>
         JsonSerializer.Serialize(new
         {
-            contractVersion = "ciai.artifact-ready.v1",
+            contractVersion = 1,
             noticeId = "notice-001",
             recipientIdentity = recipient,
             notifiedAt = Now,
@@ -134,6 +134,13 @@ public sealed class CiAiArtifactReadyIngressTests
                 providerRepository,
                 clientIdentity = recipient,
                 sourceSha = new string('a', 40),
+                digestAlgorithm = "SHA-256",
+                digest = new string('c', 64),
+                mediaType = "application/json",
+                sizeBytes = 1024,
+                retrievalUri = "https://artifacts.example.test/artifact-001",
+                createdAt = Now.AddMinutes(-10),
+                expiresAt = Now.AddHours(1),
                 artifactId = "artifact-001"
             }
         });
