@@ -17,7 +17,7 @@ A provider's Waiting state does not fail the consumer's own build. Consumer buil
 - `DependencyGateIdentity` binds one task gate to provider repository, candidate ID, full source SHA, capability, and policy version.
 - `JsonlDependencyAdmissionStore` persists append-only snapshots with fsync, strict replay validation, exact event sequence, and idempotent identical delivery.
 - Stale/mismatched provider identity, skipped event sequence, conflicting duplicate sequence, malformed terminal evidence, and terminal-state regression are rejected.
-- `PersistentWorkTaskCoordinator` accepts the optional admission store and refuses to create an execution lease while the task's gate is Waiting or Blocked. A Satisfied observation permits normal claim.
+- `PersistentWorkTaskCoordinator.SubmitWaiting` records the Waiting gate before creating the task under the same per-task reservation used by Claim. The coordinator refuses to create an execution lease while the task's gate is Waiting or Blocked. A Satisfied observation permits normal claim.
 - The admission journal is separate from the task snapshot journal. Hosts must create the Waiting gate before making the task eligible for dispatch and must reconcile orphan admission records on startup. This is single-process local durability, not distributed atomicity.
 
 ## Trust boundary and remaining integration
