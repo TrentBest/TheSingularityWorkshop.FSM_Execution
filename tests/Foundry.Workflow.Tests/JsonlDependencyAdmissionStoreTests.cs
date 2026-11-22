@@ -66,6 +66,9 @@ public sealed class JsonlDependencyAdmissionStoreTests
             Assert.Throws<InvalidDataException>(() => store.ApplyVerifiedObservation(
                 new DependencyGateObservation("task-1", gate, DependencyAdmissionStatus.Satisfied,
                     2, 451, 1, new string('a', 64), Now.AddMinutes(1))));
+            Assert.Throws<InvalidDataException>(() => store.ApplyVerifiedObservation(
+                new DependencyGateObservation("task-1", gate, DependencyAdmissionStatus.Satisfied,
+                    1, 451, 1, new string('a', 64), Now.AddMinutes(-1))));
             Assert.Equal(DependencyAdmissionStatus.Waiting, store.Get("task-1")!.Status);
         }
         finally { Delete(path); }
