@@ -66,17 +66,20 @@ public sealed class CiAiArtifactReadyIngress
     private readonly CiAiIngressAuthenticationPolicy _policy;
     private readonly IReadOnlyDictionary<string, CiAiIngressSender> _sendersByKey;
     private readonly JsonlCiAiArtifactNoticeReceiptLedger _receipts;
+    private readonly JsonlCiAiRequestTaskMappingJournal _mappings;
     private readonly Func<DateTimeOffset> _clock;
 
     public CiAiArtifactReadyIngress(
         CiAiIngressAuthenticationPolicy policy,
         IEnumerable<CiAiIngressSender> senders,
         JsonlCiAiArtifactNoticeReceiptLedger receipts,
+        JsonlCiAiRequestTaskMappingJournal mappings,
         Func<DateTimeOffset>? clock = null)
     {
         _policy = (policy ?? throw new ArgumentNullException(nameof(policy))).Validate();
         ArgumentNullException.ThrowIfNull(senders);
         _receipts = receipts ?? throw new ArgumentNullException(nameof(receipts));
+        _mappings = mappings ?? throw new ArgumentNullException(nameof(mappings));
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
         var map = new Dictionary<string, CiAiIngressSender>(StringComparer.Ordinal);
         foreach (var sender in senders)
@@ -101,8 +104,11 @@ public sealed class CiAiArtifactReadyIngress
 
         string noticeId;
         string idempotencyKey;
-        string repository;
+        string providerRepository;
         string recipient;
+        string requestId;
+        string operationId;
+        string sourceSha;
         try
         {
             using var document = JsonDocument.Parse(exactRequestBody.ToArray(), new JsonDocumentOptions { MaxDepth = 16 });
@@ -112,7 +118,10 @@ public sealed class CiAiArtifactReadyIngress
                 !TryString(root, "recipientIdentity", out recipient) ||
                 !root.TryGetProperty("manifest", out var manifest) || manifest.ValueKind != JsonValueKind.Object ||
                 !TryString(manifest, "idempotencyKey", out idempotencyKey) ||
-                !TryString(manifest, "providerRepository", out repository))
+                !TryString(manifest, "providerRepository", out providerRepository) ||
+                !TryString(manifest, "requestId", out requestId) ||
+                !TryString(manifest, "operationId", out operationId) ||
+                !TryString(manifest, "sourceSha", out sourceSha))
                 throw new UnauthorizedAccessException("Artifact-ready notice is missing its required recipient or manifest identity.");
             if (!string.Equals(recipient, _policy.RecipientIdentity, StringComparison.Ordinal) ||
                 !manifest.TryGetProperty("clientIdentity", out var client) ||
@@ -125,8 +134,15 @@ public sealed class CiAiArtifactReadyIngress
             throw new ArgumentException("CiAi artifact-ready notice must be valid JSON.", nameof(exactRequestBody), exception);
         }
 
-        if (!allowedRepositories.Contains(repository))
-            throw new UnauthorizedAccessException("Authenticated CiAi sender is not authorized for the notice repository.");
+        if (!allowedRepositories.Contains(providerRepository))
+            throw new UnauthorizedAccessException("Authenticated CiAi sender is not authorized for the provider repository.");
+
+        var mapping = _mappings.GetActionable(requestId, now).Mapping;
+        if (!string.Equals(mapping.OperationId, operationId, StringComparison.Ordinal) ||
+            !string.Equals(mapping.IdempotencyKey, idempotencyKey, StringComparison.Ordinal) ||
+            !string.Equals(mapping.ProviderIdentity, sender.Subject, StringComparison.Ordinal) ||
+            !string.Equals(mapping.CandidateSha, sourceSha, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Artifact-ready notice does not match the persisted request, operation, provider, idempotency, or exact candidate SHA.");
 
         var notice = CiAiArtifactReadyNotice.FromUtf8Bytes(
             sender.Subject, noticeId, idempotencyKey, exactRequestBody);
