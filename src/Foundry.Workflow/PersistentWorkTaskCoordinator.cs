@@ -116,6 +116,37 @@ public sealed class PersistentWorkTaskCoordinator
         });
     }
 
+    /// <summary>
+    /// Creates a durable Waiting gate before the task becomes claimable. The per-task
+    /// reservation prevents a concurrent Claim through this coordinator instance from
+    /// racing task creation and admission registration.
+    /// </summary>
+    public WorkTaskSnapshot SubmitWaiting(WorkTaskRequest request,
+        DependencyGateIdentity requiredGate, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(requiredGate);
+        var validated = request.Validate();
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(validated.Repository))
+            throw new UnauthorizedAccessException(
+                "Governed repositories must complete AgentOnboarding admission before dependency-gated task creation.");
+        var admissionStore = _dependencyAdmissionStore ?? throw new InvalidOperationException(
+            "A durable dependency admission store is required for SubmitWaiting.");
+
+        return WithTaskLock(validated.TaskId, () =>
+        {
+            lock (_gate)
+            {
+                EnsureHealthy();
+                if (_store.GetAll().Any(snapshot => snapshot.Request.TaskId == validated.TaskId))
+                    throw new InvalidOperationException($"Task '{validated.TaskId}' already exists.");
+                admissionStore.CreateWaiting(validated.TaskId, requiredGate, now);
+                var snapshot = _coordinator.Submit(validated);
+                return Persist(snapshot, create: true);
+            }
+        });
+    }
+
     public WorkTaskSnapshot Claim(string taskId, string agentId, TimeSpan leaseDuration, DateTimeOffset now) =>
         WithTaskLock(taskId, () =>
         {
