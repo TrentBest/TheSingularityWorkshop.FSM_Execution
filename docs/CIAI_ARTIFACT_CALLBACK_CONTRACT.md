@@ -4,7 +4,7 @@
 # CiAi Artifact Callback Contract
 
 **Contract:** `foundry.ciai-artifact-ingress.v1`  
-**Status:** host-owned wire contract defined; HTTPS receiver, provider transport, authenticated artifact retrieval, and remote acknowledgement are not yet implemented.  
+**Status:** host-owned wire contract defined; a transport-neutral RS256 JWT ingress/authentication and durable notice-receipt adapter is implemented on the FSM_Execution feature branch. An HTTPS listener/controller, provider transport, immutable artifact retrieval, and remote acknowledgement are not yet implemented.  
 **Owners:** Foundry owns the receiving endpoint, task correlation, authorization, durable receipt, evidence validation, and lifecycle decision. CiAi owns the evidence packet, immutable artifact publication, ready-notice delivery, and provider-side receipt ledger.
 
 ## Decision
@@ -61,7 +61,7 @@ Authentication failure returns 401; an authenticated sender without the required
 
 The host validates the notice schema/version, all required identifiers, timestamps, digest, media type, payload size, HTTPS URI, expiry, sender identity, and recipient identity before durable acceptance.
 
-Foundry creates and persists the request mapping before it asks CiAi to produce evidence. The mapping binds the exact `requestId` and `operationId` to:
+Foundry creates and persists the request mapping before it asks CiAi to produce evidence. The current host ingress facade validates the RS256 JWT issuer, audience, registered subject/key, scope, bounded lifetime, repository allowlist, and recipient binding; it then requires an actionable persisted mapping and matches request ID, operation ID, idempotency key, provider identity, and exact candidate source SHA before the notice can be durably accepted. It also validates the v1 contract version, artifact digest/size metadata, HTTPS retrieval URI shape, and availability window. The facade is transport-neutral: it does not provide an HTTPS endpoint, TLS termination, rate limiting, artifact download, or full provenance validation. The mapping binds the exact `requestId` and `operationId` to:
 
 - Foundry task ID and correlation ID;
 - expected target repository, isolated candidate ref/branch, candidate full SHA, and workflow path;
@@ -80,7 +80,7 @@ For this evidence artifact, the manifest's `providerRepository` and optional `pr
 
 ## 4. Durable callback receipt and idempotency
 
-Foundry computes SHA-256 over the exact received UTF-8 request bytes and stores the validated notice, payload digest, sender identity, idempotency key, and receipt in a durable ingress ledger **before** returning an accepted response or scheduling retrieval.
+The implemented ingress facade authenticates and correlates the notice before it calls the existing durable receipt ledger. The ledger computes SHA-256 over the exact received UTF-8 request bytes and stores the validated notice, payload digest, sender identity, idempotency key, and receipt. The HTTP adapter must return an accepted response only after this call completes successfully; no network endpoint or retrieval scheduler is included yet.
 
 The idempotency scope is sender identity plus manifest `idempotencyKey`. The `noticeId` is also unique within that sender. Outcomes:
 
