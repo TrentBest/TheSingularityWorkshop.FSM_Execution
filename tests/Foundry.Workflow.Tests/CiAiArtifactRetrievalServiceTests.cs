@@ -108,6 +108,7 @@ public sealed class CiAiArtifactRetrievalServiceTests
         var normalized = CiAiArtifactReadyNotice.FromUtf8Bytes("ciai-sender", "notice-1", idempotencyKey, bytes);
         var ledgerPath = Path.Combine(Path.GetTempPath(), "foundry-artifact-receipt-" + Guid.NewGuid().ToString("N") + ".jsonl");
         var receipt = new JsonlCiAiArtifactNoticeReceiptLedger(ledgerPath).Accept(normalized, Now).Receipt;
+        File.Delete(ledgerPath);
 
         var mapping = new CiAiRequestTaskMapping(1, requestId, operationId, idempotencyKey,
             "task-1", "correlation-1", repository, candidateRef, candidateSha, workflowPath,
