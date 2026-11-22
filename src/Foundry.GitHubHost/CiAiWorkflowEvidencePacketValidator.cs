@@ -109,6 +109,27 @@ public sealed class CiAiWorkflowEvidencePacketValidator
             mapping.OperationId, mapping.IdempotencyKey, binding, digest, now);
     }
 
+    /// <summary>
+    /// Validates the packet against the immutable dispatch mapping and durably stages the
+    /// exact bytes before returning. This method does not acknowledge the provider or wake a task.
+    /// </summary>
+    public (CiAiVerifiedWorkflowEvidence Evidence, CiAiEvidenceStageOutcome StageOutcome) ValidateAndStage(
+        ReadOnlyMemory<byte> packetBytes,
+        CiAiRequestTaskMappingSnapshot mappingSnapshot,
+        string receiptId,
+        DateTimeOffset now,
+        JsonlCiAiWorkflowEvidenceStageStore stageStore)
+    {
+        ArgumentNullException.ThrowIfNull(stageStore);
+        if (string.IsNullOrWhiteSpace(receiptId) || receiptId.Length > 200 || receiptId.Any(char.IsControl))
+            throw new ArgumentException("A bounded receipt identity is required.", nameof(receiptId));
+        var evidence = Validate(packetBytes, mappingSnapshot, now);
+        var outcome = stageStore.Stage(
+            evidence.RequestId, evidence.TaskId, evidence.OperationId, evidence.IdempotencyKey,
+            receiptId, evidence.Packet.Repository, evidence.RunBinding.RunId, evidence.RunBinding.RunAttempt,
+            packetBytes, evidence.PacketSha256, now);
+        return (evidence, outcome);
+    }
     private static void RequireEqual(string actual, string expected, string identity)
     {
         if (!string.Equals(actual, expected, StringComparison.Ordinal))
