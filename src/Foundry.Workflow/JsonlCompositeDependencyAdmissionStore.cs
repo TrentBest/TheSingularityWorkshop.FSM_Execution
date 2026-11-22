@@ -41,8 +41,10 @@ public sealed record CompositeDependencyAdmissionIdentity(
         var repository = ConsumerRepository?.Split('/') ?? Array.Empty<string>();
         if (repository.Length != 2 || repository.Any(part => string.IsNullOrWhiteSpace(part) || part.Length > 100 || part.Any(char.IsControl)))
             throw new ArgumentException("Consumer repository must use owner/name identity.", nameof(ConsumerRepository));
-        ValidateSha(ConsumerSourceSha, nameof(ConsumerSourceSha));
-        ValidateSha(ExpressionSha256, nameof(ExpressionSha256));
+        if (ConsumerSourceSha is not { Length: 40 } || !ConsumerSourceSha.All(Uri.IsHexDigit))
+            throw new ArgumentException("Consumer source identity must be a full 40-character commit SHA.", nameof(ConsumerSourceSha));
+        if (ExpressionSha256 is not { Length: 64 } || !ExpressionSha256.All(Uri.IsHexDigit))
+            throw new ArgumentException("CiAi expression identity must be a SHA-256 digest.", nameof(ExpressionSha256));
         return this;
     }
 
