@@ -8,6 +8,7 @@ on:
       - feature/foundry-host-repository-operation-gate
       - feature/foundry-agent-onboarding-admission
       - feature/foundry-agent-onboarding-host-integration
+      - feature/dependency-admission-dormancy
   pull_request:
     branches:
       - development
