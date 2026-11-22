@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -114,15 +115,33 @@ public sealed class CiAiArtifactReadyIngress
             using var document = JsonDocument.Parse(exactRequestBody.ToArray(), new JsonDocumentOptions { MaxDepth = 16 });
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("contractVersion", out var contractVersion) ||
+                contractVersion.ValueKind != JsonValueKind.Number || contractVersion.GetInt32() != 1 ||
                 !TryString(root, "noticeId", out noticeId) ||
                 !TryString(root, "recipientIdentity", out recipient) ||
+                !TryDateTime(root, "notifiedAt", out var notifiedAt) ||
                 !root.TryGetProperty("manifest", out var manifest) || manifest.ValueKind != JsonValueKind.Object ||
                 !TryString(manifest, "idempotencyKey", out idempotencyKey) ||
                 !TryString(manifest, "providerRepository", out providerRepository) ||
                 !TryString(manifest, "requestId", out requestId) ||
                 !TryString(manifest, "operationId", out operationId) ||
-                !TryString(manifest, "sourceSha", out sourceSha))
-                throw new UnauthorizedAccessException("Artifact-ready notice is missing its required recipient or manifest identity.");
+                !TryString(manifest, "sourceSha", out sourceSha) ||
+                !TryDateTime(manifest, "createdAt", out var createdAt) ||
+                !TryDateTime(manifest, "expiresAt", out var expiresAt) ||
+                !TryString(manifest, "artifactId", out _) ||
+                !TryString(manifest, "digestAlgorithm", out var digestAlgorithm) || digestAlgorithm != "SHA-256" ||
+                !TryString(manifest, "digest", out var digest) || digest.Length != 64 || !digest.All(Uri.IsHexDigit) ||
+                !TryString(manifest, "mediaType", out _) ||
+                !manifest.TryGetProperty("sizeBytes", out var sizeBytes) || sizeBytes.ValueKind != JsonValueKind.Number ||
+                !sizeBytes.TryGetInt64(out var size) || size < 0 ||
+                !TryString(manifest, "retrievalUri", out var retrievalUriText) ||
+                !Uri.TryCreate(retrievalUriText, UriKind.Absolute, out var retrievalUri) ||
+                retrievalUri.Scheme != Uri.UriSchemeHttps || !retrievalUri.IsDefaultPort ||
+                !string.IsNullOrEmpty(retrievalUri.UserInfo) || !string.IsNullOrEmpty(retrievalUri.Fragment))
+                throw new UnauthorizedAccessException("Artifact-ready notice does not satisfy the supported v1 metadata contract.");
+            if (createdAt > notifiedAt || notifiedAt >= expiresAt || expiresAt <= now ||
+                sourceSha.Length != 40 || !sourceSha.All(Uri.IsHexDigit))
+                throw new UnauthorizedAccessException("Artifact-ready notice timestamps or source SHA are invalid.");
             if (!string.Equals(recipient, _policy.RecipientIdentity, StringComparison.Ordinal) ||
                 !manifest.TryGetProperty("clientIdentity", out var client) ||
                 client.ValueKind != JsonValueKind.String ||
@@ -239,6 +258,14 @@ public sealed class CiAiArtifactReadyIngress
             return false;
         value = element.GetString() ?? string.Empty;
         return !string.IsNullOrWhiteSpace(value) && value.Length <= 1024 && !value.Any(char.IsControl);
+    }
+
+    private static bool TryDateTime(JsonElement parent, string name, out DateTimeOffset value)
+    {
+        value = default;
+        return parent.TryGetProperty(name, out var element) && element.ValueKind == JsonValueKind.String &&
+            DateTimeOffset.TryParse(element.GetString(), CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out value);
     }
 
     private static bool TryNumber(JsonElement parent, string name, out long value)
