@@ -119,6 +119,68 @@ public sealed class JsonlDependencyAdmissionStoreTests
         finally { Delete(path); }
     }
 
+    [Fact]
+    public void PersistentCoordinatorCannotClaimWaitingTaskAndCanClaimAfterVerifiedWakeEvent()
+    {
+        var admissionPath = NewPath();
+        var taskPath = NewPath();
+        try
+        {
+            var gate = Gate();
+            var admission = new JsonlDependencyAdmissionStore(admissionPath);
+            admission.CreateWaiting("task-1", gate, Now);
+            var coordinator = new PersistentWorkTaskCoordinator(
+                new JsonlWorkTaskStore(taskPath), dependencyAdmissionStore: admission);
+            coordinator.Submit(new WorkTaskRequest(1, "task-1", "correlation-1",
+                "external/AnyRepo", 1, "https://github.com/external/AnyRepo/issues/1",
+                new string('f', 40), new[] { "src" }, 3));
+
+            Assert.Throws<InvalidOperationException>(() => coordinator.Claim(
+                "task-1", "agent-a", TimeSpan.FromMinutes(2), Now));
+
+            admission.ApplyVerifiedObservation(new DependencyGateObservation(
+                "task-1", gate, DependencyAdmissionStatus.Satisfied, 1,
+                451, 1, new string('a', 64), Now.AddMinutes(5)));
+            var claimed = coordinator.Claim("task-1", "agent-a", TimeSpan.FromMinutes(2),
+                Now.AddMinutes(6));
+            Assert.Equal(WorkTaskStatus.Claimed, claimed.Status);
+        }
+        finally
+        {
+            Delete(admissionPath);
+            Delete(taskPath);
+        }
+    }
+
+    [Fact]
+    public void PersistentCoordinatorKeepsTerminallyBlockedTaskUnclaimable()
+    {
+        var admissionPath = NewPath();
+        var taskPath = NewPath();
+        try
+        {
+            var gate = Gate();
+            var admission = new JsonlDependencyAdmissionStore(admissionPath);
+            admission.CreateWaiting("task-1", gate, Now);
+            var coordinator = new PersistentWorkTaskCoordinator(
+                new JsonlWorkTaskStore(taskPath), dependencyAdmissionStore: admission);
+            coordinator.Submit(new WorkTaskRequest(1, "task-1", "correlation-1",
+                "external/AnyRepo", 1, "https://github.com/external/AnyRepo/issues/1",
+                new string('f', 40), new[] { "src" }, 3));
+            admission.ApplyVerifiedObservation(new DependencyGateObservation(
+                "task-1", gate, DependencyAdmissionStatus.Blocked, 1,
+                451, 1, new string('b', 64), Now.AddMinutes(5)));
+
+            Assert.Throws<InvalidOperationException>(() => coordinator.Claim(
+                "task-1", "agent-a", TimeSpan.FromMinutes(2), Now.AddMinutes(6)));
+        }
+        finally
+        {
+            Delete(admissionPath);
+            Delete(taskPath);
+        }
+    }
+
     private static DependencyGateIdentity Gate() => new(
         "rawwar.physics.motion",
         "TrentBest/TheSingularityWorkshop.Physics",
