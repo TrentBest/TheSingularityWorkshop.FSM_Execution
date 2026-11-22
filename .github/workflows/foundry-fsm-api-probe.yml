@@ -147,7 +147,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.CiAi
-          ref: d4d2aa01985cc03b1a102b00f98e4b77eb666ac6
+          ref: faebc0fa3add76812b8360b6ff6df0820ee2e96e
           path: external/CiAi
           persist-credentials: false
 
@@ -155,7 +155,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected="d4d2aa01985cc03b1a102b00f98e4b77eb666ac6"
+          expected="faebc0fa3add76812b8360b6ff6df0820ee2e96e"
           actual="$(git -C external/CiAi rev-parse HEAD)"
           test "$actual" = "$expected"
           echo "Verified CiAi composite-gate source pin: $actual"
