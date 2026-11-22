@@ -42,8 +42,8 @@ public sealed class JsonlDependencyAdmissionStoreTests
                 451, 2, new string('a', 64), Now.AddMinutes(5)));
 
             Assert.Equal(DependencyAdmissionStatus.Satisfied, satisfied.Status);
-            Assert.Equal(451, satisfied.RunId);
-            Assert.Equal(2, satisfied.RunAttempt);
+            Assert.Equal((long?)451, satisfied.RunId);
+            Assert.Equal((int?)2, satisfied.RunAttempt);
             Assert.Equal(new string('a', 64), satisfied.EvidenceSha256);
             Assert.Equal(satisfied, new JsonlDependencyAdmissionStore(path).Get("task-1"));
         }
