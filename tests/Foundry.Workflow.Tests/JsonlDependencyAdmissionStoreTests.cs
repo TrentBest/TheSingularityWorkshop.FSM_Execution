@@ -128,12 +128,11 @@ public sealed class JsonlDependencyAdmissionStoreTests
         {
             var gate = Gate();
             var admission = new JsonlDependencyAdmissionStore(admissionPath);
-            admission.CreateWaiting("task-1", gate, Now);
             var coordinator = new PersistentWorkTaskCoordinator(
                 new JsonlWorkTaskStore(taskPath), dependencyAdmissionStore: admission);
-            coordinator.Submit(new WorkTaskRequest(1, "task-1", "correlation-1",
+            coordinator.SubmitWaiting(new WorkTaskRequest(1, "task-1", "correlation-1",
                 "external/AnyRepo", 1, "https://github.com/external/AnyRepo/issues/1",
-                new string('f', 40), new[] { "src" }, 3));
+                new string('f', 40), new[] { "src" }, 3), gate, Now);
 
             Assert.Throws<InvalidOperationException>(() => coordinator.Claim(
                 "task-1", "agent-a", TimeSpan.FromMinutes(2), Now));
@@ -161,12 +160,11 @@ public sealed class JsonlDependencyAdmissionStoreTests
         {
             var gate = Gate();
             var admission = new JsonlDependencyAdmissionStore(admissionPath);
-            admission.CreateWaiting("task-1", gate, Now);
             var coordinator = new PersistentWorkTaskCoordinator(
                 new JsonlWorkTaskStore(taskPath), dependencyAdmissionStore: admission);
-            coordinator.Submit(new WorkTaskRequest(1, "task-1", "correlation-1",
+            coordinator.SubmitWaiting(new WorkTaskRequest(1, "task-1", "correlation-1",
                 "external/AnyRepo", 1, "https://github.com/external/AnyRepo/issues/1",
-                new string('f', 40), new[] { "src" }, 3));
+                new string('f', 40), new[] { "src" }, 3), gate, Now);
             admission.ApplyVerifiedObservation(new DependencyGateObservation(
                 "task-1", gate, DependencyAdmissionStatus.Blocked, 1,
                 451, 1, new string('b', 64), Now.AddMinutes(5)));
