@@ -25,5 +25,21 @@
              Link="ArtifactRetrievalDestinationPolicy.cs" />
     <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/ArtifactReadyNotice.cs"
              Link="ArtifactReadyNotice.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiRunStatus.cs"
+             Link="CiRunStatus.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiRunSnapshot.cs"
+             Link="CiRunSnapshot.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiWorkflowRerunRequest.cs"
+             Link="CiWorkflowRerunRequest.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiWorkflowDispatchInputContract.cs"
+             Link="CiWorkflowDispatchInputContract.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiWorkflowCandidateCheckoutEvidence.cs"
+             Link="CiWorkflowCandidateCheckoutEvidence.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/GitHubActionsWorkflowRunCollector.cs"
+             Link="GitHubActionsWorkflowRunCollector.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/GitHubActionsWorkflowJobCollector.cs"
+             Link="GitHubActionsWorkflowJobCollector.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiWorkflowEvidencePacket.cs"
+             Link="CiWorkflowEvidencePacket.cs" />
   </ItemGroup>
 </Project>
