@@ -134,6 +134,8 @@ public sealed class JsonlDependencyAdmissionStore
             }
             if (observation.Sequence != current.Sequence + 1)
                 throw new InvalidDataException("Dependency event sequence must advance by exactly one.");
+            if (observation.ObservedAt < current.UpdatedAt)
+                throw new InvalidDataException("Dependency observation timestamps cannot move backwards.");
             if (current.Status != DependencyAdmissionStatus.Waiting)
                 throw new InvalidOperationException("A terminal dependency admission cannot be changed.");
             var next = new DependencyAdmissionSnapshot(observation.TaskId, observation.Gate,
@@ -227,7 +229,7 @@ public sealed class JsonlDependencyAdmissionStore
             {
                 if (!_latest.TryGetValue(snapshot.TaskId, out previous) ||
                     previous.Gate != snapshot.Gate || previous.Status != DependencyAdmissionStatus.Waiting ||
-                    snapshot.Sequence != previous.Sequence + 1 ||
+                    snapshot.Sequence != previous.Sequence + 1 || snapshot.UpdatedAt < previous.UpdatedAt ||
                     snapshot.Status == DependencyAdmissionStatus.Waiting &&
                         (snapshot.RunId is not null || snapshot.RunAttempt is not null || snapshot.EvidenceSha256 is not null) ||
                     snapshot.Status != DependencyAdmissionStatus.Waiting &&
