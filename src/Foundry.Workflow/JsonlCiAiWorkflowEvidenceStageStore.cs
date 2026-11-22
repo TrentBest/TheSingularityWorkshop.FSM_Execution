@@ -46,9 +46,7 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
         ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
         ValidateText(receiptId, nameof(receiptId), 200);
         ValidateText(repository, nameof(repository), 256);
-        var parts = repository.Split('/');
-        if (parts.Length != 2 || parts.Any(string.IsNullOrWhiteSpace))
-            throw new ArgumentException("Repository must use owner/name identity.", nameof(repository));
+        ValidateRepository(repository);
         if (runId <= 0 || runAttempt <= 0) throw new ArgumentOutOfRangeException(nameof(runId));
         if (packetBytes.IsEmpty || packetBytes.Length > 16 * 1024 * 1024)
             throw new InvalidDataException("Staged evidence must contain 1 byte through 16 MiB.");
@@ -111,8 +109,19 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
         {
             lineNumber++;
             CiAiWorkflowEvidenceStage snapshot;
-            try { snapshot = JsonSerializer.Deserialize<CiAiWorkflowEvidenceStage>(line, JsonOptions) ?? throw new InvalidDataException("Null stage record."); }
-            catch (Exception exception) when (exception is JsonException or DecoderFallbackException)
+            try
+            {
+                using var document = JsonDocument.Parse(line, new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = false,
+                    CommentHandling = JsonCommentHandling.Disallow,
+                    MaxDepth = 32
+                });
+                RejectDuplicateProperties(document.RootElement);
+                snapshot = JsonSerializer.Deserialize<CiAiWorkflowEvidenceStage>(line, JsonOptions)
+                    ?? throw new InvalidDataException("Null stage record.");
+            }
+            catch (Exception exception) when (exception is JsonException or DecoderFallbackException or ArgumentException)
             { throw new InvalidDataException($"Evidence-stage journal record {lineNumber} is invalid.", exception); }
             ValidateText(snapshot.RequestId, nameof(snapshot.RequestId), 200);
             ValidateText(snapshot.TaskId, nameof(snapshot.TaskId), 128);
@@ -134,6 +143,25 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
                 (value.Repository == snapshot.Repository && value.RunId == snapshot.RunId && value.RunAttempt == snapshot.RunAttempt)))
                 throw new InvalidDataException("Evidence-stage journal contains duplicate immutable identity.");
             _latest.Add(snapshot.RequestId, snapshot);
+        }
+    }
+
+    private static void RejectDuplicateProperties(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                    throw new InvalidDataException("Evidence-stage journal records cannot contain duplicate JSON property names.");
+                RejectDuplicateProperties(property.Value);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                RejectDuplicateProperties(item);
         }
     }
 
