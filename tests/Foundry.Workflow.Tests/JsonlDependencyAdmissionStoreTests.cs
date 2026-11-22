@@ -182,6 +182,68 @@ public sealed class JsonlDependencyAdmissionStoreTests
         }
     }
 
+    [Fact]
+    public void PersistentCoordinatorFencesCompositeWaitingAndAllowsCiAiSatisfiedDecision()
+    {
+        var admissionPath = NewPath();
+        var taskPath = NewPath();
+        try
+        {
+            var identity = new CompositeDependencyAdmissionIdentity(
+                "task-composite", "external/AnyRepo", "candidate-1", new string('f', 40),
+                "PipelineA", new string('a', 64), "policy-v1");
+            var admission = new JsonlCompositeDependencyAdmissionStore(admissionPath);
+            var coordinator = new PersistentWorkTaskCoordinator(
+                new JsonlWorkTaskStore(taskPath), compositeDependencyAdmissionStore: admission);
+            coordinator.SubmitCompositeWaiting(new WorkTaskRequest(1, "task-composite", "correlation-composite",
+                "external/AnyRepo", 2, "https://github.com/external/AnyRepo/issues/2",
+                new string('f', 40), new[] { "src" }, 3), identity, Now);
+
+            Assert.Throws<InvalidOperationException>(() => coordinator.Claim(
+                "task-composite", "agent-a", TimeSpan.FromMinutes(2), Now));
+
+            admission.ApplyVerifiedDecision(identity, CompositeDependencyAdmissionState.Satisfied,
+                1, new string('b', 64), Now.AddMinutes(5));
+            var claimed = coordinator.Claim("task-composite", "agent-a",
+                TimeSpan.FromMinutes(2), Now.AddMinutes(6));
+            Assert.Equal(WorkTaskStatus.Claimed, claimed.Status);
+        }
+        finally
+        {
+            Delete(admissionPath);
+            Delete(taskPath);
+        }
+    }
+
+    [Fact]
+    public void PersistentCoordinatorKeepsCompositeBlockedTaskUnclaimable()
+    {
+        var admissionPath = NewPath();
+        var taskPath = NewPath();
+        try
+        {
+            var identity = new CompositeDependencyAdmissionIdentity(
+                "task-composite-blocked", "external/AnyRepo", "candidate-2", new string('e', 40),
+                "PipelineA", new string('c', 64), "policy-v1");
+            var admission = new JsonlCompositeDependencyAdmissionStore(admissionPath);
+            var coordinator = new PersistentWorkTaskCoordinator(
+                new JsonlWorkTaskStore(taskPath), compositeDependencyAdmissionStore: admission);
+            coordinator.SubmitCompositeWaiting(new WorkTaskRequest(1, "task-composite-blocked", "correlation-blocked",
+                "external/AnyRepo", 3, "https://github.com/external/AnyRepo/issues/3",
+                new string('e', 40), new[] { "src" }, 3), identity, Now);
+            admission.ApplyVerifiedDecision(identity, CompositeDependencyAdmissionState.Blocked,
+                1, new string('d', 64), Now.AddMinutes(5));
+
+            Assert.Throws<InvalidOperationException>(() => coordinator.Claim(
+                "task-composite-blocked", "agent-a", TimeSpan.FromMinutes(2), Now.AddMinutes(6)));
+        }
+        finally
+        {
+            Delete(admissionPath);
+            Delete(taskPath);
+        }
+    }
+
     private static DependencyGateIdentity Gate() => new(
         "rawwar.physics.motion",
         "TrentBest/TheSingularityWorkshop.Physics",
