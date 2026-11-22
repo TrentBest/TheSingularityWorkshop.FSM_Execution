@@ -79,12 +79,17 @@ public sealed class CiAiArtifactReadyIngressTests
         finally { Delete(path); }
     }
 
-    private static CiAiArtifactReadyIngress CreateIngress(RSA key, JsonlCiAiArtifactNoticeReceiptLedger ledger) =>
-        new(new CiAiIngressAuthenticationPolicy(Issuer, Audience,
+    private static CiAiArtifactReadyIngress CreateIngress(RSA key, JsonlCiAiArtifactNoticeReceiptLedger ledger)
+    {
+        var publicKey = RSA.Create();
+        publicKey.ImportParameters(key.ExportParameters(includePrivateParameters: false));
+        return new CiAiArtifactReadyIngress(
+            new CiAiIngressAuthenticationPolicy(Issuer, Audience,
                 "foundry.ci-evidence.deliver", "foundry-production", TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(30)),
-            new[] { new CiAiIngressSender(Subject, KeyId, RSA.Create(key.ExportParameters(false)),
+            new[] { new CiAiIngressSender(Subject, KeyId, publicKey,
                 new HashSet<string>(StringComparer.Ordinal) { ProviderRepository }) },
             ledger, () => Now);
+    }
 
     private static byte[] Notice(string providerRepository) => Encoding.UTF8.GetBytes(NoticeJson("foundry-production", providerRepository));
 
