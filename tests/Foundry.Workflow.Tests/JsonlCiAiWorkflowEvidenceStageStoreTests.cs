@@ -37,7 +37,8 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStoreTests
             var bytes = System.Text.Encoding.UTF8.GetBytes("{\"packet\":1}");
             var store = new JsonlCiAiWorkflowEvidenceStageStore(path);
             Assert.Equal(CiAiEvidenceStageOutcome.Staged, Stage(store, bytes, Digest(bytes)));
-            Assert.Equal(CiAiEvidenceStageOutcome.Duplicate, Stage(store, bytes, Digest(bytes)));
+            Assert.Equal(CiAiEvidenceStageOutcome.Duplicate, Stage(store, bytes, Digest(bytes),
+                new DateTimeOffset(2026, 11, 22, 20, 0, 0, TimeSpan.Zero)));
 
             var changed = System.Text.Encoding.UTF8.GetBytes("{\"packet\":2}");
             Assert.Throws<InvalidDataException>(() => Stage(store, changed, Digest(changed)));
@@ -79,9 +80,10 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStoreTests
     }
 
     private static CiAiEvidenceStageOutcome Stage(JsonlCiAiWorkflowEvidenceStageStore store,
-        byte[] bytes, string digest) =>
+        byte[] bytes, string digest, DateTimeOffset? stagedAt = null) =>
         store.Stage("request-1", "task-1", "operation-1", "idempotency-1", "receipt-1",
-            "TrentBest/raWWar", 123, 2, bytes, digest, new DateTimeOffset(2026, 11, 22, 19, 0, 0, TimeSpan.Zero));
+            "TrentBest/raWWar", 123, 2, bytes, digest,
+            stagedAt ?? new DateTimeOffset(2026, 11, 22, 19, 0, 0, TimeSpan.Zero));
 
     private static string Digest(byte[] bytes) =>
         Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
