@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using TheSingularityWorkshop.Foundry;
 
 namespace TheSingularityWorkshop.Foundry.GitHubHost;
 
@@ -132,7 +133,7 @@ public static class CiAiArtifactReadyEndpointRouteBuilderExtensions
         var chunk = new byte[8192];
         while (true)
         {
-            var read = await request.Body.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
+            var read = await request.Body.ReadAsync(chunk.AsMemory(), cancellationToken).ConfigureAwait(false);
             if (read == 0)
                 break;
             if (buffer.Length + read > MaximumBodyBytes)
@@ -143,5 +144,5 @@ public static class CiAiArtifactReadyEndpointRouteBuilderExtensions
         return buffer.ToArray();
     }
 
-    private sealed class CiAiIngressBodyTooLargeException : Exception;
+    private sealed class CiAiIngressBodyTooLargeException : Exception { }
 }
