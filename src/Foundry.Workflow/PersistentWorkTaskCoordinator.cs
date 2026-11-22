@@ -12,15 +12,18 @@ public sealed class PersistentWorkTaskCoordinator
     private readonly WorkTaskCoordinator _coordinator;
     private readonly JsonlWorkTaskStore _store;
     private readonly JsonlWorkTaskRepairAttemptJournal? _repairAttemptJournal;
+    private readonly JsonlDependencyAdmissionStore? _dependencyAdmissionStore;
     private Exception? _persistenceFailure;
     private bool _admissionReady = true;
 
     public PersistentWorkTaskCoordinator(JsonlWorkTaskStore store,
         JsonlWorkTaskRepairAttemptJournal? repairAttemptJournal = null,
-        ICodeRedRecoveryReceiptVerifier? recoveryReceiptVerifier = null)
+        ICodeRedRecoveryReceiptVerifier? recoveryReceiptVerifier = null,
+        JsonlDependencyAdmissionStore? dependencyAdmissionStore = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _repairAttemptJournal = repairAttemptJournal;
+        _dependencyAdmissionStore = dependencyAdmissionStore;
         _coordinator = new WorkTaskCoordinator(recoveryReceiptVerifier);
         var restored = _store.GetAll();
         foreach (var snapshot in restored)
@@ -31,6 +34,12 @@ public sealed class PersistentWorkTaskCoordinator
 
     /// <summary>The exact durable repair-attempt journal used by evidence decisions, if configured.</summary>
     public JsonlWorkTaskRepairAttemptJournal? RepairAttemptJournal => _repairAttemptJournal;
+
+    /// <summary>
+    /// The durable dependency admission journal. Hosts must create a task's Waiting gate
+    /// before making that task eligible for dispatch.
+    /// </summary>
+    public JsonlDependencyAdmissionStore? DependencyAdmissionStore => _dependencyAdmissionStore;
 
     /// <summary>
     /// Revalidates every restored governed task against the trusted host before the coordinator
@@ -113,6 +122,13 @@ public sealed class PersistentWorkTaskCoordinator
             lock (_gate)
             {
                 EnsureHealthy();
+                var dependency = _dependencyAdmissionStore?.Get(taskId);
+                if (dependency is { Status: DependencyAdmissionStatus.Waiting })
+                    throw new InvalidOperationException(
+                        "Task is dormant: its declared provider capability is still Waiting. No execution lease may be claimed.");
+                if (dependency is { Status: DependencyAdmissionStatus.Blocked })
+                    throw new InvalidOperationException(
+                        "Task is blocked: its declared provider capability was rejected or failed terminally.");
                 var snapshot = _coordinator.Claim(taskId, agentId, leaseDuration, now);
                 return Persist(snapshot);
             }
