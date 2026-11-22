@@ -63,7 +63,7 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
         {
             if (_latest.TryGetValue(requestId, out var existing))
             {
-                if (existing == snapshot) return CiAiEvidenceStageOutcome.Duplicate;
+                if (SameEvidence(existing, snapshot)) return CiAiEvidenceStageOutcome.Duplicate;
                 throw new InvalidDataException("A request already has different staged evidence; immutable staging conflict.");
             }
             if (_latest.Values.Any(value => value.OperationId == operationId || value.IdempotencyKey == idempotencyKey ||
@@ -119,13 +119,14 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
             ValidateText(snapshot.OperationId, nameof(snapshot.OperationId), 200);
             ValidateText(snapshot.IdempotencyKey, nameof(snapshot.IdempotencyKey), 200);
             ValidateText(snapshot.ReceiptId, nameof(snapshot.ReceiptId), 200);
-            ValidateText(snapshot.Repository, nameof(snapshot.Repository), 256);
+            ValidateRepository(snapshot.Repository);
             if (snapshot.RunId <= 0 || snapshot.RunAttempt <= 0 || snapshot.StagedAt == default)
                 throw new InvalidDataException("Evidence-stage identity or timestamp is invalid.");
             byte[] bytes;
             try { bytes = snapshot.GetPacketBytes(); }
             catch (FormatException exception) { throw new InvalidDataException("Staged packet base64 is invalid.", exception); }
             if (bytes.Length is 0 or > 16 * 1024 * 1024 ||
+                !string.Equals(Convert.ToBase64String(bytes), snapshot.PacketBase64, StringComparison.Ordinal) ||
                 !string.Equals(Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), snapshot.PacketSha256, StringComparison.Ordinal))
                 throw new InvalidDataException("Staged packet bytes failed replay digest verification.");
             if (_latest.ContainsKey(snapshot.RequestId) || _latest.Values.Any(value =>
@@ -134,6 +135,28 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStore
                 throw new InvalidDataException("Evidence-stage journal contains duplicate immutable identity.");
             _latest.Add(snapshot.RequestId, snapshot);
         }
+    }
+
+    private static bool SameEvidence(CiAiWorkflowEvidenceStage left, CiAiWorkflowEvidenceStage right) =>
+        left.RequestId == right.RequestId &&
+        left.TaskId == right.TaskId &&
+        left.OperationId == right.OperationId &&
+        left.IdempotencyKey == right.IdempotencyKey &&
+        left.ReceiptId == right.ReceiptId &&
+        left.Repository == right.Repository &&
+        left.RunId == right.RunId &&
+        left.RunAttempt == right.RunAttempt &&
+        left.PacketSha256 == right.PacketSha256 &&
+        left.PacketBase64 == right.PacketBase64;
+
+    private static void ValidateRepository(string repository)
+    {
+        ValidateText(repository, nameof(repository), 256);
+        var parts = repository.Split('/');
+        if (parts.Length != 2 || parts.Any(part => string.IsNullOrWhiteSpace(part) ||
+            part is "." or ".." || part.Any(character =>
+                !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'))))
+            throw new InvalidDataException("Repository must use a valid owner/name identity.");
     }
 
     private static void ValidateText(string value, string name, int maximum)
