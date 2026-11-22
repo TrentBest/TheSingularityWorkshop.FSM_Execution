@@ -29,3 +29,26 @@ This slice is a single-gate hold and does not yet implement a complete multi-gat
 ## Verification
 
 `JsonlDependencyAdmissionStoreTests` covers restart persistence, exact provider identity, stale sequence rejection, idempotent delivery, terminal regression, and the persistent coordinator's no-claim-while-Waiting / no-claim-when-Blocked boundary.
+
+
+## Composite pipeline integration boundary
+
+CiAi is the sole owner of prerequisite expression semantics. The host must not reproduce AND/OR evaluation in this repository.
+
+The intended host sequence is:
+
+1. Persist the consumer task and its immutable candidate identity.
+2. Resolve the named CiAi pipeline definition and persist its schema version, pipeline name, canonical definition SHA-256, and exact leaf identities.
+3. Keep the task dormant while any CiAi leaf evidence is absent or the authoritative CiAi evaluator returns `Waiting`.
+4. Authenticate the CiAi sender and durably accept the metadata-only artifact-ready notice using the v1 ingress contract. Resolve the notice through the pre-existing request/task mapping; never trust task identity from callback or model text.
+5. Retrieve and verify the immutable evidence artifact against the exact request, run/attempt, candidate SHA, workflow identity, digest, and host policy.
+6. Convert verified leaf evidence into CiAi's existing typed leaf evaluations and call `CiAiPipelineGateEvaluator.Evaluate`. Persist the exact expression digest, evidence-set digest, and returned three-valued result as one admission decision.
+7. Wake only tasks whose expression depends on the changed gate, and only when the authoritative result is `Satisfied`. `Waiting` remains dormant; `Blocked` remains denied.
+
+The current dependency journal is intentionally a one-gate prototype. It is not yet the composite decision journal described above. In particular, its one-run/one-attempt terminal evidence fields cannot represent a composite evaluation assembled from multiple provider runs. Do not overload a synthetic provider identity or pretend one run represents the complete expression. The next implementation slice must introduce a composite admission receipt that binds the consumer task/candidate, CiAi expression digest, complete verified leaf-evidence-set digest, policy version, and CiAi result. The host supplies the result only after calling the authoritative CiAi evaluator.
+
+## Current end-to-end status
+
+The repository already contains a detailed CiAi artifact ingress wire contract and local notice/request ledgers. The callback contract explicitly remains a design contract: the HTTPS receiver, JWT authentication, provider transport, artifact retrieval integration, and remote acknowledgement are not yet implemented. Existing GitHub Actions artifact provenance verification is a separate trusted-dispatch path and must not be mistaken for the CiAi artifact callback implementation.
+
+A first working vertical slice therefore still requires authenticated notice ingress, immutable artifact retrieval/verification, composite CiAi evaluation, durable composite admission, and event-driven task wake-up. Normal PR CI passing proves compilation/tests only; it does not prove those privileged integrations.
