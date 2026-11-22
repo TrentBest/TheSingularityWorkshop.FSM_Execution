@@ -119,7 +119,7 @@ public sealed class CiAiArtifactHttpTransport : ICiAiArtifactHttpTransport, IDis
 
         // Reject IETF special-purpose, documentation, Teredo, and 6to4 ranges.
         if (bytes[0] == 0x20 && bytes[1] == 0x01 &&
-            (bytes[2] == 0x00 || (bytes[2] == 0x0D && bytes[3] == 0xB8)))
+            (bytes[2] <= 0x01 || (bytes[2] == 0x0D && bytes[3] == 0xB8)))
             return false;
         if (bytes[0] == 0x20 && bytes[1] == 0x02)
             return false;
@@ -190,6 +190,9 @@ public sealed class CiAiArtifactRetrievalService
         ArgumentNullException.ThrowIfNull(registeredSender);
         registeredSender.Validate();
 
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(60));
+        var deadlineToken = deadline.Token;
         var now = _clock();
         if (now == default) throw new InvalidOperationException("Artifact retrieval clock returned an invalid timestamp.");
         if (mappingSnapshot.Cancelled || mappingSnapshot.RunBinding is null ||
@@ -246,7 +249,7 @@ public sealed class CiAiArtifactRetrievalService
                 string.Join(",", destinationErrors));
 
         var authorization = await _credentials.GetAuthorizationAsync(
-            manifest.ProviderRepository, uri, cancellationToken).ConfigureAwait(false);
+            manifest.ProviderRepository, uri, deadlineToken).ConfigureAwait(false);
         if (authorization is null || string.IsNullOrWhiteSpace(authorization.Scheme) ||
             string.IsNullOrWhiteSpace(authorization.Parameter))
             throw new UnauthorizedAccessException("A provider-scoped artifact read credential is required.");
@@ -255,9 +258,7 @@ public sealed class CiAiArtifactRetrievalService
         request.Headers.Authorization = authorization;
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(TimeSpan.FromSeconds(60));
-        using var response = await _transport.SendAsync(request, deadline.Token).ConfigureAwait(false);
+        using var response = await _transport.SendAsync(request, deadlineToken).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.OK ||
             (response.RequestMessage?.RequestUri is { } finalUri && finalUri != uri))
             throw new InvalidDataException("Artifact provider must return HTTP 200 from the exact configured URI without redirects.");
@@ -267,9 +268,9 @@ public sealed class CiAiArtifactRetrievalService
         if (response.Content.Headers.ContentLength is > MaximumArtifactBytes)
             throw new InvalidDataException("Artifact response exceeds the 16 MiB host limit.");
 
-        await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token).ConfigureAwait(false);
+        await using var stream = await response.Content.ReadAsStreamAsync(deadlineToken).ConfigureAwait(false);
         var read = await ArtifactPayloadReader.ReadAndVerifyAsync(
-            stream, manifest, MaximumArtifactBytes, deadline.Token).ConfigureAwait(false);
+            stream, manifest, MaximumArtifactBytes, deadlineToken).ConfigureAwait(false);
         if (!read.Verification.IsVerified || read.Payload is null)
             throw new InvalidDataException("Artifact bytes failed exact manifest verification: " +
                 (read.Verification.FailureCode ?? "payload.unknown"));
