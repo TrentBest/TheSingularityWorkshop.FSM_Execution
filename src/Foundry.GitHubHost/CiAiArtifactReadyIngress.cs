@@ -157,7 +157,8 @@ public sealed class CiAiArtifactReadyIngress
             throw new UnauthorizedAccessException("Authenticated CiAi sender is not authorized for the provider repository.");
 
         var mapping = _mappings.GetActionable(requestId, now).Mapping;
-        if (!string.Equals(mapping.OperationId, operationId, StringComparison.Ordinal) ||
+        if (!string.Equals(mapping.Repository, providerRepository, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(mapping.OperationId, operationId, StringComparison.Ordinal) ||
             !string.Equals(mapping.IdempotencyKey, idempotencyKey, StringComparison.Ordinal) ||
             !string.Equals(mapping.ProviderIdentity, sender.Subject, StringComparison.Ordinal) ||
             !string.Equals(mapping.CandidateSha, sourceSha, StringComparison.OrdinalIgnoreCase))
