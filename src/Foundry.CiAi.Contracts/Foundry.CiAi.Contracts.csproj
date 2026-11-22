@@ -15,5 +15,15 @@
              Link="DependencyReleaseGate.cs" />
     <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/CiAiPipelineGateExpression.cs"
              Link="CiAiPipelineGateExpression.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/ArtifactManifest.cs"
+             Link="ArtifactManifest.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/ArtifactPayloadVerifier.cs"
+             Link="ArtifactPayloadVerifier.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/ArtifactPayloadReader.cs"
+             Link="ArtifactPayloadReader.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/ArtifactRetrievalDestinationPolicy.cs"
+             Link="ArtifactRetrievalDestinationPolicy.cs" />
+    <Compile Include="../../external/CiAi/src/TheSingularityWorkshop.CiAi/ArtifactReadyNotice.cs"
+             Link="ArtifactReadyNotice.cs" />
   </ItemGroup>
 </Project>
