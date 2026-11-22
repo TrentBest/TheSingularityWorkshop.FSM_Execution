@@ -20,11 +20,13 @@ public sealed class CiAiArtifactReadyIngressTests
     public void ValidJwtAndRecipientBindingPersistExactNoticeAndDeduplicateRetry()
     {
         var path = NewPath();
+        var mappingPath = NewPath();
         using var key = RSA.Create(2048);
         try
         {
             var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
-            var ingress = CreateIngress(key, ledger);
+            var mappings = CreateMappingJournal(mappingPath);
+            var ingress = CreateIngress(key, ledger, mappings);
             var body = Notice(ProviderRepository);
             var token = Token(key, new[] { ProviderRepository }, Now, Audience);
             var first = ingress.Accept("Bearer " + token, body);
@@ -37,18 +39,20 @@ public sealed class CiAiArtifactReadyIngressTests
                 first.Receipt.PayloadSha256);
             Assert.Single(new JsonlCiAiArtifactNoticeReceiptLedger(path).GetAll());
         }
-        finally { Delete(path); }
+        finally { Delete(path); Delete(mappingPath); }
     }
 
     [Fact]
     public void InvalidSignatureExpiredTokenAndWrongAudienceAreRejected()
     {
         var path = NewPath();
+        var mappingPath = NewPath();
         using var key = RSA.Create(2048);
         using var attacker = RSA.Create(2048);
         try
         {
-            var ingress = CreateIngress(key, new JsonlCiAiArtifactNoticeReceiptLedger(path));
+            var mappings = CreateMappingJournal(mappingPath);
+            var ingress = CreateIngress(key, new JsonlCiAiArtifactNoticeReceiptLedger(path), mappings);
             var body = Notice(ProviderRepository);
             Assert.Throws<UnauthorizedAccessException>(() =>
                 ingress.Accept("Bearer " + Token(attacker, new[] { ProviderRepository }, Now, Audience), body));
@@ -57,17 +61,19 @@ public sealed class CiAiArtifactReadyIngressTests
             Assert.Throws<UnauthorizedAccessException>(() =>
                 ingress.Accept("Bearer " + Token(key, new[] { ProviderRepository }, Now, "wrong-audience"), body));
         }
-        finally { Delete(path); }
+        finally { Delete(path); Delete(mappingPath); }
     }
 
     [Fact]
     public void RepositoryAndRecipientAreBoundBeforeDurableAcceptance()
     {
         var path = NewPath();
+        var mappingPath = NewPath();
         using var key = RSA.Create(2048);
         try
         {
-            var ingress = CreateIngress(key, new JsonlCiAiArtifactNoticeReceiptLedger(path));
+            var mappings = CreateMappingJournal(mappingPath);
+            var ingress = CreateIngress(key, new JsonlCiAiArtifactNoticeReceiptLedger(path), mappings);
             Assert.Throws<UnauthorizedAccessException>(() =>
                 ingress.Accept("Bearer " + Token(key, new[] { "attacker/Repo" }, Now, Audience), Notice(ProviderRepository)));
 
@@ -76,10 +82,11 @@ public sealed class CiAiArtifactReadyIngressTests
                 ingress.Accept("Bearer " + Token(key, new[] { ProviderRepository }, Now, Audience), wrongRecipient));
             Assert.Empty(new JsonlCiAiArtifactNoticeReceiptLedger(path).GetAll());
         }
-        finally { Delete(path); }
+        finally { Delete(path); Delete(mappingPath); }
     }
 
-    private static CiAiArtifactReadyIngress CreateIngress(RSA key, JsonlCiAiArtifactNoticeReceiptLedger ledger)
+    private static CiAiArtifactReadyIngress CreateIngress(RSA key,
+        JsonlCiAiArtifactNoticeReceiptLedger ledger, JsonlCiAiRequestTaskMappingJournal mappings)
     {
         var publicKey = RSA.Create();
         publicKey.ImportParameters(key.ExportParameters(includePrivateParameters: false));
@@ -88,7 +95,26 @@ public sealed class CiAiArtifactReadyIngressTests
                 "foundry.ci-evidence.deliver", "foundry-production", TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(30)),
             new[] { new CiAiIngressSender(Subject, KeyId, publicKey,
                 new HashSet<string>(StringComparer.Ordinal) { ProviderRepository }) },
-            ledger, () => Now);
+            ledger, mappings, () => Now);
+    }
+
+    private static JsonlCiAiRequestTaskMappingJournal CreateMappingJournal(string path)
+    {
+        var journal = new JsonlCiAiRequestTaskMappingJournal(path);
+        var created = Now.AddMinutes(-10);
+        var mapping = new CiAiRequestTaskMapping(1, "request-001", "operation-001",
+            "artifact-key-001", "task-001", "correlation-001", "TrentBest/Consumer",
+            "refs/heads/work/task-001", new string('a', 40), ".github/workflows/build.yml",
+            "refs/heads/development", new string('b', 40), "build", "Resolve candidate",
+            "Verify candidate", Subject, "https://artifacts.example.test/",
+            "https://ciai.example.test/api/v1/integrations/ciai/artifact-receipts",
+            "ciai-ack-profile", created, created.AddHours(2));
+        journal.CreateDispatchIntent(mapping);
+        journal.BindRun(mapping.RequestId, new CiAiDispatchRunBinding(123, 1,
+            mapping.Repository, mapping.WorkflowPath, mapping.TrustedWorkflowRef,
+            mapping.TrustedWorkflowSha, mapping.CandidateRef, mapping.CandidateSha,
+            "workflow_dispatch", Now.AddMinutes(-5)), Now.AddMinutes(-5));
+        return journal;
     }
 
     private static byte[] Notice(string providerRepository) => Encoding.UTF8.GetBytes(NoticeJson("foundry-production", providerRepository));
@@ -107,6 +133,7 @@ public sealed class CiAiArtifactReadyIngressTests
                 idempotencyKey = "artifact-key-001",
                 providerRepository,
                 clientIdentity = recipient,
+                sourceSha = new string('a', 40),
                 artifactId = "artifact-001"
             }
         });
