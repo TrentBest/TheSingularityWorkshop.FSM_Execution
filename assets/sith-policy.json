@@ -10,6 +10,7 @@
     "development",
     "docs/foundry-domain-theory-foundation",
     "feature/autonomous-development-status-projection",
+    "feature/dependency-admission-dormancy",
     "feature/foundry-agent-onboarding-admission",
     "feature/foundry-agent-onboarding-host-integration",
     "feature/foundry-capability-lifecycle-fence",
@@ -29,9 +30,9 @@
     "master",
     "work/explicit-workflow-timeouts"
   ],
-  "branch_count": 22,
+  "branch_count": 23,
   "status": "NON-COMPLIANT",
-  "evaluated_at": "2026-11-21T12:40:24Z",
-  "workflow_run": "https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/44905050738",
-  "triggering_commit": "53a67b15f8484fb4b56aaa9a0924569807943aa4"
+  "evaluated_at": "2026-11-22T12:36:44Z",
+  "workflow_run": "https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/45023168808",
+  "triggering_commit": "419ac987389d719e6a0b6c1cfdb573a8e9ba578f"
 }
