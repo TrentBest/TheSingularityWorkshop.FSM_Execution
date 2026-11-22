@@ -79,6 +79,38 @@ public sealed class JsonlCiAiWorkflowEvidenceStageStoreTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    [Fact]
+    public void RejectsDuplicateJsonPropertiesDuringReplay()
+    {
+        var path = NewPath();
+        try
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes("{\"packet\":1}");
+            var store = new JsonlCiAiWorkflowEvidenceStageStore(path);
+            Stage(store, bytes, Digest(bytes));
+            var line = File.ReadAllText(path);
+            File.WriteAllText(path, line.Replace("{", "{\"requestId\":\"forged\",", StringComparison.Ordinal));
+            Assert.Throws<InvalidDataException>(() => new JsonlCiAiWorkflowEvidenceStageStore(path));
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public void RejectsInvalidRepositoryBeforeAppendingAnUnreplayableRecord()
+    {
+        var path = NewPath();
+        try
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes("packet");
+            var store = new JsonlCiAiWorkflowEvidenceStageStore(path);
+            Assert.Throws<InvalidDataException>(() => store.Stage(
+                "request-1", "task-1", "operation-1", "idempotency-1", "receipt-1",
+                "../bad/repository", 123, 2, bytes, Digest(bytes), DateTimeOffset.UtcNow));
+            Assert.False(File.Exists(path));
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     private static CiAiEvidenceStageOutcome Stage(JsonlCiAiWorkflowEvidenceStageStore store,
         byte[] bytes, string digest, DateTimeOffset? stagedAt = null) =>
         store.Stage("request-1", "task-1", "operation-1", "idempotency-1", "receipt-1",
