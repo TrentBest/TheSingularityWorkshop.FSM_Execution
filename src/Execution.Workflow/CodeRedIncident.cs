@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 public enum CodeRedSeverity { Warning, High, Critical }
 public enum CodeRedIncidentStatus { Active, Cleared }

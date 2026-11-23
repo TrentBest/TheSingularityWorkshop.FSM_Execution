@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>Host-owned delivery boundary for human-facing CODE RED notices.</summary>
 public interface ICodeRedStatusPublisher

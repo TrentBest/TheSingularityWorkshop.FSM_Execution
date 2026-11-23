@@ -1,7 +1,7 @@
 using System.Text;
 using System.Globalization;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 public enum CodeRedRecoveryAction
 {
@@ -55,7 +55,7 @@ public sealed record CodeRedRecoveryApprovalReceipt(
         Validate();
         var fields = new[]
         {
-            "foundry.code-red-recovery-receipt.v1",
+            "execution.code-red-recovery-receipt.v1",
             SchemaVersion.ToString(CultureInfo.InvariantCulture),
             ReceiptId, Issuer, Principal, TaskId, IncidentId,
             TaskEventSequence.ToString(CultureInfo.InvariantCulture),
@@ -82,7 +82,7 @@ public sealed record CodeRedRecoveryApprovalReceipt(
 
 /// <summary>
 /// Host-configured trust boundary. Implementations must recognize only configured trusted
-/// issuers and verify the signature over the exact canonical payload supplied by Foundry.
+/// issuers and verify the signature over the exact canonical payload supplied by Execution.
 /// </summary>
 public interface ICodeRedRecoveryReceiptVerifier
 {

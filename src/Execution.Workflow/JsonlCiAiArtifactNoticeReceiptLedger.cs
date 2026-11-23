@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Security.Cryptography;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
 /// A normalized, already-authenticated artifact-ready notice. The HTTP adapter must

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
 /// Request identity emitted by the registered trusted workflow into a run-scoped
@@ -18,7 +18,7 @@ public sealed class CiAiDispatchRunMarker
         RunAttempt = runAttempt;
     }
 
-    public const string Contract = "foundry.ciai-dispatch-marker.v1";
+    public const string Contract = "execution.ciai-dispatch-marker.v1";
     public const int MaximumPayloadBytes = 4 * 1024;
 
     public string RequestId { get; }
