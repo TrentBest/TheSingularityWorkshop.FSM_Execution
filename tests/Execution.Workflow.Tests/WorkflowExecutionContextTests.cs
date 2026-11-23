@@ -1,8 +1,8 @@
 using System.Text.Json;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class WorkflowExecutionContextTests
 {
