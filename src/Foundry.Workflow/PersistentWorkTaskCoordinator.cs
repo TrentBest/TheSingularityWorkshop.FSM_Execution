@@ -14,6 +14,7 @@ public sealed class PersistentWorkTaskCoordinator
     private readonly JsonlWorkTaskRepairAttemptJournal? _repairAttemptJournal;
     private readonly JsonlDependencyAdmissionStore? _dependencyAdmissionStore;
     private readonly JsonlCompositeDependencyAdmissionStore? _compositeDependencyAdmissionStore;
+    private readonly IWorkTaskClaimAdmissionPolicy? _claimAdmissionPolicy;
     private Exception? _persistenceFailure;
     private bool _admissionReady = true;
 
@@ -21,12 +22,14 @@ public sealed class PersistentWorkTaskCoordinator
         JsonlWorkTaskRepairAttemptJournal? repairAttemptJournal = null,
         ICodeRedRecoveryReceiptVerifier? recoveryReceiptVerifier = null,
         JsonlDependencyAdmissionStore? dependencyAdmissionStore = null,
-        JsonlCompositeDependencyAdmissionStore? compositeDependencyAdmissionStore = null)
+        JsonlCompositeDependencyAdmissionStore? compositeDependencyAdmissionStore = null,
+        IWorkTaskClaimAdmissionPolicy? claimAdmissionPolicy = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _repairAttemptJournal = repairAttemptJournal;
         _dependencyAdmissionStore = dependencyAdmissionStore;
         _compositeDependencyAdmissionStore = compositeDependencyAdmissionStore;
+        _claimAdmissionPolicy = claimAdmissionPolicy;
         _coordinator = new WorkTaskCoordinator(recoveryReceiptVerifier);
         var restored = _store.GetAll();
         foreach (var snapshot in restored)
@@ -196,6 +199,7 @@ public sealed class PersistentWorkTaskCoordinator
             lock (_gate)
             {
                 EnsureHealthy();
+                _claimAdmissionPolicy?.EnsureClaimAllowed(taskId);
                 var dependency = _dependencyAdmissionStore?.Get(taskId);
                 if (dependency is { Status: DependencyAdmissionStatus.Waiting })
                     throw new InvalidOperationException(
