@@ -1,9 +1,9 @@
 <!-- The Singularity Workshop moniker -->
 <p align="center"><a href="https://github.com/TrentBest"><img src="https://raw.githubusercontent.com/TrentBest/TheSingularityWorkshop.Visualize/development/docs/assets/moniker.svg" alt="The Singularity Workshop animated moniker" width="720" /></a></p>
 
-# Foundry Roadmap and Readiness
+# Execution Roadmap and Readiness
 
-**Readiness: early implementation; no current percentage is asserted.** The previous 35% estimate predates the governed-work lifecycle and is not comparable to the expanded scope. The version-1 workflow runtime passed its development CI gate; the governed-work feature branch passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768) on exact head `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`, including workflow timeout/cancellation tests. This is not a release-readiness claim. The signed host-issued CODE RED recovery receipt boundary passed [feature-branch CI run #294](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41172622514) on exact head 0ef31369daa115fb652e46b79d208ea66ab8fc83.
+**Readiness: early implementation; no current percentage is asserted.** The previous 35% estimate predates the governed-work lifecycle and is not comparable to the expanded scope. The version-1 workflow runtime passed its development CI gate; the governed-work feature branch passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/41170698768) on exact head `230907aad4a7a75aed589d61f4c43aa9ea2a1eb4`, including workflow timeout/cancellation tests. This is not a release-readiness claim. The signed host-issued CODE RED recovery receipt boundary passed [feature-branch CI run #294](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/41172622514) on exact head 0ef31369daa115fb652e46b79d208ea66ab8fc83.
 
 ## Milestones
 
@@ -18,7 +18,7 @@
 - [x] Inspect FSM_COS composition contract and runtime boundary.
 - [x] Inspect the FSM_Serialization representation boundary.
 - [x] Inspect ProtocolAi/GrammarAi responsibility boundaries and AnyApp's host path at README/project/source level.
-- [x] Record an initial Foundry domain and ownership proposal in [DOMAIN.md](DOMAIN.md).
+- [x] Record an initial Execution domain and ownership proposal in [DOMAIN.md](DOMAIN.md).
 - [x] Trace representative WebPage Hub contracts, callers, and tests; record the non-equivalence and safe host-adapter seam in [HUB_INTEGRATION_BOUNDARY.md](HUB_INTEGRATION_BOUNDARY.md).
 - [ ] Record final source-backed contract decisions and source-derived UML.
 
@@ -68,8 +68,8 @@ The completed items below are implemented on PR #10's feature branch and are not
 - [x] Add credential-free CODE RED incident records and validated active/cleared notice projections.
 - [x] Require a short-lived, signed host approval receipt for CODE RED recovery, bound to the active incident sequence and exact task-event sequence; persist the complete signed receipt in the task audit.
 - [x] Add exact-CI-attempt provenance checks and bounded deterministic repair decisions.
-- [x] Add a concrete `Foundry.HeadlessAiHost` adapter that maps Foundry turns to HeadlessAi's immutable request/executor without moving lifecycle or authorization into HeadlessAi; build it against pinned HeadlessAi source in CI run #337.
-- [x] Add `Foundry.HeadlessAiHost.Console` as a manual host composition root and compile it in CI run #352.
+- [x] Add a concrete `Execution.HeadlessAiHost` adapter that maps Execution turns to HeadlessAi's immutable request/executor without moving lifecycle or authorization into HeadlessAi; build it against pinned HeadlessAi source in CI run #337.
+- [x] Add `Execution.HeadlessAiHost.Console` as a manual host composition root and compile it in CI run #352.
 - [ ] Provision host-managed provider credentials and execute one real provider turn through the manual smoke runner.
 - [ ] Connect CiAi's exact-run evidence packet/outbox and bounded rerun request/ledger through trusted host adapters.
 - [ ] Bridge the task lifecycle into the existing WorkflowExecutionCoordinator/WorkflowRunner; do not create a competing runner.

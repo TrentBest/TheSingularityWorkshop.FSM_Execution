@@ -28,7 +28,7 @@ Execution deliberately does not force workflow steps, WebPage process-group tick
 
 ## 03 — See it in a minute
 
-Start with the [version-1 workflow definition](src/Foundry.Workflow/WorkflowDefinition.cs), [sequential runner](src/Foundry.Workflow/WorkflowRunner.cs), and [retained execution coordinator](src/Foundry.Workflow/WorkflowExecutionCoordinator.cs).
+Start with the [version-1 workflow definition](src/Execution.Workflow/WorkflowDefinition.cs), [sequential runner](src/Execution.Workflow/WorkflowRunner.cs), and [retained execution coordinator](src/Execution.Workflow/WorkflowExecutionCoordinator.cs).
 
 A host can:
 1. Register allowed operations in `WorkflowHandlerRegistry`.
@@ -39,7 +39,7 @@ A host can:
 
 The first version executes named handlers sequentially. It validates the complete definition before invoking any handler, stops after failure, distinguishes cancellation from failure and timeout, and records remaining steps as skipped. Cancellation and timeout are cooperative: a handler that ignores its token cannot be forcibly stopped. The coordinator retains snapshots only in memory.
 
-The separate [FSM_API probe](src/Foundry.FsmApiProbe/Program.cs) and [fox/sheepdog scenario](src/Foundry.FoxSheepdog/Program.cs) remain deterministic state-execution demonstrations. They exercise real FSM_API behavior and generate reproducible evidence; they are not automatically treated as Hub workflows.
+The separate [FSM_API probe](src/Execution.FsmApiProbe/Program.cs) and [fox/sheepdog scenario](src/Execution.FoxSheepdog/Program.cs) remain deterministic state-execution demonstrations. They exercise real FSM_API behavior and generate reproducible evidence; they are not automatically treated as Hub workflows.
 
 ## 04 — Contracts, tests, and boundaries
 
