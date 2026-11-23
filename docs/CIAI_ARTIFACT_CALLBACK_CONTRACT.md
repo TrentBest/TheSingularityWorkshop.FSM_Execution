@@ -247,3 +247,22 @@ Related work:
 
 <!-- THE SINGULARITY WORKSHOP FOOTER -->
 <p align="center"><img src="https://raw.githubusercontent.com/TrentBest/FSM_API/master/Documentation/Branding/TheSingularityWorkshop.png" alt="The Singularity Workshop avatar" width="200" /></p>
+
+
+## 9. Durable consumer wake-up outbox
+
+`JsonlCiAiTaskWakeupOutbox` records a consumer wake-up only from a persisted `Satisfied` composite-admission snapshot returned by the authoritative CiAi evaluator bridge. `Waiting` and `Blocked` snapshots are rejected and cannot enter the outbox.
+
+The outbox event identity is deterministic over the exact task, consumer repository/candidate/source SHA, pipeline, canonical expression digest, policy version, admission sequence, and complete evidence-set digest. That identity is also the scheduler idempotency key. A retry or startup reconciliation therefore cannot create a second logical wake-up for the same admission decision.
+
+The host delivery protocol is deliberately at-least-once:
+
+1. Read pending entries from `GetPending()`.
+2. Persist `RecordDeliveryAttempt` before calling the task scheduler.
+3. Deliver the exact task/candidate identity and stable idempotency key to the scheduler.
+4. Call `MarkDelivered` only after the scheduler confirms durable acceptance.
+5. If the host crashes or the response is ambiguous, retry the same event and idempotency key. The scheduler must deduplicate that key.
+
+On host startup, call `ReconcileSatisfiedAdmissions` against the durable composite-admission journal before draining pending entries. This repairs the crash window where CiAi's Satisfied decision reached its admission journal but the process stopped before appending the outbox record. Reconciliation is safe to repeat.
+
+The JSONL implementation is a single-process durability primitive, not a distributed queue or cross-process lock. It does not itself reevaluate gate expressions, deliver network events, or bypass the task `Claim` fence. The production host must invoke CiAi's evaluator only for relevant verified provider events, reconcile the complete current leaf-evidence set, enqueue the resulting Satisfied decision, and connect this outbox to the durable scheduler. Waiting tasks remain dormant and do not consume LLM turns. ServerApp wiring and the live Physics-to-raWWar pilot remain separate integration gates.
