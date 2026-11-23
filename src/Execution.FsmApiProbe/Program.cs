@@ -2,12 +2,12 @@ using System;
 using TheSingularityWorkshop.FSM_API;
 using Engine = TheSingularityWorkshop.FSM_API.FSM_API;
 
-namespace TheSingularityWorkshop.Foundry.FsmApiProbe
+namespace TheSingularityWorkshop.Execution.FsmApiProbe
 {
     internal static class Program
     {
-        private const string FsmName = "Foundry.CI.FsmApiProbe.v1";
-        private const string ProcessingGroup = "Foundry.CI.Probe";
+        private const string FsmName = "Execution.CI.FsmApiProbe.v1";
+        private const string ProcessingGroup = "Execution.CI.Probe";
 
         private static int Main()
         {
@@ -70,7 +70,7 @@ namespace TheSingularityWorkshop.Foundry.FsmApiProbe
         private sealed class ProbeContext : IStateContext
         {
             public bool IsValid { get; set; } = true;
-            public string Name { get; set; } = "Foundry CI FSM API probe";
+            public string Name { get; set; } = "Execution CI FSM API probe";
         }
     }
 }

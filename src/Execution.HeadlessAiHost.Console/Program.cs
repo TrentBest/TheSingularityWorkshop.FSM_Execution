@@ -1,5 +1,5 @@
 using System.Text.Json;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using TheSingularityWorkshop.HeadlessAi;
 
 if (args.Length != 8)
@@ -35,7 +35,7 @@ var branch = args[6];
 var allowedPath = args[7];
 var dataDirectory = Path.GetFullPath(
     Environment.GetEnvironmentVariable("FOUNDRY_DATA_DIR") ??
-    Path.Combine(Environment.CurrentDirectory, ".foundry-host-data"));
+    Path.Combine(Environment.CurrentDirectory, ".execution-host-data"));
 Directory.CreateDirectory(dataDirectory);
 
 var taskStore = new JsonlWorkTaskStore(Path.Combine(dataDirectory, "tasks.jsonl"));
@@ -51,13 +51,13 @@ var task = persistentTasks.Submit(new WorkTaskRequest(
     new[] { allowedPath },
     MaximumAttempts: 3));
 
-var lease = persistentTasks.Claim(task.Request.TaskId, "foundry-headlessai-host",
+var lease = persistentTasks.Claim(task.Request.TaskId, "execution-headlessai-host",
     TimeSpan.FromMinutes(15), now);
 persistentTasks.Transition(task.Request.TaskId, lease.Lease!.LeaseId,
     WorkTaskStatus.Investigating, now, "Host began one bounded HeadlessAi investigation turn.");
 
 var profile = new HeadlessAiProfile(
-    "foundry-openai-host",
+    "execution-openai-host",
     new Uri("https://api.openai.com/v1/responses"),
     timeout: TimeSpan.FromMinutes(2),
     settings: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -73,7 +73,7 @@ var template = new HeadlessAiAgentTemplate(
 var executor = new HeadlessAiAgentTurnExecutor(template, httpClient);
 var client = new HeadlessAiAgentTurnClient(executor);
 var journal = new JsonlHeadlessAiTurnJournal(Path.Combine(dataDirectory, "headlessai-turns.jsonl"));
-var coordinator = new FoundryHeadlessAiTurnCoordinator(persistentTasks, client, journal);
+var coordinator = new ExecutionHeadlessAiTurnCoordinator(persistentTasks, client, journal);
 
 var instructions = Environment.GetEnvironmentVariable("FOUNDRY_AGENT_INSTRUCTIONS") ??
     "Analyze the supplied task context. Return a diagnosis and a bounded, non-executable patch intent. " +

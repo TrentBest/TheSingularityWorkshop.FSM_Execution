@@ -2,13 +2,13 @@ using System.Text;
 using TheSingularityWorkshop.FSM_API;
 using Engine = TheSingularityWorkshop.FSM_API.FSM_API;
 
-namespace Foundry.FoxSheepdog;
+namespace Execution.FoxSheepdog;
 
 internal static class Program
 {
-    private const string FoxName = "Foundry.CI.FoxSheepdog.Fox.v1";
-    private const string DogName = "Foundry.CI.FoxSheepdog.Dog.v1";
-    private const string Group = "Foundry.CI.FoxSheepdog";
+    private const string FoxName = "Execution.CI.FoxSheepdog.Fox.v1";
+    private const string DogName = "Execution.CI.FoxSheepdog.Dog.v1";
+    private const string Group = "Execution.CI.FoxSheepdog";
     private static readonly List<TraceEvent> Trace = new();
     private static FoxContext? _fox;
     private static DogContext? _dog;

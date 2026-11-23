@@ -1,14 +1,14 @@
 using TheSingularityWorkshop.HeadlessAi;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
-/// Concrete in-process host adapter from Foundry's lease-governed turn port to HeadlessAi's
+/// Concrete in-process host adapter from Execution's lease-governed turn port to HeadlessAi's
 /// immutable request snapshot and one-shot provider executor. It owns no credentials or GitHub access.
 /// </summary>
 public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
 {
-    private const string TaskVersion = "foundry.work-task.v1";
+    private const string TaskVersion = "execution.work-task.v1";
     private readonly HeadlessAiAgentTurnExecutor _executor;
     public HeadlessAiAgentTurnClient(HeadlessAiAgentTurnExecutor executor)
     {
@@ -16,11 +16,11 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
     }
 
     /// <summary>
-    /// Maps and validates the Foundry request and creates the immutable HeadlessAi snapshot.
+    /// Maps and validates the Execution request and creates the immutable HeadlessAi snapshot.
     /// This method performs no provider or network operation.
     /// </summary>
-    public IFoundryHeadlessAiPreparedTurn Prepare(
-        FoundryHeadlessAiTurnRequest request,
+    public IExecutionHeadlessAiPreparedTurn Prepare(
+        ExecutionHeadlessAiTurnRequest request,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -67,9 +67,9 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
     }
 
     /// <summary>Executes exactly the immutable request snapshot produced by Prepare.</summary>
-    public async Task<FoundryHeadlessAiTurnResult> ExecuteAsync(
-        FoundryHeadlessAiTurnRequest request,
-        IFoundryHeadlessAiPreparedTurn prepared,
+    public async Task<ExecutionHeadlessAiTurnResult> ExecuteAsync(
+        ExecutionHeadlessAiTurnRequest request,
+        IExecutionHeadlessAiPreparedTurn prepared,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -77,17 +77,17 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
 
         if (prepared is not PreparedTurn snapshot || !ReferenceEquals(snapshot.SourceRequest, request))
             throw new ArgumentException(
-                "The prepared HeadlessAi snapshot was not created for this exact Foundry request instance.",
+                "The prepared HeadlessAi snapshot was not created for this exact Execution request instance.",
                 nameof(prepared));
 
         var result = await _executor.ExecuteAsync(snapshot.Request, cancellationToken).ConfigureAwait(false);
         result.Validate();
 
         if (result.CandidateCommitSha is null)
-            throw new InvalidOperationException("HeadlessAi returned no candidate SHA for a Foundry candidate turn.");
+            throw new InvalidOperationException("HeadlessAi returned no candidate SHA for a Execution candidate turn.");
 
         var proposal = result.Proposal;
-        var mapped = new FoundryHeadlessAiTurnResult
+        var mapped = new ExecutionHeadlessAiTurnResult
         {
             TurnId = result.TurnId,
             TaskId = result.TaskId,
@@ -128,10 +128,10 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
     }
 
     private sealed class PreparedTurn(
-        FoundryHeadlessAiTurnRequest sourceRequest,
-        HeadlessAiAgentTurnRequest request) : IFoundryHeadlessAiPreparedTurn
+        ExecutionHeadlessAiTurnRequest sourceRequest,
+        HeadlessAiAgentTurnRequest request) : IExecutionHeadlessAiPreparedTurn
     {
-        public FoundryHeadlessAiTurnRequest SourceRequest { get; } = sourceRequest;
+        public ExecutionHeadlessAiTurnRequest SourceRequest { get; } = sourceRequest;
         public HeadlessAiAgentTurnRequest Request { get; } = request;
         public string RequestFingerprint => Request.Fingerprint;
     }

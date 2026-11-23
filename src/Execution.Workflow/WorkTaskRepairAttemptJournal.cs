@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 public sealed record WorkTaskRepairAttempt(
     int SchemaVersion,
