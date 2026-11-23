@@ -209,6 +209,7 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
     {
         _latest[revision.WorkItemIdentity] = revision;
         _taskToWorkItem[revision.TaskId] = revision.WorkItemIdentity;
+        _uncertainWorkItems.Remove(revision.WorkItemIdentity);
         _sequence = revision.Sequence;
     }
 
