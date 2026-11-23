@@ -199,7 +199,7 @@ public sealed class PersistentWorkTaskCoordinator
             lock (_gate)
             {
                 EnsureHealthy();
-                _claimAdmissionPolicy?.EnsureClaimAllowed(taskId);
+                _claimAdmissionPolicy?.EnsureClaimAllowed(_coordinator.GetSnapshot(taskId).Request);
                 var dependency = _dependencyAdmissionStore?.Get(taskId);
                 if (dependency is { Status: DependencyAdmissionStatus.Waiting })
                     throw new InvalidOperationException(

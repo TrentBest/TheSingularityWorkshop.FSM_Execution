@@ -134,7 +134,8 @@ public sealed class JsonlWorkTaskStore
         left.IssueNumber == right.IssueNumber && left.IssueUrl == right.IssueUrl &&
         left.BaseSha == right.BaseSha && left.MaximumAttempts == right.MaximumAttempts &&
         left.AllowedPaths.SequenceEqual(right.AllowedPaths, StringComparer.Ordinal) &&
-        Equals(left.AdmissionEvidence, right.AdmissionEvidence);
+        Equals(left.AdmissionEvidence, right.AdmissionEvidence) &&
+        Equals(left.GitHubProvenance, right.GitHubProvenance);
 
     private static WorkTaskSnapshot Clone(WorkTaskSnapshot snapshot) =>
         snapshot with

@@ -108,6 +108,39 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
         }
     }
 
+    /// <summary>
+    /// Enforces the revision fence for every provenance-bearing GitHub task and rejects
+    /// attempts to bypass the fence by submitting GitHub provenance without registration.
+    /// </summary>
+    public void EnsureClaimAllowed(WorkTaskRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        lock (_gate)
+        {
+            if (request.GitHubProvenance is null)
+            {
+                if (_taskToWorkItem.ContainsKey(request.TaskId))
+                    throw new InvalidOperationException("A registered GitHub task is missing its immutable GitHub provenance.");
+                return;
+            }
+
+            var provenance = request.GitHubProvenance;
+            if (!_taskToWorkItem.TryGetValue(request.TaskId, out var identity) ||
+                !_latest.TryGetValue(identity, out var current) ||
+                !string.Equals(current.TaskId, request.TaskId, StringComparison.Ordinal) ||
+                _uncertainWorkItems.Contains(identity) ||
+                !string.Equals(identity, request.CorrelationId, StringComparison.Ordinal) ||
+                !string.Equals(current.ItemKind, provenance.ItemKind, StringComparison.Ordinal) ||
+                !string.Equals(current.ItemNodeId, provenance.ItemNodeId, StringComparison.Ordinal) ||
+                current.UpdatedAt != provenance.UpdatedAt ||
+                !string.Equals(current.PayloadSha256, provenance.PayloadSha256, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(current.HeadSha, provenance.HeadSha, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(current.BaseSha, provenance.EventBaseSha, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(request.BaseSha, provenance.SnapshotSha, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("GitHub task provenance is absent from or conflicts with the current durable revision fence.");
+        }
+    }
+
     /// <summary>Final lease-boundary check: superseded work items cannot be claimed.</summary>
     public void EnsureClaimAllowed(string taskId)
     {

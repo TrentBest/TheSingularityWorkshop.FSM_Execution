@@ -6,5 +6,5 @@ namespace TheSingularityWorkshop.Foundry;
 /// </summary>
 public interface IWorkTaskClaimAdmissionPolicy
 {
-    void EnsureClaimAllowed(string taskId);
+    void EnsureClaimAllowed(WorkTaskRequest request);
 }

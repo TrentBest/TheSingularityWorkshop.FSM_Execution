@@ -1,7 +1,7 @@
 # GitHub Webhook Ingress Boundary
 
 **Contract:** `fsm-execution.github-webhook-ingress.v1`  
-**Status:** exact-byte HMAC authentication, enrolled-repository validation, durable delivery deduplication, revision-aware inbox/coalescing, and an ASP.NET Core route adapter implemented; running-host registration, webhook registration, and task admission remain outstanding.
+**Status:** exact-byte HMAC authentication, enrolled-repository validation, durable delivery deduplication, revision-aware inbox/coalescing, ASP.NET Core route adapter, durable claim fence, and bounded task admission processor implemented; concrete GitHub snapshot resolver, running-host registration, webhook registration, and LLM dispatch remain outstanding.
 
 ## Authentication
 
@@ -18,7 +18,7 @@ The verifier requires a host-provisioned secret of at least 32 bytes, rejects mi
 5. Only then parse through CiAi's versioned `GitHubWorkItemEvent` contract, pinned to source commit `4b4ed970699cabbd4794ec3db18d6c368a109bae`.
 6. Match both the numeric repository ID and canonical owner/name against the host-owned enrollment list.
 7. Persist the unique delivery in the durable inbox. Deduplicate identical delivery IDs, reject conflicting delivery-ID reuse, retain stale deliveries as superseded, and expose only the newest unambiguous revision per work item as a pending candidate.
-8. A later dispatcher may create or update a bounded FSM_Execution task from that candidate; it must use the existing durable task lifecycle rather than invent a second scheduler.
+8. The host passes current candidates to `GitHubWorkItemTaskAdmissionProcessor`; it uses a trusted snapshot resolver and the existing durable FSM_Execution task lifecycle rather than inventing a second scheduler.
 
 The GitHub webhook HMAC protocol is separate from the RS256 bearer-token protocol used by the CiAi artifact-ready callback. Neither protocol substitutes for the other.
 
@@ -48,10 +48,26 @@ The extension is not yet registered in a running ServerApp/host. The host must e
 
 The inbox does not acknowledge a GitHub HTTP request itself. The hosting adapter must return success only after this durable acceptance completes. Operational retention, compaction, backup, and multi-instance coordination must be designed before production scale.
 
+## Durable claim fence and bounded task admission
+
+`JsonlGitHubWorkItemRevisionFence` is injected into both `GitHubWebhookIngress` and `PersistentWorkTaskCoordinator` as its `claimAdmissionPolicy`. Ingress reconciles the latest inbox candidates on construction and after a newly accepted revision. This repairs the crash window where the inbox was fsynced but the fence was not. If the fence append fails, that work item's prior task claims are denied until reconciliation succeeds.
+
+`GitHubWorkItemTaskAdmissionProcessor` admits one current `Accepted` candidate:
+1. Confirms its deterministic task ID, payload digest, and `updated_at` match the durable current-revision fence.
+2. Calls the host-supplied `IGitHubWorkItemTaskSnapshotResolver`. The resolver must return the exact current GitHub item revision; if GitHub's current `updated_at` differs from the webhook event, it must reject rather than silently use newer content.
+3. For an Issue, supplies a separately resolved full commit SHA representing the repository snapshot. The Issue timestamp is never treated as a commit SHA.
+4. For a pull request, requires the repository snapshot SHA to equal the exact webhook `HeadSha`; the webhook base SHA is retained separately.
+5. Creates an immutable task request with the canonical item URL, exact node ID, item kind, `updated_at`, payload digest, snapshot SHA, PR head/base SHAs when applicable, bounded allowed paths, and attempt budget.
+6. Persists through `PersistentWorkTaskCoordinator`. Replaying an already-created identical task is idempotent; a conflicting request under the same deterministic task ID fails closed.
+
+The legacy `WorkTaskRequest.IssueUrl` member remains for serialized v1 compatibility. With explicit `GitHubProvenance`, validation also permits the canonical `/pull/{number}` URL; without provenance, legacy v1 requests remain Issue-only. The optional provenance is part of the immutable request comparison during journal replay.
+
+`IGitHubWorkItemTaskSnapshotResolver` is an intentional host boundary, not an implicit network client. A concrete GitHub API resolver still must be supplied by the running host. The processor does not schedule an agent, allocate an LLM, perform repository writes, or dispatch a task itself; the task remains `Queued` until the existing host worker claims it. The same exact fence instance must be supplied to ingress, processor, and persistent coordinator.
+
 ## Non-authority
 
 A valid HMAC proves that the payload was signed by a holder of the configured webhook secret. It does not enroll a repository, authorize cross-repository reads, validate the issue/PR text, approve a task, or authorize repository writes. Issue bodies, comments, titles, patches, and linked content remain untrusted input. Repository enrollment and action policy remain host-owned; task lifecycle and wake-up remain FSM_Execution-owned; CiAi remains the authoritative classifier and composite gate evaluator.
 
 ## Not yet implemented
 
-This contract does not claim a running/live HTTP endpoint, GitHub webhook registration/subscription, bounded LLM packet dispatch, or automatic repository actions. The route adapter exists but must be mapped by a host. The current inbox exposes latest pending candidates only; a host-owned dispatcher still must bind each candidate to enrollment policy, authorized linked context, exact revision, and the existing FSM_Execution durable task lifecycle.
+This contract does not claim a running/live HTTP endpoint, GitHub webhook registration/subscription, bounded LLM packet dispatch, or automatic repository actions. The route adapter exists but must be mapped by a host. A concrete GitHub API snapshot resolver, running-host registration, authorized linked-context packet builder, and worker/LLM dispatch still must be supplied by the host.
