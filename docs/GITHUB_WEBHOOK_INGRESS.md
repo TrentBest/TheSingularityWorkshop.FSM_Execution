@@ -50,7 +50,7 @@ The inbox does not acknowledge a GitHub HTTP request itself. The hosting adapter
 
 ## Durable claim fence and bounded task admission
 
-`JsonlGitHubWorkItemRevisionFence` is injected into both `GitHubWebhookIngress` and `PersistentWorkTaskCoordinator` as its `claimAdmissionPolicy`. Ingress reconciles the latest inbox candidates on construction and after a newly accepted revision. This repairs the crash window where the inbox was fsynced but the fence was not. If the fence append fails, that work item's prior task claims are denied until reconciliation succeeds.
+`JsonlGitHubWorkItemRevisionFence` is injected into both `GitHubWebhookIngress` and `PersistentWorkTaskCoordinator` as its `claimAdmissionPolicy`. Ingress reconciles the latest inbox candidates on construction. For each delivery, `AcceptAndReconcile` holds the fence lock across the inbox's durable append and fence advancement, so a concurrent claim cannot slip between acceptance and supersession. Duplicate/replayed deliveries also trigger reconciliation, repairing an earlier uncertain fence. If the fence append fails, that work item's prior task claims are denied until reconciliation succeeds.
 
 `GitHubWorkItemTaskAdmissionProcessor` admits one current `Accepted` candidate:
 1. Confirms its deterministic task ID, payload digest, and `updated_at` match the durable current-revision fence.

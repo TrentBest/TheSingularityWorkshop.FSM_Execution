@@ -30,6 +30,25 @@ public sealed class GitHubWebhookIngressTests
     }
 
     [Fact]
+    public void IngressAdvancesDurableClaimFenceBeforeAcknowledgingDelivery()
+    {
+        using var directory = new TemporaryDirectory();
+        using var verifier = new GitHubWebhookSignatureVerifier(Secret);
+        var inbox = new JsonlGitHubWebhookDeliveryInbox(Path.Combine(directory.Path, "inbox.jsonl"));
+        var fence = new JsonlGitHubWorkItemRevisionFence(Path.Combine(directory.Path, "fence.jsonl"));
+        var ingress = new GitHubWebhookIngress(verifier,
+            [new GitHubWebhookRepositoryEnrollment(12345, "TrentBest/Physics")], inbox,
+            revisionFence: fence);
+        var body = IssuePayload("delivery-fence", "2026-11-23T06:00:00Z");
+
+        var accepted = ingress.Accept(body, Signature(body), "delivery-fence", "issues");
+
+        Assert.Equal(GitHubWebhookDeliveryDisposition.Accepted, accepted.Disposition);
+        Assert.Equal(JsonlGitHubWorkItemRevisionFence.CreateTaskId(accepted),
+            fence.GetLatest(accepted.WorkItemIdentity)!.TaskId);
+    }
+
+    [Fact]
     public void InvalidSignatureIsRejectedBeforePayloadParsing()
     {
         using var directory = new TemporaryDirectory();

@@ -39,21 +39,44 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
     public void Reconcile(IEnumerable<GitHubWebhookDeliveryReceipt> currentCandidates)
     {
         ArgumentNullException.ThrowIfNull(currentCandidates);
-        foreach (var receipt in currentCandidates.OrderBy(value => value.Sequence))
+        lock (_gate)
         {
-            if (receipt.Disposition != GitHubWebhookDeliveryDisposition.Accepted)
-                throw new InvalidDataException("Inbox reconciliation accepts only current Accepted candidates.");
-            try
+            foreach (var receipt in currentCandidates.OrderBy(value => value.Sequence))
             {
-                Register(receipt, CreateTaskId(receipt));
+                if (receipt.Disposition != GitHubWebhookDeliveryDisposition.Accepted)
+                    throw new InvalidDataException("Inbox reconciliation accepts only current Accepted candidates.");
+                try
+                {
+                    Register(receipt, CreateTaskId(receipt));
+                }
+                catch (InvalidOperationException) when (
+                    GetLatest(receipt.WorkItemIdentity) is { } current &&
+                    receipt.Event.UpdatedAt < current.UpdatedAt)
+                {
+                    // A concurrent ingress request may already have reconciled a newer
+                    // inbox snapshot. Never let this older snapshot roll the fence back.
+                }
             }
-            catch (InvalidOperationException) when (
-                GetLatest(receipt.WorkItemIdentity) is { } newer &&
-                receipt.Event.UpdatedAt < newer.UpdatedAt)
-            {
-                // A concurrent ingress request may already have reconciled a newer
-                // inbox snapshot. Never let this older snapshot roll the fence back.
-            }
+        }
+    }
+
+    /// <summary>
+    /// Serializes inbox acceptance and fence advancement against task claims. A claim
+    /// cannot slip between the inbox's durable append and the matching revision fence.
+    /// </summary>
+    public GitHubWebhookDeliveryReceipt AcceptAndReconcile(
+        JsonlGitHubWebhookDeliveryInbox inbox,
+        GitHubWorkItemEvent workItemEvent,
+        ReadOnlySpan<byte> exactRequestBody,
+        DateTimeOffset receivedAt)
+    {
+        ArgumentNullException.ThrowIfNull(inbox);
+        ArgumentNullException.ThrowIfNull(workItemEvent);
+        lock (_gate)
+        {
+            var receipt = inbox.Accept(workItemEvent, exactRequestBody, receivedAt);
+            Reconcile(inbox.GetPendingCandidates());
+            return receipt;
         }
     }
 

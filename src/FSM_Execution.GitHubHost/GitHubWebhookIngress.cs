@@ -92,10 +92,9 @@ public sealed class GitHubWebhookIngress
         var now = _clock();
         if (now == default)
             throw new InvalidOperationException("GitHub webhook ingress clock returned an invalid timestamp.");
-        var receipt = _inbox.Accept(normalized, exactRequestBody, now);
-        if (receipt.Disposition == GitHubWebhookDeliveryDisposition.Accepted)
-            _revisionFence?.Reconcile(_inbox.GetPendingCandidates());
-        return receipt;
+        if (_revisionFence is not null)
+            return _revisionFence.AcceptAndReconcile(_inbox, normalized, exactRequestBody, now);
+        return _inbox.Accept(normalized, exactRequestBody, now);
     }
 }
 
