@@ -126,7 +126,7 @@ public sealed class JsonlCiAiTaskWakeupOutboxTests
     private static CompositeDependencyAdmissionSnapshot Admission(CompositeDependencyAdmissionState state) =>
         new(Identity(), state, state == CompositeDependencyAdmissionState.Waiting ? 0 : 1,
             state == CompositeDependencyAdmissionState.Waiting ? new string('0', 64) : new string('a', 64),
-            state == CompositeDependencyAdmissionState.Waiting ? Now : Now.AddMinutes(1));
+            Now);
 
     private static CompositeDependencyAdmissionIdentity Identity() => new(
         "task-wakeup-1", "TrentBest/raWWar", "rawwar-candidate-1", new string('1', 40),
