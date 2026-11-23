@@ -13,21 +13,21 @@ Foundry is intended to demonstrate manifest-defined, state-driven computation us
 
 **Status:** Verified on `development`.
 
-**Recipe:** [Probe source](src/Foundry.FsmApiProbe/Program.cs) · [CI workflow](.github/workflows/foundry-fsm-api-probe.yml) · [Successful run](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/40021885286)
+**Recipe:** [Probe source](src/Foundry.FsmApiProbe/Program.cs) · [CI workflow](.github/workflows/execution-fsm-api-probe.yml) · [Successful run](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40021885286)
 
 The workflow restores and builds a .NET 8 console project against the published `TheSingularityWorkshop.FSM_API` 1.0.13 package, creates an FSM definition, verifies its initial `Ready` state, calls the public update path, and asserts transition to `Complete`. It cleans up only the definition it owns and uploads the output artifact.
 
 **Scope limit:** this is a thin API integration probe, not a manifest-driven Foundry workflow runtime. No FSM_API global reset is used.
 
-**Evidence:** [latest workflow runs](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/workflows/foundry-fsm-api-probe.yml), successful build and execution, identical output from two fresh processes, four PASS lines per run, and the `foundry-fsm-api-probe` artifact.
+**Evidence:** [latest workflow runs](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/workflows/execution-fsm-api-probe.yml), successful build and execution, identical output from two fresh processes, four PASS lines per run, and the `foundry-fsm-api-probe` artifact.
 
 ### 02 — Fox and sheepdog state trace
 
 **Status:** Verified in CI.
 
-**Recipe:** [Scenario source](src/Foundry.FoxSheepdog/Program.cs) · [UML](docs/UML/FoundryFoxSheepdogUML.md) · [Source notes](src/Foundry.FoxSheepdog/Program.md) · [Workflow](.github/workflows/foundry-fsm-api-probe.yml) · [Successful CI run](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/40025709384)
+**Recipe:** [Scenario source](src/Foundry.FoxSheepdog/Program.cs) · [UML](docs/UML/FoundryFoxSheepdogUML.md) · [Source notes](src/Foundry.FoxSheepdog/Program.md) · [Workflow](.github/workflows/execution-fsm-api-probe.yml) · [Successful CI run](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40025709384)
 
-The bounded scenario runs real FSM_API definitions for fox states Walking/Jumping/Fleeing/Mangled and dog states Sleeping/Awake/Chasing/Mangling. The dog requests the fox's terminal state through the fox FSM handle. Assertions fail the process if expected states are not observed. CI runs it twice and compares the trace and generated SVG byte-for-byte. This passed in [run 40025709384](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/40025709384).
+The bounded scenario runs real FSM_API definitions for fox states Walking/Jumping/Fleeing/Mangled and dog states Sleeping/Awake/Chasing/Mangling. The dog requests the fox's terminal state through the fox FSM handle. Assertions fail the process if expected states are not observed. CI runs it twice and compares the trace and generated SVG byte-for-byte. This passed in [run 40025709384](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40025709384).
 
 **Evidence boundary:** sensor inputs are scripted to make the run deterministic; this is not the original interactive SimpleDemos loop. The SVG is generated from recorded C# state-entry events, not an animation that independently invents behavior.
 
