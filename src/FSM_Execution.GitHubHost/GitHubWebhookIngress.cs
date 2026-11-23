@@ -46,17 +46,20 @@ public sealed class GitHubWebhookIngress
     private readonly IReadOnlyDictionary<long, GitHubWebhookRepositoryEnrollment> _enrollments;
     private readonly JsonlGitHubWebhookDeliveryInbox _inbox;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly JsonlGitHubWorkItemRevisionFence? _revisionFence;
 
     public GitHubWebhookIngress(
         GitHubWebhookSignatureVerifier signatureVerifier,
         IEnumerable<GitHubWebhookRepositoryEnrollment> enrollments,
         JsonlGitHubWebhookDeliveryInbox inbox,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        JsonlGitHubWorkItemRevisionFence? revisionFence = null)
     {
         _signatureVerifier = signatureVerifier ?? throw new ArgumentNullException(nameof(signatureVerifier));
         ArgumentNullException.ThrowIfNull(enrollments);
         _inbox = inbox ?? throw new ArgumentNullException(nameof(inbox));
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _revisionFence = revisionFence;
         var map = new Dictionary<long, GitHubWebhookRepositoryEnrollment>();
         foreach (var enrollment in enrollments)
         {
@@ -67,6 +70,9 @@ public sealed class GitHubWebhookIngress
         if (map.Count == 0)
             throw new ArgumentException("At least one explicit GitHub repository enrollment is required.", nameof(enrollments));
         _enrollments = map;
+        // The inbox is authoritative. Reconcile its latest candidates before this
+        // ingress instance accepts traffic, repairing a crash after inbox fsync.
+        _revisionFence?.Reconcile(_inbox.GetPendingCandidates());
     }
 
     public GitHubWebhookDeliveryReceipt Accept(
@@ -86,7 +92,10 @@ public sealed class GitHubWebhookIngress
         var now = _clock();
         if (now == default)
             throw new InvalidOperationException("GitHub webhook ingress clock returned an invalid timestamp.");
-        return _inbox.Accept(normalized, exactRequestBody, now);
+        var receipt = _inbox.Accept(normalized, exactRequestBody, now);
+        if (receipt.Disposition == GitHubWebhookDeliveryDisposition.Accepted)
+            _revisionFence?.Reconcile(_inbox.GetPendingCandidates());
+        return receipt;
     }
 }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Foundry;
 
@@ -19,6 +20,7 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
     private readonly string _path;
     private readonly Dictionary<string, Revision> _latest = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _taskToWorkItem = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _uncertainWorkItems = new(StringComparer.Ordinal);
     private long _sequence;
 
     public JsonlGitHubWorkItemRevisionFence(string path)
@@ -67,9 +69,19 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
                 receipt.WorkItemIdentity, receipt.Event.UpdatedAt, receipt.PayloadSha256.ToLowerInvariant(),
                 taskId, receipt.Event.ItemKind, receipt.Event.RepositoryId, receipt.Event.Number,
                 receipt.Event.ItemNodeId, receipt.Event.HeadSha, receipt.Event.BaseSha);
-            Append(revision);
-            Apply(revision);
-            return revision;
+            try
+            {
+                Append(revision);
+                Apply(revision);
+                return revision;
+            }
+            catch
+            {
+                // The inbox may already have durably accepted this newer revision.
+                // Until reconciliation succeeds, block claims for this work item.
+                _uncertainWorkItems.Add(receipt.WorkItemIdentity);
+                throw;
+            }
         }
     }
 
@@ -80,10 +92,14 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
             throw new ArgumentException("Task identity is required.", nameof(taskId));
         lock (_gate)
         {
-            if (_taskToWorkItem.TryGetValue(taskId, out var identity) &&
-                (!_latest.TryGetValue(identity, out var current) ||
-                 !string.Equals(current.TaskId, taskId, StringComparison.Ordinal)))
-                throw new InvalidOperationException("GitHub work-item task was superseded by a newer authenticated revision and cannot be claimed.");
+            if (_taskToWorkItem.TryGetValue(taskId, out var identity))
+            {
+                if (_uncertainWorkItems.Contains(identity))
+                    throw new InvalidOperationException("GitHub work-item revision state is awaiting durable inbox reconciliation; claim is denied.");
+                if (!_latest.TryGetValue(identity, out var current) ||
+                    !string.Equals(current.TaskId, taskId, StringComparison.Ordinal))
+                    throw new InvalidOperationException("GitHub work-item task was superseded by a newer authenticated revision and cannot be claimed.");
+            }
         }
     }
 

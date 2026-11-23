@@ -46,6 +46,32 @@ public sealed class GitHubWorkItemRevisionFenceTests
     }
 
     [Fact]
+    public void InboxReconciliationUsesDeterministicTaskIdsAndSupersedesAfterRestart()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"github-revision-fence-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var first = Receipt("delivery-1", "a".PadLeft(64, '0'), "2026-11-23T07:00:00Z");
+            var second = Receipt("delivery-2", "b".PadLeft(64, '0'), "2026-11-23T07:01:00Z");
+            var oldTask = JsonlGitHubWorkItemRevisionFence.CreateTaskId(first);
+            var newTask = JsonlGitHubWorkItemRevisionFence.CreateTaskId(second);
+            Assert.NotEqual(oldTask, newTask);
+
+            var fence = new JsonlGitHubWorkItemRevisionFence(path);
+            fence.Reconcile([first]);
+            fence.EnsureClaimAllowed(oldTask);
+            fence.Reconcile([second]);
+            Assert.Throws<InvalidOperationException>(() => fence.EnsureClaimAllowed(oldTask));
+            fence.EnsureClaimAllowed(newTask);
+
+            var restored = new JsonlGitHubWorkItemRevisionFence(path);
+            Assert.Throws<InvalidOperationException>(() => restored.EnsureClaimAllowed(oldTask));
+            restored.EnsureClaimAllowed(newTask);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
     public void StaleRevisionCannotReplaceCurrentTask()
     {
         var path = Path.Combine(Path.GetTempPath(), $"github-revision-fence-{Guid.NewGuid():N}.jsonl");
