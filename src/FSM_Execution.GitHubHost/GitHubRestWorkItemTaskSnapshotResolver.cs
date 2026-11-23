@@ -144,12 +144,26 @@ public sealed class GitHubRestWorkItemTaskSnapshotResolver : IGitHubWorkItemTask
             throw new HttpRequestException(
                 $"GitHub REST request '{relativePath}' returned {(int)response.StatusCode} ({response.StatusCode}).",
                 null, response.StatusCode);
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        if (bytes.Length == 0 || bytes.Length > MaximumResponseBytes)
+        if (response.Content.Headers.ContentLength is long contentLength &&
+            (contentLength <= 0 || contentLength > MaximumResponseBytes))
+            throw new InvalidDataException("GitHub REST response is empty or exceeds the configured 4 MiB bound.");
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[64 * 1024];
+        while (true)
+        {
+            var read = await responseStream.ReadAsync(chunk.AsMemory(), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+                break;
+            if (buffer.Length + read > MaximumResponseBytes)
+                throw new InvalidDataException("GitHub REST response exceeds the configured 4 MiB bound.");
+            buffer.Write(chunk, 0, read);
+        }
+        if (buffer.Length == 0)
             throw new InvalidDataException("GitHub REST response is empty or exceeds the configured 4 MiB bound.");
         try
         {
-            return JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 });
+            return JsonDocument.Parse(buffer.ToArray(), new JsonDocumentOptions { MaxDepth = 32 });
         }
         catch (JsonException exception)
         {

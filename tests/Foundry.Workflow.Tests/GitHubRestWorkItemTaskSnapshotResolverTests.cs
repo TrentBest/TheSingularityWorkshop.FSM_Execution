@@ -78,6 +78,20 @@ public sealed class GitHubRestWorkItemTaskSnapshotResolverTests
             await resolver.ResolveAsync(PullRequestEvent(head, baseSha)));
     }
 
+    [Fact]
+    public async Task OversizedGitHubRestResponseIsRejectedBeforeJsonParsing()
+    {
+        using var handler = new QueueHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(new string('x', 4 * 1024 * 1024 + 1), Encoding.UTF8, "application/json")
+        });
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        var resolver = new GitHubRestWorkItemTaskSnapshotResolver(client, new FixedScopePolicy());
+
+        await Assert.ThrowsAsync<InvalidDataException>(async () => await resolver.ResolveAsync(IssueEvent()));
+        Assert.Single(handler.Requests);
+    }
+
     private static GitHubWorkItemEvent IssueEvent() =>
         new(1, "delivery-issue", "issues", "edited", 123, "owner/repo", "issue", 456,
             "I_node", 17, new Uri("https://github.com/owner/repo/issues/17"),
