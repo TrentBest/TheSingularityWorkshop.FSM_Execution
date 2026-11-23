@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
 /// Append-only, single-process durable journal for task snapshots. Each accepted

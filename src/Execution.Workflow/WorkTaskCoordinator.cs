@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 public sealed record WorkTaskRequest(int SchemaVersion, string TaskId, string CorrelationId,
     string Repository, int IssueNumber, string IssueUrl, string BaseSha,

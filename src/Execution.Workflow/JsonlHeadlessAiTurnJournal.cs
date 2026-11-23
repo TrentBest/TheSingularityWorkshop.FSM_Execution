@@ -2,10 +2,10 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
-/// Durable, append-only invocation ledger for Foundry's HeadlessAi bridge.
+/// Durable, append-only invocation ledger for Execution's HeadlessAi bridge.
 /// A pending entry is never automatically replayed after a crash because the provider may
 /// already have received the request. Cooperating instances coordinate through an exclusive
 /// sidecar file handle and reload the journal while holding that lock. This is intended for
@@ -44,7 +44,7 @@ public sealed class JsonlHeadlessAiTurnJournal
     /// result for an exact duplicate. A pending duplicate is indeterminate and is never
     /// invoked again automatically.
     /// </summary>
-    public FoundryHeadlessAiTurnResult? BeginOrGet(string taskId, string idempotencyKey,
+    public ExecutionHeadlessAiTurnResult? BeginOrGet(string taskId, string idempotencyKey,
         string invocationFingerprint)
     {
         ValidateIdentity(taskId, idempotencyKey, invocationFingerprint);
@@ -75,7 +75,7 @@ public sealed class JsonlHeadlessAiTurnJournal
 
     /// <summary>Durably completes the exact pending invocation with its validated normalized result.</summary>
     public void Complete(string taskId, string idempotencyKey, string invocationFingerprint,
-        FoundryHeadlessAiTurnResult result)
+        ExecutionHeadlessAiTurnResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
         ValidateIdentity(taskId, idempotencyKey, invocationFingerprint);
@@ -207,10 +207,10 @@ public sealed class JsonlHeadlessAiTurnJournal
                 _persistenceFailure);
     }
 
-    private static FoundryHeadlessAiTurnResult Clone(FoundryHeadlessAiTurnResult result)
+    private static ExecutionHeadlessAiTurnResult Clone(ExecutionHeadlessAiTurnResult result)
     {
         var json = JsonSerializer.Serialize(result, JsonOptions);
-        return JsonSerializer.Deserialize<FoundryHeadlessAiTurnResult>(json, JsonOptions)
+        return JsonSerializer.Deserialize<ExecutionHeadlessAiTurnResult>(json, JsonOptions)
             ?? throw new InvalidDataException("A stored HeadlessAi turn result could not be cloned.");
     }
 
@@ -225,9 +225,9 @@ public sealed class JsonlHeadlessAiTurnJournal
 
     private static string GetKey(string taskId, string idempotencyKey) => taskId + "\n" + idempotencyKey;
 
-    private sealed record EntryState(string InvocationFingerprint, FoundryHeadlessAiTurnResult? Result);
+    private sealed record EntryState(string InvocationFingerprint, ExecutionHeadlessAiTurnResult? Result);
     private enum JournalState { Pending, Completed }
     private sealed record JournalRecord(int SchemaVersion, long Sequence, string TaskId,
         string IdempotencyKey, string InvocationFingerprint, JournalState State,
-        FoundryHeadlessAiTurnResult? Result);
+        ExecutionHeadlessAiTurnResult? Result);
 }

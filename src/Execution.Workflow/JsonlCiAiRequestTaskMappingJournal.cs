@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
 /// Immutable, host-approved provenance captured before a CI dispatch is attempted.

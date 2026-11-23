@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>Explicit host-approved operations. Privileged release and merge operations are intentionally absent.</summary>
 public enum WorkTaskAction
