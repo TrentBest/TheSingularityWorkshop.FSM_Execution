@@ -3,7 +3,7 @@
 
 # Workflow Semantics — Version 1
 
-**Status:** implementation-backed theory for the first Foundry runtime slice. The sequential runner and retained run lifecycle passed development CI run #84; the optional timeout extension and its cancellation-precedence tests passed feature-branch [Foundry CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768). This feature-branch extension is not yet part of `development`. This does not describe persisted manifests, distributed execution, or a general automation engine.
+**Status:** implementation-backed theory for the first Execution runtime slice. The sequential runner and retained run lifecycle passed development CI run #84; the optional timeout extension and its cancellation-precedence tests passed feature-branch [Execution CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/41170698768). This feature-branch extension is not yet part of `development`. This does not describe persisted manifests, distributed execution, or a general automation engine.
 
 ## The execution model
 
@@ -32,10 +32,10 @@ flowchart TD
 
 ## Contract rules
 
-1. **Validate before side effects.** Foundry checks required workflow identity/name, supported schema version, at least one step, unique step IDs, non-empty handler keys, and registration of every referenced handler before execution starts.
+1. **Validate before side effects.** Execution checks required workflow identity/name, supported schema version, at least one step, unique step IDs, non-empty handler keys, and registration of every referenced handler before execution starts.
 2. **The host owns capabilities.** A definition can name only a handler that the host registered. Registering a handler is an explicit host decision; the workflow does not grant itself filesystem, network, process, or publishing permissions.
 3. **Order is semantic.** Version 1 executes steps sequentially in the declared order. It does not infer dependencies or run steps in parallel.
-4. **Failure stops the sequence.** The failing step is recorded as failed and later steps are recorded as skipped. Foundry does not claim to roll back effects already performed by a handler.
+4. **Failure stops the sequence.** The failing step is recorded as failed and later steps are recorded as skipped. Execution does not claim to roll back effects already performed by a handler.
 5. **Cancellation is not failure.** A cancellation requested before or during a handler produces a cancelled outcome; remaining steps are skipped. Cancellation is cooperative.
 6. **Invalid is not a run failure.** An invalid definition is rejected before any handler invocation and returns validation diagnostics without step results.
 7. **Success is explicit.** The workflow result is successful only when every step succeeds.
@@ -94,23 +94,23 @@ Context is in-memory only and is not part of durable task or workflow journals. 
 - The coordinator retains runs in memory only. It has no durable history, recovery after process loss, or cross-process query/command transport.
 - The runtime has no retry, compensation, recovery, parallelism, or cross-process orchestration. Workflow timeouts are cooperative cancellation requests, not hard execution limits.
 - A handler may perform external side effects. Validation prevents invocation for an invalid workflow but cannot make successful prior side effects transactional.
-- Cancellation and timeout are cooperative: a handler must observe and honor its cancellation token. Foundry cannot forcibly stop a handler that ignores it. A timed-out run therefore remains Running until that handler returns.
+- Cancellation and timeout are cooperative: a handler must observe and honor its cancellation token. Execution cannot forcibly stop a handler that ignores it. A timed-out run therefore remains Running until that handler returns.
 - When caller cancellation and timeout are both requested before the coordinator commits the terminal state, caller cancellation takes precedence.
 - Determinism is limited to the runner's declared order and outcome mapping; handler behavior and external systems may be nondeterministic.
 
 ## Source and verification
 
-- [Definition contract](../src/Foundry.Workflow/WorkflowDefinition.cs)
-- [Validation rules](../src/Foundry.Workflow/WorkflowValidator.cs)
-- [Host capability registry](../src/Foundry.Workflow/WorkflowHandlerRegistry.cs)
-- [Bounded execution context](../src/Foundry.Workflow/WorkflowExecutionContext.cs)
-- [Context bounds and cloning tests](../tests/Foundry.Workflow.Tests/WorkflowExecutionContextTests.cs)
-- [Sequential runner and outcome mapping](../src/Foundry.Workflow/WorkflowRunner.cs)
-- [Retained lifecycle coordinator](../src/Foundry.Workflow/WorkflowExecutionCoordinator.cs)
-- [Runner tests](../tests/Foundry.Workflow.Tests/WorkflowRunnerTests.cs)
-- [Lifecycle tests](../tests/Foundry.Workflow.Tests/WorkflowExecutionCoordinatorTests.cs)
+- [Definition contract](../src/Execution.Workflow/WorkflowDefinition.cs)
+- [Validation rules](../src/Execution.Workflow/WorkflowValidator.cs)
+- [Host capability registry](../src/Execution.Workflow/WorkflowHandlerRegistry.cs)
+- [Bounded execution context](../src/Execution.Workflow/WorkflowExecutionContext.cs)
+- [Context bounds and cloning tests](../tests/Execution.Workflow.Tests/WorkflowExecutionContextTests.cs)
+- [Sequential runner and outcome mapping](../src/Execution.Workflow/WorkflowRunner.cs)
+- [Retained lifecycle coordinator](../src/Execution.Workflow/WorkflowExecutionCoordinator.cs)
+- [Runner tests](../tests/Execution.Workflow.Tests/WorkflowRunnerTests.cs)
+- [Lifecycle tests](../tests/Execution.Workflow.Tests/WorkflowExecutionCoordinatorTests.cs)
 
-Development CI run #84 passed the original runner/lifecycle tests. Feature-branch [CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768) passed the timeout/cancellation tests, full workflow test suite, build, separate-process FSM_API probe, repeatable fox/sheepdog scenario, and evidence artifact upload. This document must be revised if the contract or tests change.
+Development CI run #84 passed the original runner/lifecycle tests. Feature-branch [CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/41170698768) passed the timeout/cancellation tests, full workflow test suite, build, separate-process FSM_API probe, repeatable fox/sheepdog scenario, and evidence artifact upload. This document must be revised if the contract or tests change.
 
 ---
 

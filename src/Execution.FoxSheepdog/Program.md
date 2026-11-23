@@ -28,7 +28,7 @@ The sensor inputs are intentionally scripted so CI has a bounded, reproducible p
 ## Run
 
 ```bash
-dotnet run --project src/Foundry.FoxSheepdog/Foundry.FoxSheepdog.csproj -- artifacts
+dotnet run --project src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj -- artifacts
 ```
 
 The CI workflow runs this scenario twice in separate processes, compares the TSV and SVG outputs byte-for-byte, and uploads the first run's evidence.
