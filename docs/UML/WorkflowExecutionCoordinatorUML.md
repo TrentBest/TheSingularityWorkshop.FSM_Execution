@@ -3,7 +3,7 @@
 
 # WorkflowExecutionCoordinator — UML Neighborhood
 
-**Status:** source-grounded view of the PR #10 feature-branch implementation; the timeout extension is not yet part of `development`. The combined lifecycle and timeout tests passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/41170698768).
+**Status:** source-grounded view of the PR #10 feature-branch implementation; the timeout extension is not yet part of `development`. The combined lifecycle and timeout tests passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/41170698768).
 
 ## Neighborhood
 
@@ -99,9 +99,9 @@ sequenceDiagram
 
 ## Source and tests
 
-- [Coordinator source](../../src/Foundry.Workflow/WorkflowExecutionCoordinator.cs)
-- [Source companion](../../src/Foundry.Workflow/WorkflowExecutionCoordinator.md)
-- [Lifecycle tests](../../tests/Foundry.Workflow.Tests/WorkflowExecutionCoordinatorTests.cs)
+- [Coordinator source](../../src/Execution.Workflow/WorkflowExecutionCoordinator.cs)
+- [Source companion](../../src/Execution.Workflow/WorkflowExecutionCoordinator.md)
+- [Lifecycle tests](../../tests/Execution.Workflow.Tests/WorkflowExecutionCoordinatorTests.cs)
 - [Workflow semantics](../WORKFLOW_SEMANTICS.md)
 
 ---
