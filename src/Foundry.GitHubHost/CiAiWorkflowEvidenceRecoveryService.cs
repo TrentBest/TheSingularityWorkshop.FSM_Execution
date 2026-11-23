@@ -42,11 +42,15 @@ public sealed class CiAiWorkflowEvidenceRecoveryService
 
         foreach (var stage in _stages.GetAll())
         {
-            if (!receiptsById.ContainsKey(stage.ReceiptId))
+            if (!receiptsById.TryGetValue(stage.ReceiptId, out var receipt))
                 throw new InvalidDataException($"Staged evidence '{stage.RequestId}' references a missing durable notice receipt.");
 
             var mapping = _mappings.Get(stage.RequestId);
             var identity = mapping.Mapping;
+            if (!string.Equals(receipt.IdempotencyKey, stage.IdempotencyKey, StringComparison.Ordinal) ||
+                !string.Equals(receipt.SenderIdentity, identity.ProviderIdentity, StringComparison.Ordinal) ||
+                receipt.AcceptedAt > stage.StagedAt)
+                throw new InvalidDataException($"Staged evidence '{stage.RequestId}' is not causally bound to its accepted provider receipt.");
             if (mapping.Cancelled || mapping.RunBinding is null ||
                 !string.Equals(identity.RequestId, stage.RequestId, StringComparison.Ordinal) ||
                 !string.Equals(identity.TaskId, stage.TaskId, StringComparison.Ordinal) ||
