@@ -48,6 +48,9 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
             {
                 if (receipt.Event.UpdatedAt < current.UpdatedAt)
                     throw new InvalidOperationException("A stale GitHub work-item revision cannot replace the current task.");
+                if (receipt.Event.UpdatedAt > current.UpdatedAt &&
+                    string.Equals(taskId, current.TaskId, StringComparison.Ordinal))
+                    throw new InvalidOperationException("A newer GitHub work-item revision requires a distinct immutable task ID.");
                 if (receipt.Event.UpdatedAt == current.UpdatedAt)
                 {
                     if (!string.Equals(receipt.PayloadSha256, current.PayloadSha256, StringComparison.Ordinal) ||
