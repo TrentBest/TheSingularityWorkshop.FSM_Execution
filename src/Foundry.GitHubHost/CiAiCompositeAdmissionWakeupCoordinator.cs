@@ -8,6 +8,11 @@ public sealed record CiAiCompositeAdmissionWakeupResult(
     CompositeDependencyAdmissionSnapshot Admission,
     CiAiTaskWakeup? Wakeup);
 
+/// <summary>Complete host-verified leaf set and its canonical immutable evidence-set digest for one task.</summary>
+public sealed record CiAiVerifiedCompositeEvidenceSet(
+    IReadOnlyDictionary<string, DependencyReleaseGateEvaluation> LeafEvaluations,
+    string EvidenceSetSha256);
+
 /// <summary>
 /// Applies complete host-verified leaf evaluations to a task's immutable registered
 /// expression. CiAi remains the sole AND/OR evaluator. A wake-up is appended only after
@@ -47,14 +52,13 @@ public sealed class CiAiCompositeAdmissionWakeupCoordinator
     /// </summary>
     public IReadOnlyList<CiAiCompositeAdmissionWakeupResult> ApplyVerifiedGateEvent(
         string gateId,
-        IReadOnlyDictionary<string, DependencyReleaseGateEvaluation> completeVerifiedLeafEvaluations,
-        string completeEvidenceSetSha256,
+        Func<CiAiRegisteredCompositeExpression, CiAiVerifiedCompositeEvidenceSet> resolveCompleteVerifiedEvidence,
         DateTimeOffset observedAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gateId);
-        ArgumentNullException.ThrowIfNull(completeVerifiedLeafEvaluations);
-        if (!completeVerifiedLeafEvaluations.ContainsKey(gateId))
-            throw new InvalidDataException("The verified event's gate must appear in its complete evidence set.");
+        ArgumentNullException.ThrowIfNull(resolveCompleteVerifiedEvidence);
+        if (observedAt == default)
+            throw new ArgumentException("A decision timestamp is required.", nameof(observedAt));
         var registry = _expressions ?? throw new InvalidOperationException(
             "A durable CiAi expression registry is required for event-driven reevaluation.");
 
@@ -70,9 +74,18 @@ public sealed class CiAiCompositeAdmissionWakeupCoordinator
             if (current.State != CompositeDependencyAdmissionState.Waiting)
                 continue;
 
+            // Evidence is resolved per task: different dependent expressions can declare
+            // different leaf sets and therefore require different complete evidence digests.
+            var evidence = resolveCompleteVerifiedEvidence(registration)
+                ?? throw new InvalidDataException("The host evidence resolver returned no evidence set.");
+            ArgumentNullException.ThrowIfNull(evidence.LeafEvaluations);
+            if (!evidence.LeafEvaluations.ContainsKey(gateId))
+                throw new InvalidDataException(
+                    "The task's complete verified evidence set does not contain the triggering gate.");
+
             results.Add(ApplyVerifiedEvidence(registration.Expression,
-                completeVerifiedLeafEvaluations, registration.Identity,
-                completeEvidenceSetSha256, observedAt));
+                evidence.LeafEvaluations, registration.Identity,
+                evidence.EvidenceSetSha256, observedAt));
         }
 
         return Array.AsReadOnly(results.ToArray());
