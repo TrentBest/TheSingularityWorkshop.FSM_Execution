@@ -1,7 +1,8 @@
 using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.FSM_Execution.GitHubHost;
+using Xunit;
 
-namespace TheSingularityWorkshop.Foundry.Tests;
+namespace Foundry.Workflow.Tests;
 
 public sealed class GitHubWorkItemRevisionFenceTests
 {
@@ -16,7 +17,6 @@ public sealed class GitHubWorkItemRevisionFenceTests
             var second = Receipt("delivery-2", "b".PadLeft(64, '0'), "2026-11-23T07:01:00Z");
             fence.Register(first, "task-old");
             fence.EnsureClaimAllowed("task-old");
-
             fence.Register(second, "task-new");
             Assert.Throws<InvalidOperationException>(() => fence.EnsureClaimAllowed("task-old"));
             fence.EnsureClaimAllowed("task-new");
@@ -26,10 +26,7 @@ public sealed class GitHubWorkItemRevisionFenceTests
             restored.EnsureClaimAllowed("task-new");
             Assert.Equal("task-new", restored.GetLatest(first.WorkItemIdentity)!.TaskId);
         }
-        finally
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
+        finally { if (File.Exists(path)) File.Delete(path); }
     }
 
     [Fact]
@@ -45,10 +42,7 @@ public sealed class GitHubWorkItemRevisionFenceTests
             Assert.Equal(first, duplicate);
             Assert.Throws<InvalidOperationException>(() => fence.Register(receipt, "task-other"));
         }
-        finally
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
+        finally { if (File.Exists(path)) File.Delete(path); }
     }
 
     [Fact]
@@ -62,10 +56,7 @@ public sealed class GitHubWorkItemRevisionFenceTests
             Assert.Throws<InvalidOperationException>(() =>
                 fence.Register(Receipt("delivery-old", "a".PadLeft(64, '0'), "2026-11-23T07:00:00Z"), "task-old"));
         }
-        finally
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
+        finally { if (File.Exists(path)) File.Delete(path); }
     }
 
     private static GitHubWebhookDeliveryReceipt Receipt(string delivery, string digest, string updated)
