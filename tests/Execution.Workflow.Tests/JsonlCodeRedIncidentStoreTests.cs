@@ -1,14 +1,14 @@
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class JsonlCodeRedIncidentStoreTests
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 30, 20, 0, 0, TimeSpan.Zero);
 
     private static CodeRedIncident Incident() => new(1, "incident-8",
-        "TrentBest/TheSingularityWorkshop.Foundry", "foundry-8", 8, "correlation-8",
+        "TrentBest/TheSingularityWorkshop.Execution", "execution-8", 8, "correlation-8",
         "agent-a", "implementation", "Investigating CI failure", "work/code-red-task-lifecycle",
         new string('a', 40), 1234, 1, CodeRedSeverity.Critical, "Required workflow failed",
         3, Start, Start, null, true);
@@ -16,7 +16,7 @@ public sealed class JsonlCodeRedIncidentStoreTests
     [Fact]
     public void ReopensLatestIncidentAndRetainsEverySnapshot()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-incidents-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-incidents-{Guid.NewGuid():N}.jsonl");
         try
         {
             var store = new JsonlCodeRedIncidentStore(path);
@@ -42,7 +42,7 @@ public sealed class JsonlCodeRedIncidentStoreTests
     [Fact]
     public void ClearIsDurableAndCannotBeUpdatedOrClearedAgain()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-incidents-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-incidents-{Guid.NewGuid():N}.jsonl");
         try
         {
             var store = new JsonlCodeRedIncidentStore(path);
@@ -69,7 +69,7 @@ public sealed class JsonlCodeRedIncidentStoreTests
     [Fact]
     public void RejectsDuplicateCreationAndMutationOfIncidentIdentity()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-incidents-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-incidents-{Guid.NewGuid():N}.jsonl");
         try
         {
             var store = new JsonlCodeRedIncidentStore(path);
@@ -91,7 +91,7 @@ public sealed class JsonlCodeRedIncidentStoreTests
     [Fact]
     public void RejectsCorruptIncidentJournal()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-incidents-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-incidents-{Guid.NewGuid():N}.jsonl");
         try
         {
             File.WriteAllText(path, "{not-json}\n");

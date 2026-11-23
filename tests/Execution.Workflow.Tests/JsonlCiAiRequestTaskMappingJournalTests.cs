@@ -1,7 +1,7 @@
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class JsonlCiAiRequestTaskMappingJournalTests
 {
@@ -9,7 +9,7 @@ public sealed class JsonlCiAiRequestTaskMappingJournalTests
 
     private static CiAiRequestTaskMapping Mapping(string requestId = "request-1") =>
         new(1, requestId, "operation-1", "idempotency-1", "task-1", "correlation-1",
-            "TrentBest/TheSingularityWorkshop.Foundry", "refs/heads/work/task-1",
+            "TrentBest/TheSingularityWorkshop.Execution", "refs/heads/work/task-1",
             new string('a', 40), ".github/workflows/build.yml", "refs/heads/development",
             new string('b', 40), "build", "Resolve candidate", "Verify candidate",
             "ciai-production", "https://artifacts.example.test/",
@@ -17,14 +17,14 @@ public sealed class JsonlCiAiRequestTaskMappingJournalTests
             "ciai-ack-profile", Created, Created.AddHours(2));
 
     private static CiAiDispatchRunBinding Binding() =>
-        new(12345, 1, "TrentBest/TheSingularityWorkshop.Foundry",
+        new(12345, 1, "TrentBest/TheSingularityWorkshop.Execution",
             ".github/workflows/build.yml", "refs/heads/development", new string('b', 40),
             "refs/heads/work/task-1", new string('a', 40), "workflow_dispatch", Created.AddMinutes(1));
 
     [Fact]
     public void DispatchIntentMustBeDurableBeforeExactRunCanBecomeActionable()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-request-map-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-request-map-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -47,7 +47,7 @@ public sealed class JsonlCiAiRequestTaskMappingJournalTests
     [Fact]
     public void ExactBindingIsIdempotentButDifferentBindingCannotReplaceIt()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-request-map-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-request-map-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -85,7 +85,7 @@ public sealed class JsonlCiAiRequestTaskMappingJournalTests
     [Fact]
     public void ExpiredOrUnboundRequestCannotAuthorizeCallback()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-request-map-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-request-map-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -110,7 +110,7 @@ public sealed class JsonlCiAiRequestTaskMappingJournalTests
     [Fact]
     public void JournalRejectsTornFinalRecord()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-request-map-torn-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-request-map-torn-{Guid.NewGuid():N}.jsonl");
         try
         {
             File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(

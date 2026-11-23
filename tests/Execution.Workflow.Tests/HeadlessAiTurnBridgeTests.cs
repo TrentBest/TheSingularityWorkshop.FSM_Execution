@@ -1,7 +1,7 @@
 using Xunit;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class HeadlessAiTurnBridgeTests
 {
@@ -11,7 +11,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public void Journal_RefreshesAndSerializesAcrossMultipleInstances()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         const string fingerprint = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         try
         {
@@ -27,7 +27,7 @@ public sealed class HeadlessAiTurnBridgeTests
             Assert.Null(second.BeginOrGet("task-2", "turn-2", fingerprint));
             Assert.Null(first.BeginOrGet("task-3", "turn-3", fingerprint));
 
-            var result = new FoundryHeadlessAiTurnResult
+            var result = new ExecutionHeadlessAiTurnResult
             {
                 TurnId = "turn-1",
                 TaskId = "task-1",
@@ -64,7 +64,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_BindsRequestAndResultToCurrentTaskLeaseAndCandidate()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var store = new JsonlWorkTaskStore(path);
@@ -76,7 +76,7 @@ public sealed class HeadlessAiTurnBridgeTests
             var investigating = tasks.Transition("task-1", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient();
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             var result = await coordinator.InvokeAsync("task-1", investigating.Lease!.LeaseId,
@@ -91,7 +91,7 @@ public sealed class HeadlessAiTurnBridgeTests
             Assert.Equal("feature/myvr-agent-work", client.Request.AuthorizedBranch);
             Assert.Equal(Sha, client.Request.BaseCommitSha);
             Assert.Equal(Sha, client.Request.CandidateCommitSha);
-            Assert.StartsWith("foundry-", client.Request.IdempotencyKey);
+            Assert.StartsWith("execution-", client.Request.IdempotencyKey);
             Assert.Equal("turn-1", result.TurnId);
             var duplicate = await coordinator.InvokeAsync("task-1", investigating.Lease!.LeaseId,
                 "feature/myvr-agent-work", Sha, "software-engineer",
@@ -101,7 +101,7 @@ public sealed class HeadlessAiTurnBridgeTests
             Assert.Equal(result.TurnId, duplicate.TurnId);
             Assert.Equal(1, client.CallCount);
             var restartedClient = new RecordingClient();
-            var restartedCoordinator = new FoundryHeadlessAiTurnCoordinator(tasks, restartedClient,
+            var restartedCoordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, restartedClient,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
             var replayed = await restartedCoordinator.InvokeAsync("task-1", investigating.Lease!.LeaseId,
                 "feature/myvr-agent-work", Sha, "software-engineer",
@@ -121,7 +121,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_RejectsExpiredOrSupersededLeaseBeforeProviderCall()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -132,7 +132,7 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-2", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient();
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(2)));
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => coordinator.InvokeAsync(
@@ -150,7 +150,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_RejectsResultWithDifferentCandidateProvenance()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -161,7 +161,7 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-3", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient { WrongCandidate = true };
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.InvokeAsync(
@@ -178,7 +178,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_RejectsResultWithDifferentPriorCandidateProvenance()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -189,7 +189,7 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-prior", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient { WrongPriorCandidate = true };
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.InvokeAsync(
@@ -208,7 +208,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_RejectsResultWithMismatchedCanonicalHeadlessAiFingerprint()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -219,7 +219,7 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-fingerprint", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient { WrongFingerprint = true };
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.InvokeAsync(
@@ -237,7 +237,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_PersistsProviderResultButRejectsCallerWhenLeaseExpiresDuringCall()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -250,7 +250,7 @@ public sealed class HeadlessAiTurnBridgeTests
             var clock = new MutableTimeProvider(Now.AddSeconds(30));
             var client = new RecordingClient { BeforeReturn = () => clock.Set(Now.AddMinutes(2)) };
             var journalPath = path + ".turns.jsonl";
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(journalPath), clock);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => coordinator.InvokeAsync(
@@ -272,7 +272,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_DoesNotReserveTurnWhenAlreadyCancelled()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -283,7 +283,7 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-cancelled", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient();
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.InvokeAsync(
@@ -308,7 +308,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_DoesNotRepeatProviderCallWhenPriorOutcomeIsIndeterminate()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -319,13 +319,13 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-pending", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient { ThrowOnCall = true };
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.InvokeAsync(
                 "task-pending", claimed.Lease.LeaseId, "feature/myvr-agent-work", Sha,
                 "software-engineer", "instructions", "prompt", "schema"));
-            var restartedCoordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var restartedCoordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
             await Assert.ThrowsAsync<InvalidOperationException>(() => restartedCoordinator.InvokeAsync(
                 "task-pending", claimed.Lease.LeaseId, "feature/myvr-agent-work", Sha,
@@ -343,7 +343,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public async Task InvokeAsync_ChangesIdempotencyKeyWhenCanonicalPromptChanges()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-headlessai-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-headlessai-{Guid.NewGuid():N}.jsonl");
         try
         {
             var tasks = new PersistentWorkTaskCoordinator(new JsonlWorkTaskStore(path));
@@ -354,7 +354,7 @@ public sealed class HeadlessAiTurnBridgeTests
             tasks.Transition("task-4", claimed.Lease!.LeaseId,
                 WorkTaskStatus.Investigating, Now.AddSeconds(1), "Begin investigation.");
             var client = new RecordingClient();
-            var coordinator = new FoundryHeadlessAiTurnCoordinator(tasks, client,
+            var coordinator = new ExecutionHeadlessAiTurnCoordinator(tasks, client,
                 new JsonlHeadlessAiTurnJournal(path + ".turns.jsonl"), new FixedTimeProvider(Now.AddMinutes(1)));
 
             await coordinator.InvokeAsync("task-4", claimed.Lease.LeaseId,
@@ -378,7 +378,7 @@ public sealed class HeadlessAiTurnBridgeTests
     [Fact]
     public void RequestValidation_RejectsCanonicalBranchesAndEvidenceForAnotherCandidate()
     {
-        var request = new FoundryHeadlessAiTurnRequest
+        var request = new ExecutionHeadlessAiTurnRequest
         {
             TaskId = "task",
             CorrelationId = "corr",
@@ -396,7 +396,7 @@ public sealed class HeadlessAiTurnBridgeTests
             IdempotencyKey = "turn-key",
             Evidence = new[]
             {
-                new FoundryHeadlessAiEvidence
+                new ExecutionHeadlessAiEvidence
                 {
                     Repository = "TrentBest/MyVR",
                     CommitSha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -418,7 +418,7 @@ public sealed class HeadlessAiTurnBridgeTests
         var incompletePriorTurn = request with
         {
             AuthorizedBranch = "feature/valid-branch",
-            Evidence = Array.Empty<FoundryHeadlessAiEvidence>(),
+            Evidence = Array.Empty<ExecutionHeadlessAiEvidence>(),
             PriorTurnId = "prior-turn"
         };
         Assert.Throws<ArgumentException>(() => incompletePriorTurn.Validate(Now));
@@ -426,7 +426,7 @@ public sealed class HeadlessAiTurnBridgeTests
 
     private sealed class RecordingClient : IHeadlessAiAgentTurnClient
     {
-        public FoundryHeadlessAiTurnRequest? Request { get; private set; }
+        public ExecutionHeadlessAiTurnRequest? Request { get; private set; }
         public bool WrongCandidate { get; init; }
         public bool WrongPriorCandidate { get; init; }
         public bool WrongFingerprint { get; init; }
@@ -434,11 +434,11 @@ public sealed class HeadlessAiTurnBridgeTests
         public Action? BeforeReturn { get; init; }
         public int CallCount { get; private set; }
 
-        public IFoundryHeadlessAiPreparedTurn Prepare(FoundryHeadlessAiTurnRequest request, DateTimeOffset now) =>
+        public IExecutionHeadlessAiPreparedTurn Prepare(ExecutionHeadlessAiTurnRequest request, DateTimeOffset now) =>
             new PreparedTurn(new string('a', 64));
 
-        public Task<FoundryHeadlessAiTurnResult> ExecuteAsync(
-            FoundryHeadlessAiTurnRequest request, IFoundryHeadlessAiPreparedTurn prepared,
+        public Task<ExecutionHeadlessAiTurnResult> ExecuteAsync(
+            ExecutionHeadlessAiTurnRequest request, IExecutionHeadlessAiPreparedTurn prepared,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -446,7 +446,7 @@ public sealed class HeadlessAiTurnBridgeTests
             if (ThrowOnCall)
                 throw new InvalidOperationException("Simulated provider outcome interruption.");
             BeforeReturn?.Invoke();
-            return Task.FromResult(new FoundryHeadlessAiTurnResult
+            return Task.FromResult(new ExecutionHeadlessAiTurnResult
             {
                 TurnId = "turn-1",
                 TaskId = request.TaskId,
@@ -468,7 +468,7 @@ public sealed class HeadlessAiTurnBridgeTests
         }
     }
 
-    private sealed record PreparedTurn(string RequestFingerprint) : IFoundryHeadlessAiPreparedTurn;
+    private sealed record PreparedTurn(string RequestFingerprint) : IExecutionHeadlessAiPreparedTurn;
 
     private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider
     {

@@ -1,7 +1,7 @@
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class JsonlWorkTaskRepairAttemptJournalTests
 {
@@ -10,7 +10,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     private static WorkTaskRepairAttempt Attempt(int number = 1, char candidate = 'a',
         char diagnostics = 'd', bool successful = false, bool complete = true, bool actionable = true,
         long? runId = null, int runAttempt = 1) =>
-        new(1, "task-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Foundry",
+        new(1, "task-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
             "work/task-8", ".github/workflows/build.yml", TaskStart, number,
             new string(candidate, 40), runId ?? 1000 + number, runAttempt,
             new string((char)('f' - number), 64), complete, successful,
@@ -20,7 +20,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void JournalPersistsEveryExactAttemptAndReplaysAfterRestart()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -47,7 +47,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void JournalRejectsOutOfOrderConflictingAndRepeatedRunAttemptEvidence()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -70,7 +70,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void JournalRejectsAttemptsAfterSuccessAndTornFinalRecords()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -83,7 +83,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
             if (File.Exists(path)) File.Delete(path);
         }
 
-        var tornPath = Path.Combine(Path.GetTempPath(), $"foundry-repair-torn-{Guid.NewGuid():N}.jsonl");
+        var tornPath = Path.Combine(Path.GetTempPath(), $"execution-repair-torn-{Guid.NewGuid():N}.jsonl");
         try
         {
             File.WriteAllText(tornPath, System.Text.Json.JsonSerializer.Serialize(Attempt()));
@@ -98,7 +98,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void JournalRejectsMalformedAttemptEvidence()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -119,7 +119,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void DecisionCallbackSerializesAgainstConcurrentAttemptAppend()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-lock-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-lock-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);

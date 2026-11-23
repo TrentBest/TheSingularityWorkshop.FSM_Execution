@@ -1,7 +1,7 @@
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
 {
@@ -12,7 +12,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void AcceptsOnceAndReturnsTheSameDurableReceiptForAnExactRetryAfterRestart()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var acceptedAt = new DateTimeOffset(2026, 10, 31, 1, 0, 0, TimeSpan.Zero);
@@ -35,7 +35,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void RejectsChangedPayloadForAnExistingKeyAndReusedNoticeId()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
@@ -58,7 +58,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void ScopesIdempotencyBySenderAndValidatesBoundedMetadata()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
@@ -79,7 +79,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void RejectsNonStringNoticeIdentityPropertiesWithoutLeakingJsonApiExceptions()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
@@ -111,7 +111,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void RejectsTornJournalOnReplay()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
@@ -128,7 +128,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void StrictUtf8FactoryPreservesExactBodyDigestAndRejectsInvalidByteSequences()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var payloadBytes = System.Text.Encoding.UTF8.GetBytes(
@@ -156,7 +156,7 @@ public sealed class JsonlCiAiArtifactNoticeReceiptLedgerTests
     [Fact]
     public void RejectsDuplicateJsonPropertiesAtEveryObjectDepth()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-ciai-receipts-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-ciai-receipts-{Guid.NewGuid():N}.jsonl");
         try
         {
             var ledger = new JsonlCiAiArtifactNoticeReceiptLedger(path);
