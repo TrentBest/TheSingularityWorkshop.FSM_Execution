@@ -89,7 +89,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
         using var directory = new TemporaryDirectory();
         var fence = new JsonlGitHubWorkItemRevisionFence(Path.Combine(directory.Path, "fence.jsonl"));
         var receipt = Receipt("issues", "issue", "https://github.com/owner/repo/issues/17",
-            "2026-11-23T07:00:00Z", null, null, "a");
+            "2026-11-23T07:00:00Z", null, null, 'a');
         fence.Reconcile([receipt]);
         var tasks = Coordinator(directory.Path, fence);
         var resolver = new FixedResolver(new GitHubWorkItemTaskSnapshot(
