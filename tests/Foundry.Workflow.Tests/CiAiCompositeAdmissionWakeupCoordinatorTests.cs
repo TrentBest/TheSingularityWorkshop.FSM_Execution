@@ -84,9 +84,10 @@ public sealed class CiAiCompositeAdmissionWakeupCoordinatorTests
     [Fact]
     public void StartupReconciliationRepairsSatisfiedAdmissionWithoutDuplicateWakeup()
     {
-        var expression = Expression(new CiAiAllOf(new CiAiGateExpression[]
+        var expression = Expression(new CiAiAnyOf(new CiAiGateExpression[]
         {
-            Leaf("core", "TrentBest/FSM_API", "core-candidate", '1')
+            Leaf("core", "TrentBest/FSM_API", "core-candidate", '1'),
+            Leaf("physics", "TrentBest/TheSingularityWorkshop.Physics", "physics-candidate", '2')
         }));
         WithStores(expression, (coordinator, admissions, outbox, identity) =>
         {
