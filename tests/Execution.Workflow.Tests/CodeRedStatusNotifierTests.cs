@@ -1,7 +1,7 @@
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class CodeRedStatusNotifierTests
 {
@@ -11,9 +11,9 @@ public sealed class CodeRedStatusNotifierTests
     private static WorkTaskSnapshot ActiveTask()
     {
         var request = new WorkTaskRequest(1, "task-8", "correlation-8",
-            "TrentBest/TheSingularityWorkshop.Foundry", 8,
-            "https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/8",
-            Sha, new[] { "src/Foundry.Workflow" }, 3);
+            "TrentBest/TheSingularityWorkshop.Execution", 8,
+            "https://github.com/TrentBest/TheSingularityWorkshop.Execution/issues/8",
+            Sha, new[] { "src/Execution.Workflow" }, 3);
         var coordinator = new WorkTaskCoordinator();
         coordinator.Submit(request);
         var lease = coordinator.Claim("task-8", "agent-a", TimeSpan.FromMinutes(5), Now).Lease!;
@@ -22,7 +22,7 @@ public sealed class CodeRedStatusNotifierTests
     }
 
     private static CodeRedIncident Incident() => new(1, "incident-8",
-        "TrentBest/TheSingularityWorkshop.Foundry", "task-8", 8, "correlation-8",
+        "TrentBest/TheSingularityWorkshop.Execution", "task-8", 8, "correlation-8",
         "agent-a", "implementation", "Investigating CI failure", "work/task-8",
         Sha, 1234, 1, CodeRedSeverity.Critical, "Required workflow failed",
         3, Now, Now, null, true);

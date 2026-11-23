@@ -1,14 +1,14 @@
 using System.Text;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class CiAiDispatchRunMarkerTests
 {
     private const string ValidMarker = """
         {
-          "contract": "foundry.ciai-dispatch-marker.v1",
+          "contract": "execution.ciai-dispatch-marker.v1",
           "requestId": "request-1",
           "operationId": "operation-1",
           "idempotencyKey": "idempotency-1",
@@ -18,7 +18,7 @@ public sealed class CiAiDispatchRunMarkerTests
         """;
 
     private static CiAiDispatchRunBinding Binding(long runId = 12345, int attempt = 2) =>
-        new(runId, attempt, "TrentBest/TheSingularityWorkshop.Foundry",
+        new(runId, attempt, "TrentBest/TheSingularityWorkshop.Execution",
             ".github/workflows/build.yml", "refs/heads/development", new string('b', 40),
             "refs/heads/work/task-1", new string('a', 40), "workflow_dispatch",
             new DateTimeOffset(2026, 10, 31, 0, 1, 0, TimeSpan.Zero));
@@ -56,10 +56,10 @@ public sealed class CiAiDispatchRunMarkerTests
     [InlineData("{")]
     [InlineData("[]")]
     [InlineData("{\"contract\":\"wrong\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":1}")]
-    [InlineData("{\"contract\":\"foundry.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"requestId\":\"r2\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":1}")]
-    [InlineData("{\"contract\":\"foundry.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":0,\"runAttempt\":1}")]
-    [InlineData("{\"contract\":\"foundry.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":0}")]
-    [InlineData("{\"contract\":\"foundry.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":1,\"unexpected\":true}")]
+    [InlineData("{\"contract\":\"execution.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"requestId\":\"r2\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":1}")]
+    [InlineData("{\"contract\":\"execution.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":0,\"runAttempt\":1}")]
+    [InlineData("{\"contract\":\"execution.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":0}")]
+    [InlineData("{\"contract\":\"execution.ciai-dispatch-marker.v1\",\"requestId\":\"r\",\"operationId\":\"o\",\"idempotencyKey\":\"k\",\"runId\":1,\"runAttempt\":1,\"unexpected\":true}")]
     public void RejectsMalformedDuplicateUnknownOrUnsupportedMarker(string payload)
     {
         Assert.Throws<FormatException>(() => CiAiDispatchRunMarker.Parse(Encoding.UTF8.GetBytes(payload)));

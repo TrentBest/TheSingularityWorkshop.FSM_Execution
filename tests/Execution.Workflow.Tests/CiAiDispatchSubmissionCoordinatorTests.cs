@@ -1,7 +1,7 @@
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class CiAiDispatchSubmissionCoordinatorTests
 {
@@ -9,7 +9,7 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
 
     private static CiAiRequestTaskMapping Mapping(string candidateSha = null!) =>
         new(1, "request-1", "operation-1", "idempotency-1", "task-1", "correlation-1",
-            "TrentBest/TheSingularityWorkshop.Foundry", "refs/heads/work/task-1",
+            "TrentBest/TheSingularityWorkshop.Execution", "refs/heads/work/task-1",
             candidateSha ?? new string('a', 40), ".github/workflows/build.yml",
             "refs/heads/development", new string('b', 40), "build", "Resolve candidate",
             "Verify candidate", "ciai-production", "https://artifacts.example.test/",
@@ -31,7 +31,7 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
     [Fact]
     public async Task PersistsIntentBeforeCallingHostDispatcher()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-dispatch-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -58,7 +58,7 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
     [Fact]
     public async Task ExactExistingIntentRequiresReconciliationAndIsNeverRedispatched()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-dispatch-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -77,7 +77,7 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
     [Fact]
     public async Task ConflictingIntentNeverCallsHostDispatcher()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-dispatch-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -96,7 +96,7 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
     [Fact]
     public async Task AmbiguousDispatchFailureLeavesIntentDurableAndPreventsBlindRetry()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-dispatch-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);

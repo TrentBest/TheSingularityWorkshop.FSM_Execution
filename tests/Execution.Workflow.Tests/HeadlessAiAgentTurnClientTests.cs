@@ -3,7 +3,7 @@ using System.Text;
 using TheSingularityWorkshop.HeadlessAi;
 using Xunit;
 
-namespace TheSingularityWorkshop.Foundry.Tests;
+namespace TheSingularityWorkshop.Execution.Tests;
 
 public sealed class HeadlessAiAgentTurnClientTests
 {
@@ -61,7 +61,7 @@ public sealed class HeadlessAiAgentTurnClientTests
         Assert.Equal(0, handler.CallCount);
     }
 
-    private static FoundryHeadlessAiTurnRequest CreateRequest(DateTimeOffset now)
+    private static ExecutionHeadlessAiTurnRequest CreateRequest(DateTimeOffset now)
         => new()
         {
             TaskId = "task-123",
@@ -77,7 +77,7 @@ public sealed class HeadlessAiAgentTurnClientTests
             CanonicalPrompt = "Explain the failure and propose the next safe step.",
             ResponseSchema = "{ diagnosis, patchIntent, operationalStatus }",
             ExpiresAt = now.AddMinutes(5),
-            IdempotencyKey = "foundry-host-adapter-test-123"
+            IdempotencyKey = "execution-host-adapter-test-123"
         };
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider

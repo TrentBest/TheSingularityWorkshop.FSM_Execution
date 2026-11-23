@@ -1,8 +1,8 @@
 using System.Text;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class CiAiDispatchRunReconcilerTests
 {
@@ -10,7 +10,7 @@ public sealed class CiAiDispatchRunReconcilerTests
 
     private static CiAiRequestTaskMapping Mapping() =>
         new(1, "request-1", "operation-1", "idempotency-1", "task-1", "correlation-1",
-            "TrentBest/TheSingularityWorkshop.Foundry", "refs/heads/work/task-1",
+            "TrentBest/TheSingularityWorkshop.Execution", "refs/heads/work/task-1",
             new string('a', 40), ".github/workflows/build.yml", "refs/heads/development",
             new string('b', 40), "build", "Resolve candidate", "Verify candidate",
             "ciai-production", "https://artifacts.example.test/",
@@ -18,7 +18,7 @@ public sealed class CiAiDispatchRunReconcilerTests
             "ciai-ack-profile", Created, Created.AddHours(2));
 
     private static CiAiDispatchRunBinding Binding(long runId = 12345) =>
-        new(runId, 1, "TrentBest/TheSingularityWorkshop.Foundry",
+        new(runId, 1, "TrentBest/TheSingularityWorkshop.Execution",
             ".github/workflows/build.yml", "refs/heads/development", new string('b', 40),
             "refs/heads/work/task-1", new string('a', 40), "workflow_dispatch", Created.AddMinutes(1));
 
@@ -30,7 +30,7 @@ public sealed class CiAiDispatchRunReconcilerTests
     {
         var payload = $$"""
             {
-              "contract": "foundry.ciai-dispatch-marker.v1",
+              "contract": "execution.ciai-dispatch-marker.v1",
               "requestId": "{{requestId}}",
               "operationId": "{{operationId}}",
               "idempotencyKey": "{{idempotencyKey}}",
@@ -47,7 +47,7 @@ public sealed class CiAiDispatchRunReconcilerTests
     [Fact]
     public void ReconcilesOnlyOneExactRunWithTrustedRequestIdentity()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-reconcile-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-reconcile-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -68,7 +68,7 @@ public sealed class CiAiDispatchRunReconcilerTests
     [Fact]
     public void NoIdentityMatchLeavesIntentUnbound()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-reconcile-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-reconcile-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -90,7 +90,7 @@ public sealed class CiAiDispatchRunReconcilerTests
     [Fact]
     public void MultipleExactRunsAreAmbiguousAndNeverGuessed()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-reconcile-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-reconcile-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -110,7 +110,7 @@ public sealed class CiAiDispatchRunReconcilerTests
     [Fact]
     public void FutureObservationIsNotEligibleForReconciliation()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-reconcile-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-reconcile-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -132,7 +132,7 @@ public sealed class CiAiDispatchRunReconcilerTests
     [Fact]
     public void ExactReconciliationRetryIsIdempotent()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-reconcile-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-reconcile-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlCiAiRequestTaskMappingJournal(path);

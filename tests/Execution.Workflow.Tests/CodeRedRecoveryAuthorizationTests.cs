@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace Execution.Workflow.Tests;
 
 public sealed class CodeRedRecoveryAuthorizationTests
 {
@@ -13,7 +13,7 @@ public sealed class CodeRedRecoveryAuthorizationTests
     [Fact]
     public void PersistentRecoveryVerifiesReceiptAndPersistsSingleUseAuditEvidence()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"foundry-recovery-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"execution-recovery-{Guid.NewGuid():N}.jsonl");
         try
         {
             var verifier = new TestVerifier();
@@ -82,8 +82,8 @@ public sealed class CodeRedRecoveryAuthorizationTests
     [Fact]
     public void PersistentRecoveryReadsTheLatestDurableIncidentAndRejectsStaleApproval()
     {
-        var taskPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-task-{Guid.NewGuid():N}.jsonl");
-        var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
+        var taskPath = Path.Combine(Path.GetTempPath(), $"execution-recovery-task-{Guid.NewGuid():N}.jsonl");
+        var incidentPath = Path.Combine(Path.GetTempPath(), $"execution-recovery-incident-{Guid.NewGuid():N}.jsonl");
         try
         {
             var verifier = new TestVerifier();
@@ -111,8 +111,8 @@ public sealed class CodeRedRecoveryAuthorizationTests
     [Fact]
     public void IncidentUpdatesAreSerializedUntilPersistentRecoveryCommits()
     {
-        var taskPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-task-{Guid.NewGuid():N}.jsonl");
-        var incidentPath = Path.Combine(Path.GetTempPath(), $"foundry-recovery-incident-{Guid.NewGuid():N}.jsonl");
+        var taskPath = Path.Combine(Path.GetTempPath(), $"execution-recovery-task-{Guid.NewGuid():N}.jsonl");
+        var incidentPath = Path.Combine(Path.GetTempPath(), $"execution-recovery-incident-{Guid.NewGuid():N}.jsonl");
         using var verifier = new BlockingTestVerifier();
         try
         {
@@ -204,15 +204,15 @@ public sealed class CodeRedRecoveryAuthorizationTests
     }
 
     private static CodeRedIncident CreateIncident() => new(1, "incident-recovery-1",
-        "TrentBest/TheSingularityWorkshop.Foundry", "task-recovery", 8, "correlation-recovery",
+        "TrentBest/TheSingularityWorkshop.Execution", "task-recovery", 8, "correlation-recovery",
         "agent-recovery", "implementation", "Investigating CI failure", "work/code-red-task-lifecycle",
         new string('a', 40), 1234, 1, CodeRedSeverity.Critical, "Required workflow failed",
         3, Now, Now, null, true);
 
     private static WorkTaskRequest Request() => new(1, "task-recovery", "correlation-recovery",
-        "TrentBest/TheSingularityWorkshop.Foundry", 8,
-        "https://github.com/TrentBest/TheSingularityWorkshop.Foundry/issues/8",
-        new string('a', 40), new[] { "src/Foundry.Workflow" }, 3);
+        "TrentBest/TheSingularityWorkshop.Execution", 8,
+        "https://github.com/TrentBest/TheSingularityWorkshop.Execution/issues/8",
+        new string('a', 40), new[] { "src/Execution.Workflow" }, 3);
 
     private sealed class BlockingTestVerifier : ICodeRedRecoveryReceiptVerifier, IDisposable
     {
