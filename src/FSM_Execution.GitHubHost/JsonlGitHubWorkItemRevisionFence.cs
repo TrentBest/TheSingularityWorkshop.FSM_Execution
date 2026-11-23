@@ -39,9 +39,15 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
     public void Reconcile(IEnumerable<GitHubWebhookDeliveryReceipt> currentCandidates)
     {
         ArgumentNullException.ThrowIfNull(currentCandidates);
+        var candidates = currentCandidates.OrderBy(value => value.Sequence).ToArray();
         lock (_gate)
         {
-            foreach (var receipt in currentCandidates.OrderBy(value => value.Sequence))
+            // Fence every affected item before attempting disk writes. If one append
+            // fails, unprocessed items remain uncertain and cannot be claimed stale.
+            foreach (var receipt in candidates)
+                _uncertainWorkItems.Add(receipt.WorkItemIdentity);
+
+            foreach (var receipt in candidates)
             {
                 if (receipt.Disposition != GitHubWebhookDeliveryDisposition.Accepted)
                     throw new InvalidDataException("Inbox reconciliation accepts only current Accepted candidates.");
@@ -54,7 +60,8 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
                     receipt.Event.UpdatedAt < current.UpdatedAt)
                 {
                     // A concurrent ingress request may already have reconciled a newer
-                    // inbox snapshot. Never let this older snapshot roll the fence back.
+                    // inbox snapshot. The newer durable fence is authoritative.
+                    _uncertainWorkItems.Remove(receipt.WorkItemIdentity);
                 }
             }
         }
