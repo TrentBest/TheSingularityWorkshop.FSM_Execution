@@ -48,7 +48,7 @@ classDiagram
 
 ## Scope boundary
 
-This diagram describes the probe only. It does not imply that Foundry has a workflow manifest, general-purpose execution runtime, FSM_COS integration, or failure/recovery engine.
+This diagram describes the probe only. It does not imply that Execution has a workflow manifest, general-purpose execution runtime, FSM_COS integration, or failure/recovery engine.
 
 ---
 

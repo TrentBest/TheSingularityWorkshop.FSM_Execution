@@ -1,7 +1,7 @@
 <!-- The Singularity Workshop moniker -->
 <p align="center"><a href="https://github.com/TrentBest"><img src="https://raw.githubusercontent.com/TrentBest/TheSingularityWorkshop.Visualize/development/docs/assets/moniker.svg" alt="The Singularity Workshop animated moniker" width="720" /></a></p>
 
-# Foundry Fox/Sheepdog UML
+# Execution Fox/Sheepdog UML
 
 **Status:** manually authored from the current source; not generated.
 

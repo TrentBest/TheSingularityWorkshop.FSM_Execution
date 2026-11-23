@@ -1,7 +1,7 @@
 <!-- The Singularity Workshop moniker -->
 <p align="center"><a href="https://github.com/TrentBest"><img src="https://raw.githubusercontent.com/TrentBest/TheSingularityWorkshop.Visualize/development/docs/assets/moniker.svg" alt="The Singularity Workshop animated moniker" width="720" /></a></p>
 
-# Foundry Architecture UML
+# Execution Architecture UML
 
 > **Diagram status: CONCEPTUAL TARGET — not a diagram of implemented classes or a verified runtime.** No source types are inferred from this drawing.
 
@@ -10,7 +10,7 @@
 ```mermaid
 flowchart TD
     Author[Workflow author] --> Definition[Versioned workflow definition]
-    Definition --> Validate[Foundry validation boundary]
+    Definition --> Validate[Execution validation boundary]
     Validate -->|valid| Execute[Workflow execution coordinator]
     Validate -->|invalid| Reject[Validation result / non-zero CI outcome]
     Execute --> Adapter[Capability adapter]
@@ -41,7 +41,7 @@ These are intended goals for the first experiment. Validate and refine them as r
 
 - What public FSM_API surface is appropriate for expressing or executing workflow states?
 - What does FSM_COS currently compose, and what does it not yet do?
-- Is a dedicated Foundry execution runtime justified, or is a thin adapter enough?
+- Is a dedicated Execution execution runtime justified, or is a thin adapter enough?
 - How should step outputs, failure causes, cancellation, and timeouts be represented?
 - Which pieces belong in a host, a reusable package, and the CI workflow?
 
