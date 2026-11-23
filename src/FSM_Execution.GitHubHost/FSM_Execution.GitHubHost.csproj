@@ -5,4 +5,7 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Foundry.CiAi.Contracts/Foundry.CiAi.Contracts.csproj" />
+  </ItemGroup>
 </Project>

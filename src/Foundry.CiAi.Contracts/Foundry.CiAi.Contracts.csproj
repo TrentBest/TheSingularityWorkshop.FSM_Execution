@@ -41,5 +41,7 @@
              Link="GitHubActionsWorkflowJobCollector.cs" />
     <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiWorkflowEvidencePacket.cs"
              Link="CiWorkflowEvidencePacket.cs" />
+    <Compile Include="../../external/CiAiWorkItems/src/TheSingularityWorkshop.CiAi/GitHubWorkItemEvent.cs"
+             Link="GitHubWorkItemEvent.cs" />
   </ItemGroup>
 </Project>
