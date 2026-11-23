@@ -72,6 +72,23 @@ public sealed class GitHubWorkItemRevisionFenceTests
     }
 
     [Fact]
+    public void ReconcileIgnoresAnOlderInboxSnapshotAfterConcurrentNewerRegistration()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"github-revision-fence-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var fence = new JsonlGitHubWorkItemRevisionFence(path);
+            var newer = Receipt("delivery-new", "b".PadLeft(64, '0'), "2026-11-23T07:01:00Z");
+            var older = Receipt("delivery-old", "a".PadLeft(64, '0'), "2026-11-23T07:00:00Z");
+            fence.Reconcile([newer]);
+            fence.Reconcile([older]);
+            Assert.Equal(JsonlGitHubWorkItemRevisionFence.CreateTaskId(newer),
+                fence.GetLatest(newer.WorkItemIdentity)!.TaskId);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
     public void StaleRevisionCannotReplaceCurrentTask()
     {
         var path = Path.Combine(Path.GetTempPath(), $"github-revision-fence-{Guid.NewGuid():N}.jsonl");

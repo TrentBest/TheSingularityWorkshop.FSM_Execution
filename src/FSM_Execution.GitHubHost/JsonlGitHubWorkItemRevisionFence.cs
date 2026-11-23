@@ -43,7 +43,17 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
         {
             if (receipt.Disposition != GitHubWebhookDeliveryDisposition.Accepted)
                 throw new InvalidDataException("Inbox reconciliation accepts only current Accepted candidates.");
-            Register(receipt, CreateTaskId(receipt));
+            try
+            {
+                Register(receipt, CreateTaskId(receipt));
+            }
+            catch (InvalidOperationException) when (
+                GetLatest(receipt.WorkItemIdentity) is { } newer &&
+                receipt.Event.UpdatedAt < newer.UpdatedAt)
+            {
+                // A concurrent ingress request may already have reconciled a newer
+                // inbox snapshot. Never let this older snapshot roll the fence back.
+            }
         }
     }
 
