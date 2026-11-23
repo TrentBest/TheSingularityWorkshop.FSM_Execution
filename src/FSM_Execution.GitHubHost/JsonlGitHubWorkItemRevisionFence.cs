@@ -32,6 +32,29 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
         Replay();
     }
 
+    /// <summary>
+    /// Reconciles current inbox candidates into this fence. Deterministic task IDs
+    /// make replay idempotent and repair a crash after inbox fsync.
+    /// </summary>
+    public void Reconcile(IEnumerable<GitHubWebhookDeliveryReceipt> currentCandidates)
+    {
+        ArgumentNullException.ThrowIfNull(currentCandidates);
+        foreach (var receipt in currentCandidates.OrderBy(value => value.Sequence))
+        {
+            if (receipt.Disposition != GitHubWebhookDeliveryDisposition.Accepted)
+                throw new InvalidDataException("Inbox reconciliation accepts only current Accepted candidates.");
+            Register(receipt, CreateTaskId(receipt));
+        }
+    }
+
+    public static string CreateTaskId(GitHubWebhookDeliveryReceipt receipt)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        var material = $"{receipt.WorkItemIdentity}\\n{receipt.Event.UpdatedAt:O}\\n{receipt.PayloadSha256.ToLowerInvariant()}";
+        var digest = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
+        return "github-" + digest;
+    }
+
     /// <summary>Registers the exact current inbox candidate before task creation.</summary>
     public Revision Register(GitHubWebhookDeliveryReceipt receipt, string taskId)
     {
