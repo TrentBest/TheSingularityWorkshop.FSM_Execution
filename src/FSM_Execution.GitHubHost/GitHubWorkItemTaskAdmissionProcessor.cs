@@ -112,7 +112,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessor
             resolved.MaximumAttempts)
         {
             GitHubProvenance = provenance
-        }.Validate();
+        }.Validate(requireAdmissionEvidence: _onboardingVerifier is null);
 
         try
         {
