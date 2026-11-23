@@ -60,6 +60,8 @@ public sealed class GitHubWorkItemRevisionFenceTests
             var fence = new JsonlGitHubWorkItemRevisionFence(path);
             fence.Reconcile([first]);
             fence.EnsureClaimAllowed(oldTask);
+            fence.Reconcile([first]);
+            fence.EnsureClaimAllowed(oldTask);
             fence.Reconcile([second]);
             Assert.Throws<InvalidOperationException>(() => fence.EnsureClaimAllowed(oldTask));
             fence.EnsureClaimAllowed(newTask);

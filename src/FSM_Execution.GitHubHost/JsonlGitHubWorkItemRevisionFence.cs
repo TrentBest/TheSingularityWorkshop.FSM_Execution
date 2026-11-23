@@ -121,6 +121,7 @@ public sealed class JsonlGitHubWorkItemRevisionFence : IWorkTaskClaimAdmissionPo
                     if (!string.Equals(receipt.PayloadSha256, current.PayloadSha256, StringComparison.Ordinal) ||
                         !string.Equals(taskId, current.TaskId, StringComparison.Ordinal))
                         throw new InvalidOperationException("A same-timestamp GitHub revision conflicts with the registered task identity or payload.");
+                    _uncertainWorkItems.Remove(receipt.WorkItemIdentity);
                     return current;
                 }
             }
