@@ -1,7 +1,8 @@
 using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.FSM_Execution;
 using Xunit;
 
-namespace Foundry.Workflow.Tests;
+namespace TheSingularityWorkshop.FSM_Execution.Tests;
 
 public sealed class JsonlCiAiTaskWakeupOutboxTests
 {

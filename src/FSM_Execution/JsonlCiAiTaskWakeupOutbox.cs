@@ -1,8 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using TheSingularityWorkshop.Foundry;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.FSM_Execution;
 
 public enum CiAiTaskWakeupState { Pending, Delivered }
 
