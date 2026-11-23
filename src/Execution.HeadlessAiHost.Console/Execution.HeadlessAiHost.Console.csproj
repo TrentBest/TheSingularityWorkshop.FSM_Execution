@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Foundry.Workflow/Foundry.Workflow.csproj" />
-    <ProjectReference Include="../Foundry.HeadlessAiHost/Foundry.HeadlessAiHost.csproj" />
+    <ProjectReference Include="../Execution.Workflow/Execution.Workflow.csproj" />
+    <ProjectReference Include="../Execution.HeadlessAiHost/Execution.HeadlessAiHost.csproj" />
   </ItemGroup>
 </Project>
