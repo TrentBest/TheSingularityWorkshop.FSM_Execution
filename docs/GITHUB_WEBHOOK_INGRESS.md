@@ -1,7 +1,7 @@
 # GitHub Webhook Ingress Boundary
 
 **Contract:** `fsm-execution.github-webhook-ingress.v1`  
-**Status:** exact-byte HMAC authentication, enrolled-repository validation, durable delivery deduplication, and revision-aware inbox/coalescing core implemented; HTTP route, webhook registration, and task admission remain outstanding.
+**Status:** exact-byte HMAC authentication, enrolled-repository validation, durable delivery deduplication, revision-aware inbox/coalescing, and an ASP.NET Core route adapter implemented; running-host registration, webhook registration, and task admission remain outstanding.
 
 ## Authentication
 
@@ -21,6 +21,17 @@ The verifier requires a host-provisioned secret of at least 32 bytes, rejects mi
 8. A later dispatcher may create or update a bounded FSM_Execution task from that candidate; it must use the existing durable task lifecycle rather than invent a second scheduler.
 
 The GitHub webhook HMAC protocol is separate from the RS256 bearer-token protocol used by the CiAi artifact-ready callback. Neither protocol substitutes for the other.
+
+## HTTP route adapter
+
+`GitHubWebhookEndpoint.MapGitHubWebhookIngress` maps `POST /api/fsm-execution/github/webhooks/v1`. It:
+- Requires HTTPS as seen by ASP.NET Core; reverse-proxy deployments must configure trusted forwarded headers before this route.
+- Accepts only `application/json`, validates single-value signature/delivery/event headers, and enforces the 1 MiB limit both from Content-Length and while streaming.
+- Maps invalid authentication to 401, malformed requests to 400, unsupported event/action to 202 without admission, conflicting replay/revision to 409, and durable inbox I/O failure to 503.
+- Returns 200 only after the durable inbox has accepted or idempotently recognized the delivery.
+- Uses `AllowAnonymous` at the ASP.NET Core authorization layer because the endpoint authenticates using GitHub's HMAC signature; this does not bypass the signature verifier.
+
+The extension is not yet registered in a running ServerApp/host. The host must explicitly call `MapGitHubWebhookIngress`, configure the secret and repository enrollment from trusted configuration, and apply trusted proxy/TLS and rate-limit middleware. No webhook has been registered with GitHub by this code change.
 
 ## Durable inbox and revision handling
 
@@ -43,4 +54,4 @@ A valid HMAC proves that the payload was signed by a holder of the configured we
 
 ## Not yet implemented
 
-This contract does not claim a live HTTP endpoint, GitHub webhook registration/subscription, bounded LLM packet dispatch, or automatic repository actions. The current inbox exposes latest pending candidates only; a host-owned dispatcher still must bind each candidate to enrollment policy, authorized linked context, exact revision, and the existing FSM_Execution durable task lifecycle.
+This contract does not claim a running/live HTTP endpoint, GitHub webhook registration/subscription, bounded LLM packet dispatch, or automatic repository actions. The route adapter exists but must be mapped by a host. The current inbox exposes latest pending candidates only; a host-owned dispatcher still must bind each candidate to enrollment policy, authorized linked context, exact revision, and the existing FSM_Execution durable task lifecycle.

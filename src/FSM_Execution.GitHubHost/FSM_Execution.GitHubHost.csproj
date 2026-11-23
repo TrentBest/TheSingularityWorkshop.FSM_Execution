@@ -6,6 +6,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../Foundry.CiAi.Contracts/Foundry.CiAi.Contracts.csproj" />
   </ItemGroup>
 </Project>
