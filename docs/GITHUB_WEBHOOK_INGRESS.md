@@ -1,7 +1,7 @@
 # GitHub Webhook Ingress Boundary
 
 **Contract:** `fsm-execution.github-webhook-ingress.v1`  
-**Status:** exact-byte HMAC authentication, enrolled-repository validation, durable delivery deduplication, revision-aware inbox/coalescing, ASP.NET Core route adapter, durable claim fence, and bounded task admission processor implemented; concrete GitHub snapshot resolver, running-host registration, webhook registration, and LLM dispatch remain outstanding.
+**Status:** exact-byte HMAC authentication, enrolled-repository validation, durable delivery deduplication, revision-aware inbox/coalescing, ASP.NET Core route adapter, durable claim fence, and bounded task admission processor implemented; running-host registration, webhook registration, host credential/scope configuration, authorized linked-context packet construction, and LLM dispatch remain outstanding.
 
 ## Authentication
 
@@ -62,7 +62,7 @@ The inbox does not acknowledge a GitHub HTTP request itself. The hosting adapter
 
 The legacy `WorkTaskRequest.IssueUrl` member remains for serialized v1 compatibility. With explicit `GitHubProvenance`, validation also permits the canonical `/pull/{number}` URL; without provenance, legacy v1 requests remain Issue-only. The optional provenance is part of the immutable request comparison during journal replay.
 
-`IGitHubWorkItemTaskSnapshotResolver` is an intentional host boundary, not an implicit network client. A concrete GitHub API resolver still must be supplied by the running host. The processor does not schedule an agent, allocate an LLM, perform repository writes, or dispatch a task itself; the task remains `Queued` until the existing host worker claims it. The same exact fence instance must be supplied to ingress, processor, and persistent coordinator.
+`GitHubRestWorkItemTaskSnapshotResolver` implements the snapshot boundary using a host-configured `HttpClient` and `IGitHubWorkItemTaskScopePolicy`. The client must target HTTPS `api.github.com`; its authentication handler/credential source remains host-owned and is never read or logged by the resolver. For Issues it verifies the repository ID/full name, exact current Issue timestamp/node/number/URL, then resolves the default-branch commit SHA separately. For PRs it verifies the exact current timestamp, node/number/URL, target repository identity, base/head refs and SHAs, and uses the exact head SHA. API responses are bounded to 4 MiB and malformed/mismatched or newer revisions fail closed. The host still must register the resolver, configure credentials and per-repository path/attempt scopes, and register the webhook route. The processor does not schedule an agent, allocate an LLM, perform repository writes, or dispatch a task itself; the task remains `Queued` until the existing host worker claims it. The same exact fence instance must be supplied to ingress, processor, and persistent coordinator.
 
 ## Non-authority
 
@@ -70,4 +70,4 @@ A valid HMAC proves that the payload was signed by a holder of the configured we
 
 ## Not yet implemented
 
-This contract does not claim a running/live HTTP endpoint, GitHub webhook registration/subscription, bounded LLM packet dispatch, or automatic repository actions. The route adapter exists but must be mapped by a host. A concrete GitHub API snapshot resolver, running-host registration, authorized linked-context packet builder, and worker/LLM dispatch still must be supplied by the host.
+This contract does not claim a running/live HTTP endpoint, GitHub webhook registration/subscription, bounded LLM packet dispatch, or automatic repository actions. The route adapter exists but must be mapped by a host. Running-host registration, GitHub credential and scope configuration, authorized linked-context packet construction, and worker/LLM dispatch still must be supplied by the host.
