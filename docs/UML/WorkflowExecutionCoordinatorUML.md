@@ -3,7 +3,7 @@
 
 # WorkflowExecutionCoordinator — UML Neighborhood
 
-**Status:** source-grounded view of the PR #10 feature-branch implementation; the timeout extension is not yet part of `development`. The combined lifecycle and timeout tests passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/41170698768).
+**Status:** source-grounded view of the PR #10 feature-branch implementation; the timeout extension is not yet part of `development`. The combined lifecycle and timeout tests passed [feature-branch CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41170698768).
 
 ## Neighborhood
 
