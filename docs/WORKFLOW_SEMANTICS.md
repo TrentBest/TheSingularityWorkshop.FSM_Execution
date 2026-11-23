@@ -3,7 +3,7 @@
 
 # Workflow Semantics — Version 1
 
-**Status:** implementation-backed theory for the first Foundry runtime slice. The sequential runner and retained run lifecycle passed development CI run #84; the optional timeout extension and its cancellation-precedence tests passed feature-branch [Foundry CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41170698768). This feature-branch extension is not yet part of `development`. This does not describe persisted manifests, distributed execution, or a general automation engine.
+**Status:** implementation-backed theory for the first FSM_Execution runtime slice. The sequential runner and retained run lifecycle passed development CI run #84; the optional timeout extension and its cancellation-precedence tests passed feature-branch [FSM_Execution CI run #276](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/41170698768). This feature-branch extension is not yet part of `development`. This does not describe persisted manifests, distributed execution, or a general automation engine.
 
 ## The execution model
 
