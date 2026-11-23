@@ -50,6 +50,9 @@ public sealed class PersistentWorkTaskCoordinator
     /// <summary>Durable CiAi composite admission journal, if configured.</summary>
     public JsonlCompositeDependencyAdmissionStore? CompositeDependencyAdmissionStore => _compositeDependencyAdmissionStore;
 
+    /// <summary>The host-owned claim admission policy configured for this coordinator.</summary>
+    public IWorkTaskClaimAdmissionPolicy? ClaimAdmissionPolicy => _claimAdmissionPolicy;
+
     /// <summary>
     /// Revalidates every restored governed task against the trusted host before the coordinator
     /// exposes any task lifecycle operation after process restart.

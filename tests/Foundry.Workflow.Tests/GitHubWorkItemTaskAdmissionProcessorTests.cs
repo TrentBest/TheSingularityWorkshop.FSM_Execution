@@ -134,7 +134,8 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
         var item = new GitHubWorkItemEvent(1, "delivery-" + digestChar, eventName,
             itemKind == "issue" ? "opened" : "synchronize", 123, "owner/repo",
             itemKind, number + 100, itemKind == "issue" ? "I_node" : "PR_node",
-            number, new Uri(url), DateTimeOffset.Parse(updated), null, null, head, baseSha);
+            number, new Uri(url), DateTimeOffset.Parse(updated), head is null ? null : "main", baseSha,
+            head is null ? null : "feature", head);
         return new GitHubWebhookDeliveryReceipt(item.DeliveryId, new string(digestChar, 64),
             item.WorkItemIdentity, 1, GitHubWebhookDeliveryDisposition.Accepted, item,
             DateTimeOffset.Parse(updated));
