@@ -13,7 +13,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
         using var directory = new TemporaryDirectory();
         var fence = new JsonlGitHubWorkItemRevisionFence(Path.Combine(directory.Path, "fence.jsonl"));
         var receipt = Receipt("issues", "issue", "https://github.com/owner/repo/issues/17",
-            "2026-11-23T07:00:00Z", null, null, "a");
+            "2026-11-23T07:00:00Z", null, null, 'a');
         fence.Reconcile([receipt]);
         var tasks = Coordinator(directory.Path, fence);
         var resolver = new FixedResolver(new GitHubWorkItemTaskSnapshot(
@@ -44,7 +44,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
         var head = Sha('d');
         var baseSha = Sha('e');
         var receipt = Receipt("pull_request", "pull_request", "https://github.com/owner/repo/pull/18",
-            "2026-11-23T07:01:00Z", head, baseSha, "b");
+            "2026-11-23T07:01:00Z", head, baseSha, 'b');
         fence.Reconcile([receipt]);
         var tasks = Coordinator(directory.Path, fence);
         var resolver = new FixedResolver(new GitHubWorkItemTaskSnapshot(
@@ -66,7 +66,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
         using var directory = new TemporaryDirectory();
         var fence = new JsonlGitHubWorkItemRevisionFence(Path.Combine(directory.Path, "fence.jsonl"));
         var first = Receipt("issues", "issue", "https://github.com/owner/repo/issues/17",
-            "2026-11-23T07:00:00Z", null, null, "a");
+            "2026-11-23T07:00:00Z", null, null, 'a');
         fence.Reconcile([first]);
         var tasks = Coordinator(directory.Path, fence);
         var resolver = new FixedResolver(new GitHubWorkItemTaskSnapshot(
@@ -76,7 +76,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
         var admitted = await processor.AdmitAsync(first);
 
         var newer = Receipt("issues", "issue", "https://github.com/owner/repo/issues/17",
-            "2026-11-23T07:02:00Z", null, null, "f");
+            "2026-11-23T07:02:00Z", null, null, 'f');
         fence.Reconcile([newer]);
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await processor.AdmitAsync(first));
         Assert.Throws<InvalidOperationException>(() =>
@@ -128,7 +128,7 @@ public sealed class GitHubWorkItemTaskAdmissionProcessorTests
 
     private static GitHubWebhookDeliveryReceipt Receipt(
         string eventName, string itemKind, string url, string updated,
-        string? head, string? baseSha, string digestChar)
+        string? head, string? baseSha, char digestChar)
     {
         var number = itemKind == "issue" ? 17 : 18;
         var item = new GitHubWorkItemEvent(1, "delivery-" + digestChar, eventName,
