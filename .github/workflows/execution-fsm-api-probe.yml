@@ -7,8 +7,6 @@ on:
   pull_request:
     branches:
       - development
-      - work/code-red-task-lifecycle
-      - feature/execution-headlessai-turn-seam
   workflow_dispatch:
 
 permissions:
