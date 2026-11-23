@@ -143,9 +143,10 @@ public sealed class JsonlGitHubWebhookDeliveryInbox
                     disposition = GitHubWebhookDeliveryDisposition.SupersededRevision;
                 else if (workItemEvent.UpdatedAt == latest.Event.UpdatedAt)
                 {
-                    if (!SameRevision(latest.Event, workItemEvent))
+                    if (!SameRevision(latest.Event, workItemEvent) ||
+                        !string.Equals(latest.PayloadSha256, digest, StringComparison.Ordinal))
                         throw new InvalidDataException(
-                            "Two different GitHub work-item revisions share the same updated_at timestamp; refusing to guess their order.");
+                            "Different GitHub payloads share the same work-item updated_at timestamp; refusing to guess their order.");
                     disposition = GitHubWebhookDeliveryDisposition.DuplicateRevision;
                 }
             }
@@ -253,7 +254,9 @@ public sealed class JsonlGitHubWebhookDeliveryInbox
                 }
                 else if (receipt.Disposition == GitHubWebhookDeliveryDisposition.DuplicateRevision)
                 {
-                    if (receipt.Event.UpdatedAt != latest.Event.UpdatedAt || !SameRevision(latest.Event, receipt.Event))
+                    if (receipt.Event.UpdatedAt != latest.Event.UpdatedAt ||
+                        !SameRevision(latest.Event, receipt.Event) ||
+                        !string.Equals(receipt.PayloadSha256, latest.PayloadSha256, StringComparison.Ordinal))
                         throw new InvalidDataException("GitHub webhook inbox duplicate-revision record conflicts with its current revision.");
                 }
                 else if (receipt.Disposition == GitHubWebhookDeliveryDisposition.SupersededRevision)
