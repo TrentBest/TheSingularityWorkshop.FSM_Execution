@@ -30,7 +30,7 @@ See [ExecutionFsmApiProbeUML.md](../../docs/UML/ExecutionFsmApiProbeUML.md) for 
 ## Verification
 
 - [CI workflow](../../.github/workflows/execution-fsm-api-probe.yml)
-- [Successful run](https://github.com/TrentBest/TheSingularityWorkshop.Execution/actions/runs/40021885286)
+- [Successful run](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40021885286)
 
 This is an API probe, not a manifest-driven workflow engine. It does not prove failure/recovery semantics, manifest validation, or cross-repository orchestration.
 
