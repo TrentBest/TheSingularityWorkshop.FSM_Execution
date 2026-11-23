@@ -29,8 +29,8 @@ See [FoundryFsmApiProbeUML.md](../../docs/UML/FoundryFsmApiProbeUML.md) for the 
 
 ## Verification
 
-- [CI workflow](../../.github/workflows/foundry-fsm-api-probe.yml)
-- [Successful run](https://github.com/TrentBest/TheSingularityWorkshop.Foundry/actions/runs/40021885286)
+- [CI workflow](../../.github/workflows/execution-fsm-api-probe.yml)
+- [Successful run](https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/40021885286)
 
 This is an API probe, not a manifest-driven workflow engine. It does not prove failure/recovery semantics, manifest validation, or cross-repository orchestration.
 
