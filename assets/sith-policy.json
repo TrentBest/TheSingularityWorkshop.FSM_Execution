@@ -7,6 +7,7 @@
   ],
   "actual_branches": [
     "chore/fsm-execution-rename",
+    "chore/retire-fsm-foundry-name",
     "development",
     "docs/foundry-domain-theory-foundation",
     "feature/autonomous-development-status-projection",
@@ -30,9 +31,9 @@
     "master",
     "work/explicit-workflow-timeouts"
   ],
-  "branch_count": 23,
+  "branch_count": 24,
   "status": "NON-COMPLIANT",
-  "evaluated_at": "2026-11-22T12:36:44Z",
-  "workflow_run": "https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/45023168808",
-  "triggering_commit": "419ac987389d719e6a0b6c1cfdb573a8e9ba578f"
+  "evaluated_at": "2026-11-23T14:40:23Z",
+  "workflow_run": "https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/45196692739",
+  "triggering_commit": "c7d2e864f29b4c6deacc463800c7ec4ceab79ce9"
 }
