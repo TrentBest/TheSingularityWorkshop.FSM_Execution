@@ -123,25 +123,23 @@ public sealed class JsonlCiAiCompositeExpressionRegistry
             ++count > CiAiPipelineGateExpression.MaximumNodes)
             throw new InvalidDataException("Persisted CiAi expression exceeds the contract's structural limits.");
 
-        if (node.Kind == "leaf" && node.GateId is not null &&
-            node.Repository is not null && node.CandidateId is not null &&
-            node.CommitSha is not null && node.Children is null)
-            return new CiAiRepositoryGateReference(
-                node.GateId, node.Repository, node.CandidateId, node.CommitSha);
-
-        if (node.Kind is "all" or "any" && node.GateId is null &&
-            node.Repository is null && node.CandidateId is null &&
-            node.CommitSha is null && node.Children is { Count: >= 2 })
+        return node.Kind switch
         {
-            var children = new List<CiAiGateExpression>(node.Children.Count);
-            foreach (var child in node.Children)
-                children.Add(Restore(child, depth + 1, ref count));
-            return node.Kind == "all"
-                ? new CiAiAllOf(children)
-                : new CiAiAnyOf(children);
-        }
-
-        throw new InvalidDataException("Persisted CiAi expression node is malformed.");
+            "leaf" when node.GateId is not null && node.Repository is not null &&
+                        node.CandidateId is not null && node.CommitSha is not null &&
+                        node.Children is null =>
+                new CiAiRepositoryGateReference(node.GateId, node.Repository,
+                    node.CandidateId, node.CommitSha),
+            "all" when node.GateId is null && node.Repository is null &&
+                       node.CandidateId is null && node.CommitSha is null &&
+                       node.Children is { Count: >= 2 } =>
+                new CiAiAllOf(node.Children.Select(child => Restore(child, depth + 1, ref count))),
+            "any" when node.GateId is null && node.Repository is null &&
+                       node.CandidateId is null && node.CommitSha is null &&
+                       node.Children is { Count: >= 2 } =>
+                new CiAiAnyOf(node.Children.Select(child => Restore(child, depth + 1, ref count))),
+            _ => throw new InvalidDataException("Persisted CiAi expression node is malformed.")
+        };
     }
 
     private void Append(Registration registration)
