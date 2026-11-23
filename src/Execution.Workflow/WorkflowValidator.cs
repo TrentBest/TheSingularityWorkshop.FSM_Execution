@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>Validates all definition-level constraints before any handler can run.</summary>
 public static class WorkflowValidator

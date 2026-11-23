@@ -2,14 +2,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
-/// The provider-neutral invocation data Foundry maps to HeadlessAi's versioned
-/// <c>HeadlessAiAgentTurnEnvelope</c>. This port keeps Foundry independent of the
+/// The provider-neutral invocation data Execution maps to HeadlessAi's versioned
+/// <c>HeadlessAiAgentTurnEnvelope</c>. This port keeps Execution independent of the
 /// HeadlessAi assembly; a host adapter performs the explicit contract mapping.
 /// </summary>
-public sealed record FoundryHeadlessAiTurnRequest
+public sealed record ExecutionHeadlessAiTurnRequest
 {
     public required string TaskId { get; init; }
     public required string CorrelationId { get; init; }
@@ -27,8 +27,8 @@ public sealed record FoundryHeadlessAiTurnRequest
     public required string IdempotencyKey { get; init; }
     public string? PriorTurnId { get; init; }
     public string? PriorCandidateCommitSha { get; init; }
-    public IReadOnlyList<FoundryHeadlessAiEvidence> Evidence { get; init; } =
-        Array.Empty<FoundryHeadlessAiEvidence>();
+    public IReadOnlyList<ExecutionHeadlessAiEvidence> Evidence { get; init; } =
+        Array.Empty<ExecutionHeadlessAiEvidence>();
 
     public void Validate(DateTimeOffset now)
     {
@@ -93,7 +93,7 @@ public sealed record FoundryHeadlessAiTurnRequest
     internal static string CreateIdempotencyKey(WorkTaskSnapshot task, string branch,
         string candidateSha, string role, string instructions, string canonicalPrompt,
         string responseSchema, string? priorTurnId, string? priorCandidateCommitSha,
-        IReadOnlyList<FoundryHeadlessAiEvidence> evidence)
+        IReadOnlyList<ExecutionHeadlessAiEvidence> evidence)
     {
         var material = JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -112,12 +112,12 @@ public sealed record FoundryHeadlessAiTurnRequest
             priorCandidateCommitSha,
             evidence
         });
-        return "foundry-" + Convert.ToHexString(SHA256.HashData(material)).ToLowerInvariant();
+        return "execution-" + Convert.ToHexString(SHA256.HashData(material)).ToLowerInvariant();
     }
 }
 
 /// <summary>CI evidence passed to HeadlessAi as untrusted, provenance-bound context.</summary>
-public sealed record FoundryHeadlessAiEvidence
+public sealed record ExecutionHeadlessAiEvidence
 {
     public required string Repository { get; init; }
     public required string CommitSha { get; init; }
@@ -151,10 +151,10 @@ public sealed record FoundryHeadlessAiEvidence
 }
 
 /// <summary>
-/// Normalized HeadlessAi output returned to Foundry. Every proposal field remains untrusted;
+/// Normalized HeadlessAi output returned to Execution. Every proposal field remains untrusted;
 /// this result cannot authorize a repository operation or lifecycle transition.
 /// </summary>
-public sealed record FoundryHeadlessAiTurnResult
+public sealed record ExecutionHeadlessAiTurnResult
 {
     public required string TurnId { get; init; }
     public required string TaskId { get; init; }
@@ -186,7 +186,7 @@ public sealed record FoundryHeadlessAiTurnResult
     public string? StopOrEscalateReason { get; init; }
     public string? HumanDecisionRequired { get; init; }
 
-    public void ValidateAgainst(FoundryHeadlessAiTurnRequest request)
+    public void ValidateAgainst(ExecutionHeadlessAiTurnRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (TaskId != request.TaskId || CorrelationId != request.CorrelationId ||
@@ -221,7 +221,7 @@ public sealed record FoundryHeadlessAiTurnResult
 /// Opaque host-prepared snapshot of the exact HeadlessAi request that will be executed.
 /// Its fingerprint is the SHA-256 of HeadlessAiAgentTurnRequest.CanonicalPayload.
 /// </summary>
-public interface IFoundryHeadlessAiPreparedTurn
+public interface IExecutionHeadlessAiPreparedTurn
 {
     string RequestFingerprint { get; }
 }
@@ -232,24 +232,24 @@ public interface IFoundryHeadlessAiPreparedTurn
 /// </summary>
 public interface IHeadlessAiAgentTurnClient
 {
-    IFoundryHeadlessAiPreparedTurn Prepare(FoundryHeadlessAiTurnRequest request, DateTimeOffset now);
-    Task<FoundryHeadlessAiTurnResult> ExecuteAsync(
-        FoundryHeadlessAiTurnRequest request, IFoundryHeadlessAiPreparedTurn prepared,
+    IExecutionHeadlessAiPreparedTurn Prepare(ExecutionHeadlessAiTurnRequest request, DateTimeOffset now);
+    Task<ExecutionHeadlessAiTurnResult> ExecuteAsync(
+        ExecutionHeadlessAiTurnRequest request, IExecutionHeadlessAiPreparedTurn prepared,
         CancellationToken cancellationToken = default);
 }
 
 /// <summary>
-/// Builds and invokes one HeadlessAi turn for an already claimed and investigated Foundry task.
+/// Builds and invokes one HeadlessAi turn for an already claimed and investigated Execution task.
 /// It deliberately performs no repository writes, CI dispatch, retries, or workflow transitions.
 /// </summary>
-public sealed class FoundryHeadlessAiTurnCoordinator
+public sealed class ExecutionHeadlessAiTurnCoordinator
 {
     private readonly PersistentWorkTaskCoordinator _tasks;
     private readonly IHeadlessAiAgentTurnClient _client;
     private readonly JsonlHeadlessAiTurnJournal _journal;
     private readonly TimeProvider _timeProvider;
 
-    public FoundryHeadlessAiTurnCoordinator(PersistentWorkTaskCoordinator tasks,
+    public ExecutionHeadlessAiTurnCoordinator(PersistentWorkTaskCoordinator tasks,
         IHeadlessAiAgentTurnClient client, JsonlHeadlessAiTurnJournal journal,
         TimeProvider? timeProvider = null)
     {
@@ -259,22 +259,22 @@ public sealed class FoundryHeadlessAiTurnCoordinator
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    public async Task<FoundryHeadlessAiTurnResult> InvokeAsync(string taskId, Guid leaseId,
+    public async Task<ExecutionHeadlessAiTurnResult> InvokeAsync(string taskId, Guid leaseId,
         string authorizedBranch, string candidateCommitSha, string role, string instructions,
-        string canonicalPrompt, string responseSchema, IReadOnlyList<FoundryHeadlessAiEvidence>? evidence = null,
+        string canonicalPrompt, string responseSchema, IReadOnlyList<ExecutionHeadlessAiEvidence>? evidence = null,
         string? priorTurnId = null, string? priorCandidateCommitSha = null,
         TimeSpan? turnLifetime = null, CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetUtcNow();
         var task = _tasks.GetSnapshot(taskId);
         if (task.Lease is not { } lease || lease.LeaseId != leaseId || lease.ExpiresAt <= now)
-            throw new UnauthorizedAccessException("A current, unexpired Foundry task lease is required.");
+            throw new UnauthorizedAccessException("A current, unexpired Execution task lease is required.");
         if (task.Status != WorkTaskStatus.Investigating)
             throw new InvalidOperationException("HeadlessAi may be invoked only after the task enters Investigating.");
         var lifetime = turnLifetime ?? TimeSpan.FromMinutes(15);
         if (lifetime <= TimeSpan.Zero || lifetime > TimeSpan.FromHours(2))
             throw new ArgumentOutOfRangeException(nameof(turnLifetime));
-        var request = new FoundryHeadlessAiTurnRequest
+        var request = new ExecutionHeadlessAiTurnRequest
         {
             TaskId = task.Request.TaskId,
             CorrelationId = task.Request.CorrelationId,
@@ -292,11 +292,11 @@ public sealed class FoundryHeadlessAiTurnCoordinator
             IdempotencyKey = "pending",
             PriorTurnId = priorTurnId,
             PriorCandidateCommitSha = priorCandidateCommitSha,
-            Evidence = Array.AsReadOnly((evidence ?? Array.Empty<FoundryHeadlessAiEvidence>()).ToArray())
+            Evidence = Array.AsReadOnly((evidence ?? Array.Empty<ExecutionHeadlessAiEvidence>()).ToArray())
         };
         request = request with
         {
-            IdempotencyKey = FoundryHeadlessAiTurnRequest.CreateIdempotencyKey(
+            IdempotencyKey = ExecutionHeadlessAiTurnRequest.CreateIdempotencyKey(
                 task, authorizedBranch, candidateCommitSha, role, instructions,
                 canonicalPrompt, responseSchema, priorTurnId, priorCandidateCommitSha, request.Evidence)
         };
@@ -345,7 +345,7 @@ public sealed class FoundryHeadlessAiTurnCoordinator
                 "The prepared HeadlessAi request must expose a full SHA-256 canonical request fingerprint.");
     }
 
-    private static string CreateInvocationFingerprint(FoundryHeadlessAiTurnRequest request)
+    private static string CreateInvocationFingerprint(ExecutionHeadlessAiTurnRequest request)
     {
         // Expiry is a transport freshness bound, not a change in the logical work request.
         // Omitting it lets an exact retry retrieve the prior result while all substantive

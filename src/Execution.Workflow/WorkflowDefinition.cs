@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>A data-only workflow definition. Version 1 supports sequential, named-handler steps.</summary>
 public sealed class WorkflowDefinition

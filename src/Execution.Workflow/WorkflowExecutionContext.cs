@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
 /// Bounded, per-run JSON data exchanged by registered workflow handlers.

@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
 /// Owns accepted workflow runs and their observable lifecycle while delegating step execution
@@ -238,7 +238,7 @@ public sealed class WorkflowExecutionCoordinator : IAsyncDisposable
     }
 }
 
-/// <summary>Lifecycle status for a retained Foundry workflow run.</summary>
+/// <summary>Lifecycle status for a retained Execution workflow run.</summary>
 public enum WorkflowRunStatus
 {
     Accepted,

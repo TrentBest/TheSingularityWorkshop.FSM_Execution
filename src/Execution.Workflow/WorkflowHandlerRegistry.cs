@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>Host-owned allowlist of operations workflow data may request.</summary>
 public sealed class WorkflowHandlerRegistry

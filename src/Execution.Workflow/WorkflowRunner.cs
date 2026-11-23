@@ -1,4 +1,4 @@
-namespace TheSingularityWorkshop.Foundry;
+namespace TheSingularityWorkshop.Execution;
 
 /// <summary>Executes validated steps sequentially through explicitly registered host handlers.</summary>
 public sealed class WorkflowRunner(WorkflowHandlerRegistry handlers)
