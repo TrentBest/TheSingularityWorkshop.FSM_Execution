@@ -50,6 +50,34 @@ public sealed class ExecutionAgentTurnOrchestrator
             capabilityId, authorizedBranch, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Starts the next HeadlessAi repair turn from an already-consumed, host-verified
+    /// actionable CiAi report. The report bytes, nested source-artifact identity, and exact
+    /// workflow run are carried unchanged into HeadlessAi as opaque accepted context.
+    /// </summary>
+    public Task<ExecutionAgentTurnOutcome> InvokeRepairAndRouteAsync(
+        string taskId, Guid leaseId, string authorizedBranch, string candidateCommitSha,
+        Guid capabilityId, string role, string instructions, string canonicalPrompt,
+        string responseSchema, string priorTurnId, string priorCandidateCommitSha,
+        CiAiRepairFeedbackResult feedback, TimeSpan? turnLifetime = null,
+        TimeSpan? approvalLifetime = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(feedback);
+        var consumed = feedback.Consumed
+            ?? throw new InvalidOperationException("A duplicate or incomplete CiAi delivery has no new report context to send to HeadlessAi.");
+        if (feedback.Snapshot.Request.TaskId != taskId ||
+            feedback.Snapshot.Status != WorkTaskStatus.RepairRequired ||
+            consumed.Verdict != "ActionableFailure" ||
+            !string.Equals(consumed.Attempt.CandidateSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(consumed.AcceptedReport.CandidateCommitSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Repair feedback is not an actionable report for this task and exact prior candidate.");
+
+        return InvokeAndRouteAsync(taskId, leaseId, authorizedBranch, candidateCommitSha,
+            capabilityId, role, instructions, canonicalPrompt, responseSchema,
+            new[] { consumed.HeadlessAiEvidence }, priorTurnId, priorCandidateCommitSha,
+            turnLifetime, approvalLifetime, cancellationToken, consumed.AcceptedReport);
+    }
+
     public async Task<ExecutionAgentTurnOutcome> InvokeAndRouteAsync(
         string taskId, Guid leaseId, string authorizedBranch, string candidateCommitSha,
         Guid capabilityId, string role, string instructions, string canonicalPrompt,
