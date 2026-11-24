@@ -209,9 +209,6 @@ public static class CiAiTestResultReportConsumer
             throw new UnauthorizedAccessException("Diagnostic test reports can be consumed for repair only after authoritative workflow evidence has already placed the task in RepairRequired.");
         if (task.Attempt < 1 || task.Events.Count == 0)
             throw new InvalidOperationException("Execution task has no durable lifecycle history.");
-        if (!string.Equals(mapping.CandidateSha, task.Request.CandidateSha, StringComparison.OrdinalIgnoreCase))
-            throw new UnauthorizedAccessException("CiAi report candidate does not match the active task candidate.");
-
         var repairRequiredEvent = task.Events.LastOrDefault(item => item.Current == WorkTaskStatus.RepairRequired)
             ?? throw new InvalidOperationException("Task has no durable RepairRequired event from authoritative workflow evidence.");
         if (repairRequiredEvent.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
