@@ -10,8 +10,11 @@
     "chore/retire-fsm-foundry-name",
     "development",
     "docs/foundry-domain-theory-foundation",
+    "feature/adp-human-approval-queue",
+    "feature/adp-human-approval-queue-dev",
     "feature/autonomous-development-status-projection",
     "feature/dependency-admission-dormancy",
+    "feature/execution-hub-pages-workbench",
     "feature/foundry-agent-onboarding-admission",
     "feature/foundry-agent-onboarding-host-integration",
     "feature/foundry-capability-lifecycle-fence",
@@ -31,9 +34,9 @@
     "master",
     "work/explicit-workflow-timeouts"
   ],
-  "branch_count": 24,
+  "branch_count": 27,
   "status": "NON-COMPLIANT",
-  "evaluated_at": "2026-11-23T14:40:23Z",
-  "workflow_run": "https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/45196692739",
-  "triggering_commit": "c7d2e864f29b4c6deacc463800c7ec4ceab79ce9"
+  "evaluated_at": "2026-11-24T04:44:40Z",
+  "workflow_run": "https://github.com/TrentBest/TheSingularityWorkshop.FSM_Execution/actions/runs/45328429908",
+  "triggering_commit": "be8ca8f0d1e69e3e4dbbc007ce060916f7996b28"
 }
