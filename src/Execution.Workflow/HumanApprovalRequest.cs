@@ -49,7 +49,7 @@ public sealed record HumanApprovalRequest(
         if (repositoryParts.Length != 2 || repositoryParts.Any(part => string.IsNullOrWhiteSpace(part) ||
             part.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))))
             throw new ArgumentException("Repository must use owner/name identity.");
-        if (CandidateSha.Length != 40 || !CandidateSha.All(Uri.IsHexDigit))
+        if (string.IsNullOrWhiteSpace(CandidateSha) || CandidateSha.Length != 40 || !CandidateSha.All(Uri.IsHexDigit))
             throw new ArgumentException("Candidate SHA must be a full 40-character hexadecimal commit.");
         Required(RequestedBy, nameof(RequestedBy), 128);
         Required(Operation, nameof(Operation), 128);
@@ -75,7 +75,9 @@ public sealed record HumanApprovalRequest(
         if (Sequence < 1 || !Enum.IsDefined(Status))
             throw new ArgumentException("Approval sequence or status is invalid.");
         var decided = Status is HumanApprovalStatus.Approved or HumanApprovalStatus.Rejected or HumanApprovalStatus.Expired or HumanApprovalStatus.Cancelled;
-        if (decided != (DecisionBy is not null && DecisionReason is not null && DecidedAt.HasValue))
+        var hasDecisionFields = DecisionBy is not null || DecisionReason is not null || DecidedAt.HasValue;
+        if (decided != hasDecisionFields || (decided &&
+            (DecisionBy is null || DecisionReason is null || !DecidedAt.HasValue)))
             throw new ArgumentException("Terminal approval decisions require complete decision provenance.");
         if (decided)
         {
@@ -228,8 +230,9 @@ public sealed class JsonlHumanApprovalRequestStore
             else if (item.Sequence != previous.Sequence + 1 ||
                 previous.Status != HumanApprovalStatus.Pending ||
                 item.Status == HumanApprovalStatus.Pending ||
-                item.TaskId != previous.TaskId || item.Repository != previous.Repository ||
-                item.CandidateSha != previous.CandidateSha || item.ArgumentsSha256 != previous.ArgumentsSha256)
+                (item with { Sequence = previous.Sequence, Status = previous.Status,
+                    DecisionBy = previous.DecisionBy, DecisionReason = previous.DecisionReason,
+                    DecidedAt = previous.DecidedAt }) != previous)
             {
                 throw new InvalidDataException($"Approval history for '{item.ApprovalId}' is discontinuous or mutates its proposal.");
             }
