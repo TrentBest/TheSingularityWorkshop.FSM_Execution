@@ -40,20 +40,16 @@ public sealed class CiAiTestResultReportConsumerTests
         var consumed = Consume(bytes, jobConclusion: "success");
 
         Assert.Equal("ActionableFailure", consumed.Verdict);
-        Assert.Equal("task-1", consumed.Attempt.TaskId);
-        Assert.Equal("correlation-1", consumed.Attempt.CorrelationId);
-        Assert.Equal(Repository, consumed.Attempt.Repository);
-        Assert.Equal("work/task-1", consumed.Attempt.Branch);
-        Assert.Equal(WorkflowPath, consumed.Attempt.WorkflowPath);
-        Assert.Equal(CandidateSha, consumed.Attempt.CandidateSha);
-        Assert.Equal(RunId, consumed.Attempt.CiRunId);
-        Assert.Equal(RunAttempt, consumed.Attempt.CiRunAttempt);
-        Assert.True(consumed.Attempt.EvidenceComplete);
-        Assert.False(consumed.Attempt.IsSuccessful);
-        Assert.True(consumed.Attempt.HasActionableDiagnostics);
-        Assert.NotNull(consumed.Attempt.DiagnosticsFingerprint);
-        Assert.Equal(consumed.ReportSha256, consumed.Attempt.EvidencePayloadSha256);
-        Assert.Equal(CreateSourceBinding().IdentitySha256, consumed.Attempt.SourceArtifactIdentitySha256);
+        Assert.Equal("task-1", consumed.TaskId);
+        Assert.Equal("correlation-1", consumed.CorrelationId);
+        Assert.Equal(Repository, consumed.Repository);
+        Assert.Equal(CandidateSha, consumed.CandidateSha);
+        Assert.Equal(RunId, consumed.WorkflowRunId);
+        Assert.Equal(RunAttempt, consumed.RunAttempt);
+        Assert.Equal(new string('e', 64), consumed.AuthoritativeWorkflowEvidenceSha256);
+        Assert.Equal("ActionableFailure", consumed.Verdict);
+        Assert.Equal(CreateSourceBinding().IdentitySha256, consumed.SourceArtifactIdentitySha256);
+        Assert.Equal(consumed.ReportSha256, consumed.AcceptedReport.ReportSha256);
         Assert.Equal(7001, consumed.AcceptedReport.SourceArtifactBinding?.ArtifactId);
         Assert.Equal(CandidateSha, consumed.HeadlessAiEvidence.CommitSha);
         Assert.Equal(RunId.ToString(), consumed.HeadlessAiEvidence.WorkflowRunId);
@@ -121,15 +117,11 @@ public sealed class CiAiTestResultReportConsumerTests
     }
 
     [Fact]
-    public void CompletePassIsDerivedOnlyFromCiAiVerdict()
+    public void CompletePassDiagnosticCannotOverrideAnAuthoritativeRepairRequiredTask()
     {
         var bytes = CreateReport("CompletePass", "Passed", "success", EventSha);
-        var consumed = Consume(bytes, jobConclusion: "success");
-
-        Assert.True(consumed.Attempt.EvidenceComplete);
-        Assert.True(consumed.Attempt.IsSuccessful);
-        Assert.False(consumed.Attempt.HasActionableDiagnostics);
-        Assert.Null(consumed.Attempt.DiagnosticsFingerprint);
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            Consume(bytes, jobConclusion: "success"));
     }
 
     [Fact]
@@ -358,6 +350,7 @@ public sealed class CiAiTestResultReportConsumerTests
             "cccccccccccccccccccccccccccccccccccccccc",
             new[] { "src" }, 3).Validate();
         var leaseId = Guid.NewGuid();
+        var authoritativeEvidenceSha256 = new string('e', 64);
         var events = new[]
         {
             new WorkTaskEvent(1, WorkTaskStatus.Queued, WorkTaskStatus.Claimed, "agent", leaseId,
@@ -367,9 +360,16 @@ public sealed class CiAiTestResultReportConsumerTests
             new WorkTaskEvent(3, WorkTaskStatus.Investigating, WorkTaskStatus.Implementing, "agent", leaseId,
                 TaskStart.AddMinutes(5), "Implementation started."),
             new WorkTaskEvent(4, WorkTaskStatus.Implementing, WorkTaskStatus.Validating, "agent", leaseId,
-                ValidationStart, "Validation started.", RunId, RunAttempt)
+                ValidationStart, "Validation started.", RunId, RunAttempt),
+            new WorkTaskEvent(5, WorkTaskStatus.Validating, WorkTaskStatus.RepairRequired, "agent", leaseId,
+                ValidationStart.AddMinutes(1), "repair.actionable-failure: authoritative workflow evidence.",
+                RunId, RunAttempt, authoritativeEvidenceSha256)
+            {
+                EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema,
+                CandidateSha = CandidateSha
+            }
         };
-        return new WorkTaskSnapshot(request, WorkTaskStatus.Validating,
+        return new WorkTaskSnapshot(request, WorkTaskStatus.RepairRequired,
             new WorkTaskLease("agent", leaseId, Now.AddMinutes(10)), 1, events);
     }
 
