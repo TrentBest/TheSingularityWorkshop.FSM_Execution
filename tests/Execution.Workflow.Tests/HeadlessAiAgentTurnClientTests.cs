@@ -33,6 +33,9 @@ public sealed class HeadlessAiAgentTurnClientTests
         Assert.Equal("The build failure is caused by the missing registration.", result.Diagnosis);
         Assert.Equal("Investigating the failing registration path.", result.CurrentAction);
         Assert.Equal("needs-review", result.OperationalStatus);
+        Assert.Single(result.Operations);
+        Assert.Equal("CreateDraftPullRequest", result.Operations[0].Operation);
+        Assert.Equal("{\"title\":\"Review candidate\",\"draft\":true}", result.Operations[0].ArgumentsJson);
         Assert.Equal(1, handler.CallCount);
         Assert.Equal("host-managed-test-secret", handler.AuthorizationParameter);
         Assert.DoesNotContain("host-managed-test-secret", handler.RequestBody);
@@ -75,7 +78,7 @@ public sealed class HeadlessAiAgentTurnClientTests
             Role = "implementation-agent",
             Instructions = "Inspect the supplied CI result and propose a bounded correction.",
             CanonicalPrompt = "Explain the failure and propose the next safe step.",
-            ResponseSchema = "{ diagnosis, patchIntent, operationalStatus }",
+            ResponseSchema = "{ diagnosis, patchIntent, operationalStatus, operations: [{ operation, summary, rationale, argumentsJson }] }",
             ExpiresAt = now.AddMinutes(5),
             IdempotencyKey = "execution-host-adapter-test-123"
         };
@@ -121,7 +124,7 @@ public sealed class HeadlessAiAgentTurnClientTests
                       "content": [
                         {
                           "type": "output_text",
-                          "text": "{\"diagnosis\":\"The build failure is caused by the missing registration.\",\"patchIntent\":\"Add the missing registration with a focused test.\",\"operationalStatus\":\"needs-review\",\"currentAction\":\"Investigating the failing registration path.\"}"
+                          "text": "{\"diagnosis\":\"The build failure is caused by the missing registration.\",\"patchIntent\":\"Add the missing registration with a focused test.\",\"operationalStatus\":\"needs-review\",\"currentAction\":\"Investigating the failing registration path.\",\"operations\":[{\"operation\":\"CreateDraftPullRequest\",\"summary\":\"Open a draft for review\",\"rationale\":\"The candidate is ready for owner review.\",\"argumentsJson\":\"{\\\"title\\\":\\\"Review candidate\\\",\\\"draft\\\":true}\"}]}"
                         }
                       ]
                     }
