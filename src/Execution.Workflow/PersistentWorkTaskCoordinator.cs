@@ -102,12 +102,11 @@ public sealed class PersistentWorkTaskCoordinator
     /// Consumes a verified CiAi report, appends its exact attempt idempotently, and applies
     /// the existing Execution lifecycle policy using only CiAi's versioned verdict.
     /// </summary>
-    public CiAiRepairFeedbackResult ApplyCiAiReport(
+    public CiAiDiagnosticReportContext ConsumeCiAiDiagnosticReport(
         string taskId,
         Guid leaseId,
         ExecutionVerifiedCiAiReportArtifact artifact,
         CiAiHostObservedSourceArtifactBinding? sourceArtifactBinding,
-        TimeSpan maximumDuration,
         DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
@@ -116,58 +115,42 @@ public sealed class PersistentWorkTaskCoordinator
         {
             EnsureHealthy();
             var journal = _repairAttemptJournal ?? throw new InvalidOperationException(
-                "A durable repair-attempt journal is required before consuming CiAi repair evidence.");
+                "A durable authoritative workflow-evidence attempt journal is required before consuming diagnostic reports.");
             var task = _coordinator.GetSnapshot(taskId);
             if (now == default || task.Lease is not { } lease ||
                 lease.LeaseId != leaseId || lease.ExpiresAt <= now)
-                throw new UnauthorizedAccessException("A current, unexpired task lease is required to apply CiAi evidence.");
+                throw new UnauthorizedAccessException("A current, unexpired task lease is required to consume CiAi diagnostic evidence.");
+            if (task.Status != WorkTaskStatus.RepairRequired)
+                throw new UnauthorizedAccessException("Diagnostic reports cannot create RepairRequired state; authoritative workflow evidence must do that first.");
+
             var mapping = artifact.Request.Mapping.Validate();
             var run = artifact.Request.RunBinding
                 ?? throw new InvalidOperationException("CiAi report is not bound to an exact GitHub run.");
-            if (!string.Equals(mapping.TaskId, taskId, StringComparison.Ordinal))
-                throw new UnauthorizedAccessException("CiAi report mapping identifies a different Execution task.");
+            if (!string.Equals(mapping.TaskId, taskId, StringComparison.Ordinal) ||
+                !string.Equals(mapping.CorrelationId, task.Request.CorrelationId, StringComparison.Ordinal) ||
+                !string.Equals(mapping.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("CiAi diagnostic report mapping identifies a different Execution task.");
 
-            var reportDigest = Convert.ToHexString(SHA256.HashData(artifact.Bytes.Span)).ToLowerInvariant();
-            var prior = journal.GetAttempts(taskId).SingleOrDefault(item =>
+            var authoritativeEvent = task.Events.LastOrDefault(item => item.Current == WorkTaskStatus.RepairRequired)
+                ?? throw new UnauthorizedAccessException("Task has no authoritative RepairRequired event.");
+            if (authoritativeEvent.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
+                !string.Equals(authoritativeEvent.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                authoritativeEvent.CiRunId != run.RunId ||
+                authoritativeEvent.CiRunAttempt != run.RunAttempt ||
+                string.IsNullOrWhiteSpace(authoritativeEvent.EvidencePayloadSha256))
+                throw new UnauthorizedAccessException("The diagnostic report does not match the exact ciai.workflow-evidence.v2 task event.");
+
+            var authoritativeAttempt = journal.GetAttempts(taskId).SingleOrDefault(item =>
                 item.CiRunId == run.RunId && item.CiRunAttempt == run.RunAttempt);
-            if (prior is not null)
-            {
-                if (!string.Equals(prior.EvidencePayloadSha256, reportDigest, StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(prior.SourceArtifactIdentitySha256, sourceArtifactBinding?.IdentitySha256, StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(prior.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
-                    prior.CorrelationId != mapping.CorrelationId ||
-                    !string.Equals(prior.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("A previously recorded CiAi run was redelivered with conflicting report content or task provenance.");
+            if (authoritativeAttempt is null ||
+                authoritativeAttempt.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
+                !string.Equals(authoritativeAttempt.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(authoritativeAttempt.EvidencePayloadSha256, authoritativeEvent.EvidencePayloadSha256, StringComparison.OrdinalIgnoreCase) ||
+                !authoritativeAttempt.EvidenceComplete || authoritativeAttempt.IsSuccessful ||
+                !authoritativeAttempt.HasActionableDiagnostics)
+                throw new UnauthorizedAccessException("The matching authoritative workflow-evidence v2 attempt is missing, incomplete, successful, or non-actionable.");
 
-                var alreadyApplied = task.Events.Any(item =>
-                    item.CiRunId == run.RunId && item.CiRunAttempt == run.RunAttempt &&
-                    string.Equals(item.EvidencePayloadSha256, reportDigest, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(item.SourceArtifactIdentitySha256, sourceArtifactBinding?.IdentitySha256, StringComparison.OrdinalIgnoreCase));
-                if (alreadyApplied)
-                    return new CiAiRepairFeedbackResult(task, null, IsDuplicateDelivery: true);
-            }
-
-            var consumed = CiAiTestResultReportConsumer.Consume(artifact, task, sourceArtifactBinding, now);
-            var appendOutcome = journal.Append(consumed.Attempt);
-            if (appendOutcome is WorkTaskRepairAttemptAppendOutcome.Conflict or
-                WorkTaskRepairAttemptAppendOutcome.OutOfOrder)
-                throw new InvalidOperationException($"CiAi repair attempt could not be appended: {appendOutcome}.");
-
-            var expectation = new WorkTaskRepairEvidenceExpectation(
-                consumed.Attempt.TaskId,
-                consumed.Attempt.CorrelationId,
-                consumed.Attempt.Repository,
-                consumed.Attempt.Branch,
-                consumed.Attempt.WorkflowPath,
-                consumed.Attempt.CandidateSha,
-                consumed.Attempt.TaskStartedAt,
-                consumed.Attempt.CiRunId,
-                consumed.Attempt.CiRunAttempt);
-
-            var updated = ApplyRepairDecision(taskId, leaseId, consumed.Attempt,
-                expectation, maximumDuration, now);
-            return new CiAiRepairFeedbackResult(updated, consumed,
-                IsDuplicateDelivery: appendOutcome == WorkTaskRepairAttemptAppendOutcome.Duplicate);
+            return CiAiTestResultReportConsumer.Consume(artifact, task, sourceArtifactBinding, now);
         }
     }
 
