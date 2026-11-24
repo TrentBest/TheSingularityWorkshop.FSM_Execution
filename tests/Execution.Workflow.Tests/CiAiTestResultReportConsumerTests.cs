@@ -147,7 +147,7 @@ public sealed class CiAiTestResultReportConsumerTests
         node["workflowDefinitionRef"] = $"{Repository}/.github/workflows/untrusted.yml@refs/heads/development";
         var bytes = JsonSerializer.SerializeToUtf8Bytes(node);
 
-        Assert.Throws<UnauthorizedAccessException>(() => Consume(bytes));
+        Assert.Throws<UnauthorizedAccessException>(() => Consume(bytes, jobConclusion: "success"));
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public sealed class CiAiTestResultReportConsumerTests
         var bytes = JsonSerializer.SerializeToUtf8Bytes(node);
 
         Assert.Throws<InvalidDataException>(() =>
-            Consume(bytes));
+            Consume(bytes, jobConclusion: "success"));
     }
 
     [Fact]
