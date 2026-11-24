@@ -81,7 +81,7 @@ public sealed class CiAiSourceArtifactBindingFactoryTests
     }
 
     private static CiAiRequestTaskMapping CreateMapping() =>
-        new(1, "request-1", "operation-1", "idempotency-1", "task-1", "correlation-1",
+        new CiAiRequestTaskMapping(1, "request-1", "operation-1", "idempotency-1", "task-1", "correlation-1",
             Repository, "refs/heads/work/task-1", CandidateSha, WorkflowPath,
             "refs/heads/development", WorkflowSha,
             "Build and Test", "resolve", "verify", "ciai-production",
@@ -94,7 +94,7 @@ public sealed class CiAiSourceArtifactBindingFactoryTests
         }.Validate();
 
     private static CiAiDispatchRunBinding CreateRun(CiAiRequestTaskMapping mapping) =>
-        new(1001, 1, Repository, WorkflowPath, "refs/heads/development", WorkflowSha,
+        new CiAiDispatchRunBinding(1001, 1, Repository, WorkflowPath, "refs/heads/development", WorkflowSha,
             "refs/heads/work/task-1", CandidateSha, "workflow_dispatch",
             Created.AddMinutes(1), EventSha: EventSha).ValidateAgainst(mapping);
 
