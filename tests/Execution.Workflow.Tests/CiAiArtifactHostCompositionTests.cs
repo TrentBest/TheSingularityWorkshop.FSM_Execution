@@ -173,6 +173,23 @@ public sealed class CiAiArtifactHostCompositionTests
             tasks.Transition("task-1", leaseId, WorkTaskStatus.Validating,
                 ValidationStarted, "Validate exact candidate.");
 
+            var authoritativeAttempt = new WorkTaskRepairAttempt(
+                WorkTaskRepairAttempt.CurrentSchemaVersion,
+                "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
+                Created, 1, CandidateSha, RunId, RunAttempt, new string('e', 64),
+                EvidenceComplete: true, IsSuccessful: false, HasActionableDiagnostics: true,
+                DiagnosticsFingerprint: new string('d', 64),
+                StartedAt: ValidationStarted, ObservedAt: Now)
+            {
+                EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
+            }.Validate();
+            var expectation = new WorkTaskRepairEvidenceExpectation(
+                "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
+                CandidateSha, Created, RunId, RunAttempt);
+            var repairRequired = tasks.ApplyRepairDecision("task-1", leaseId,
+                authoritativeAttempt, expectation, TimeSpan.FromHours(1), Now);
+            Assert.Equal(WorkTaskStatus.RepairRequired, repairRequired.Status);
+
             var reportBytes = CreateReport();
             var reportDigest = Convert.ToHexString(SHA256.HashData(reportBytes)).ToLowerInvariant();
             var noticeBytes = CreateNotice(reportBytes, reportDigest);
@@ -202,24 +219,22 @@ public sealed class CiAiArtifactHostCompositionTests
             Assert.Equal(reportBytes, retrieved.Bytes.ToArray());
 
             var artifact = ExecutionVerifiedCiAiReportArtifact.Verify(retrieved, accepted.Receipt, Now);
-            var feedback = tasks.ApplyCiAiReport(
-                "task-1", leaseId, artifact, CreateSourceBinding(), TimeSpan.FromHours(1), Now);
+            var diagnostic = tasks.ConsumeCiAiDiagnosticReport(
+                "task-1", leaseId, artifact, CreateSourceBinding(), Now);
 
-            Assert.Equal(WorkTaskStatus.RepairRequired, feedback.Snapshot.Status);
-            Assert.False(feedback.IsDuplicateDelivery);
-            Assert.NotNull(feedback.Consumed);
-            Assert.Equal(CandidateSha, feedback.Consumed!.Attempt.CandidateSha);
-            Assert.Equal(CreateSourceBinding().IdentitySha256, feedback.Consumed.Attempt.SourceArtifactIdentitySha256);
-            Assert.Equal(CreateSourceBinding().IdentitySha256, feedback.Consumed.AcceptedReport.SourceArtifactIdentitySha256);
-            Assert.Equal(RunId, feedback.Consumed.Attempt.CiRunId);
-            Assert.Equal(CreateSourceBinding().IdentitySha256,
-                feedback.Snapshot.Events[^1].SourceArtifactIdentitySha256);
-            Assert.Equal(reportBytes, Encoding.UTF8.GetBytes(feedback.Consumed.AcceptedReport.CanonicalReportJson));
+            Assert.Equal(WorkTaskStatus.RepairRequired, tasks.GetSnapshot("task-1").Status);
+            Assert.Equal(WorkTaskRepairAttempt.RequiredEvidenceSchema,
+                tasks.GetSnapshot("task-1").Events[^1].EvidenceSchema);
+            Assert.Equal(CandidateSha, diagnostic.CandidateSha);
+            Assert.Equal(new string('e', 64), diagnostic.AuthoritativeWorkflowEvidenceSha256);
+            Assert.Equal(CreateSourceBinding().IdentitySha256, diagnostic.SourceArtifactIdentitySha256);
+            Assert.Equal(CreateSourceBinding().IdentitySha256, diagnostic.AcceptedReport.SourceArtifactIdentitySha256);
+            Assert.Equal(RunId, diagnostic.WorkflowRunId);
+            Assert.Equal(reportBytes, Encoding.UTF8.GetBytes(diagnostic.AcceptedReport.CanonicalReportJson));
 
-            var duplicateApply = tasks.ApplyCiAiReport(
-                "task-1", leaseId, artifact, CreateSourceBinding(), TimeSpan.FromHours(1), Now);
-            Assert.True(duplicateApply.IsDuplicateDelivery);
-            Assert.Null(duplicateApply.Consumed);
+            var duplicateDiagnostic = tasks.ConsumeCiAiDiagnosticReport(
+                "task-1", leaseId, artifact, CreateSourceBinding(), Now);
+            Assert.Equal(diagnostic.ReportSha256, duplicateDiagnostic.ReportSha256);
             Assert.Single(attemptJournal.GetAttempts("task-1"));
 
             var turns = new JsonlHeadlessAiTurnJournal(Path.Combine(root, "turns.jsonl"));
@@ -251,10 +266,10 @@ public sealed class CiAiArtifactHostCompositionTests
                 "Repair the exact failing candidate using the supplied CiAi evidence.",
                 "Return a bounded patch proposal; do not claim authorization.",
                 """{"type":"object","required":["diagnosis","patchIntent"]}""",
-                new[] { feedback.Consumed.HeadlessAiEvidence },
+                new[] { diagnostic.HeadlessAiEvidence },
                 priorTurnId: "turn-initial-1",
                 priorCandidateCommitSha: CandidateSha,
-                acceptedCiAiReport: feedback.Consumed.AcceptedReport);
+                acceptedCiAiReport: diagnostic.AcceptedReport);
 
             Assert.Equal("turn-repair-1", turn.TurnId);
             Assert.Equal(WorkTaskStatus.RepairRequired, tasks.GetSnapshot("task-1").Status);
@@ -297,8 +312,8 @@ public sealed class CiAiArtifactHostCompositionTests
                 IdempotencyKey = "concrete-adapter-repair-turn",
                 PriorTurnId = "turn-initial-1",
                 PriorCandidateCommitSha = CandidateSha,
-                Evidence = new[] { feedback.Consumed.HeadlessAiEvidence },
-                AcceptedCiAiReport = feedback.Consumed.AcceptedReport
+                Evidence = new[] { diagnostic.HeadlessAiEvidence },
+                AcceptedCiAiReport = diagnostic.AcceptedReport
             };
             var concretePrepared = concreteClient.Prepare(concreteRequest, Now.AddMinutes(1));
             var concreteResult = await concreteClient.ExecuteAsync(concreteRequest, concretePrepared);
