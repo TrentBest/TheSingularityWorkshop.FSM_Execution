@@ -53,11 +53,7 @@ public sealed record WorkTaskEvent(long Sequence, WorkTaskStatus Previous, WorkT
     long? CiRunId = null, int? CiRunAttempt = null, string? EvidencePayloadSha256 = null,
     string? ApprovalReceiptId = null, string? ApprovalIssuer = null, string? ApprovalPrincipal = null,
     string? ApprovalIncidentId = null, long? ApprovalIncidentSequence = null,
-    long? ApprovalTaskEventSequence = null, CodeRedRecoveryApprovalReceipt? ApprovalReceipt = null)
-{
-    /// <summary>SHA-256 identity of the independently host-observed nested source artifact.</summary>
-    public string? SourceArtifactIdentitySha256 { get; init; }
-}
+    long? ApprovalTaskEventSequence = null, CodeRedRecoveryApprovalReceipt? ApprovalReceipt = null);
 public sealed record WorkTaskSnapshot(WorkTaskRequest Request, WorkTaskStatus Status,
     WorkTaskLease? Lease, int Attempt, IReadOnlyList<WorkTaskEvent> Events);
 
@@ -262,8 +258,7 @@ public sealed class WorkTaskCoordinator
                 state.Lease = null;
             state.AddEvent(previous, next, lease.AgentId, lease.LeaseId, now,
                 $"{decision.ReasonCode}: {decision.Reason}", currentAttempt.CiRunId,
-                currentAttempt.CiRunAttempt, currentAttempt.EvidencePayloadSha256,
-                sourceArtifactIdentitySha256: currentAttempt.SourceArtifactIdentitySha256);
+                currentAttempt.CiRunAttempt, currentAttempt.EvidencePayloadSha256);
             return state.Snapshot();
         }
     }
@@ -352,15 +347,11 @@ public sealed class WorkTaskCoordinator
             string? evidencePayloadSha256 = null, string? approvalReceiptId = null,
             string? approvalIssuer = null, string? approvalPrincipal = null,
             string? approvalIncidentId = null, long? approvalIncidentSequence = null,
-            long? approvalTaskEventSequence = null, CodeRedRecoveryApprovalReceipt? approvalReceipt = null,
-            string? sourceArtifactIdentitySha256 = null) =>
+            long? approvalTaskEventSequence = null, CodeRedRecoveryApprovalReceipt? approvalReceipt = null) =>
             _events.Add(new WorkTaskEvent(_events.Count + 1, previous, current, agent, lease, at,
                 reason, ciRunId, ciRunAttempt, evidencePayloadSha256, approvalReceiptId,
                 approvalIssuer, approvalPrincipal, approvalIncidentId, approvalIncidentSequence,
-                approvalTaskEventSequence, approvalReceipt)
-            {
-                SourceArtifactIdentitySha256 = sourceArtifactIdentitySha256
-            });
+                approvalTaskEventSequence, approvalReceipt));
         public WorkTaskSnapshot Snapshot() =>
             new(Request, Status, Lease, Attempt, Array.AsReadOnly(_events.ToArray()));
     }
