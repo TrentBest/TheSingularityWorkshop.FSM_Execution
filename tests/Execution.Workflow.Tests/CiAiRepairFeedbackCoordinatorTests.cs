@@ -55,6 +55,7 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
             {
                 EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
             }.Validate();
+            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Appended, attempts.Append(authoritativeAttempt));
             var expectation = new WorkTaskRepairEvidenceExpectation(
                 "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
                 CandidateSha, TaskStart, RunId, RunAttempt);
