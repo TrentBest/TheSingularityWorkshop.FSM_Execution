@@ -93,7 +93,7 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
                     CompletedAt = TaskStart.AddMinutes(2),
                     IdempotencyKey = "turn-initial-key"
                 });
-            var turnCoordinator = new FoundryHeadlessAiTurnCoordinator(
+            var turnCoordinator = new ExecutionHeadlessAiTurnCoordinator(
                 tasks, client, turnJournal, new FixedTimeProvider(Now.AddMinutes(1)));
             await Assert.ThrowsAsync<InvalidOperationException>(() => turnCoordinator.InvokeAsync(
                 "task-1", leaseId, "work/task-1", RepairCandidateSha,
