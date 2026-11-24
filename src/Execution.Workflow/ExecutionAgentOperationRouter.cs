@@ -101,6 +101,7 @@ public sealed class ExecutionAgentOperationRouter
         if (turn.TaskId != task.Request.TaskId || turn.CorrelationId != task.Request.CorrelationId ||
             !string.Equals(turn.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(turn.BaseCommitSha, task.Request.BaseSha, StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(turn.CandidateCommitSha) ||
             turn.CandidateCommitSha.Length != 40 || !turn.CandidateCommitSha.All(Uri.IsHexDigit) ||
             string.IsNullOrWhiteSpace(turn.TurnId) || string.IsNullOrWhiteSpace(turn.ProviderId) ||
             string.IsNullOrWhiteSpace(turn.ModelId))
@@ -216,6 +217,7 @@ public sealed class ExecutionAgentOperationRouter
         ArgumentNullException.ThrowIfNull(turn);
         ArgumentNullException.ThrowIfNull(task.Request);
         ArgumentNullException.ThrowIfNull(turn.Operations);
+        ArgumentException.ThrowIfNullOrWhiteSpace(approvalId);
 
         var now = _timeProvider.GetUtcNow();
         if (task.Status != WorkTaskStatus.Investigating ||
@@ -283,13 +285,17 @@ public sealed class ExecutionAgentOperationRouter
             policy.Decision == ExecutionAgentOperationPolicyDecision.Reject)
             throw new UnauthorizedAccessException("Current host policy no longer permits the approved operation.");
 
+        cancellationToken.ThrowIfCancellationRequested();
+        var executionStartedAt = _timeProvider.GetUtcNow();
+        if (lease.ExpiresAt <= executionStartedAt || approval.ExpiresAt <= executionStartedAt)
+            throw new UnauthorizedAccessException("The task lease or human approval expired before the operation could start.");
         var path = ReadPathArgument(action, proposal.ArgumentsJson);
         _capabilities.Demand(capabilityId, task, branch, turn.CandidateCommitSha,
-            action, path, now);
+            action, path, executionStartedAt);
 
         // Persist the one-way execution fence before any external side effect. If the process
         // stops after this append, a human must reconcile the outcome rather than replay it.
-        _approvals.BeginExecution(approvalId, now);
+        _approvals.BeginExecution(approvalId, executionStartedAt);
         var executionResult = await _executor.ExecuteAsync(new ExecutionAgentOperationContext(
             task, turn.TurnId, capabilityId, branch, turn.CandidateCommitSha, action, proposal),
             cancellationToken).ConfigureAwait(false);
