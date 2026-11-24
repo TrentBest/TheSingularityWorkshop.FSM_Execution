@@ -148,7 +148,7 @@ public sealed class ExecutionAgentOperationRouter
                 var approvalRationale = proposal.Rationale + " Host policy: " + policy.Reason;
                 if (approvalRationale.Length > 4096) approvalRationale = approvalRationale[..4096];
                 var request = HumanApprovalRequest.Create(approvalId, task.Request.TaskId,
-                    task.Request.CorrelationId, task.Request.Repository, turn.CandidateCommitSha,
+                    task.Request.CorrelationId, turn.TurnId, task.Request.Repository, turn.CandidateCommitSha,
                     turn.ProviderId + "/" + turn.ModelId, proposal.Operation, proposal.Summary,
                     approvalRationale, proposal.ArgumentsJson, now, now.Add(approvalLifetime));
                 var stored = _approvals.CreateOrGet(request);
