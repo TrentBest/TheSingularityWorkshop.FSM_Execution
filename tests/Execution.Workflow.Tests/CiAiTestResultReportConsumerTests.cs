@@ -133,6 +133,14 @@ public sealed class CiAiTestResultReportConsumerTests
     }
 
     [Fact]
+    public void RejectsReportJobConclusionThatDiffersFromIndependentProviderObservation()
+    {
+        var bytes = CreateReport("ActionableFailure", "Failed", "failure", EventSha);
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            Consume(bytes, jobConclusion: "success"));
+    }
+
+    [Fact]
     public void RejectsWorkflowDefinitionRefOutsideTheTrustedRepositoryPathAndRef()
     {
         var node = JsonNode.Parse(CreateReport("CompletePass", "Passed", "success", EventSha))!;
