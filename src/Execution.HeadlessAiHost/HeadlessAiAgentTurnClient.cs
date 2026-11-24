@@ -78,6 +78,8 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
                     JobId = foundrySource.JobId,
                     JobName = foundrySource.JobName,
                     JobKey = foundrySource.JobKey,
+                    JobStatus = foundrySource.JobStatus,
+                    JobConclusion = foundrySource.JobConclusion,
                     ArtifactId = foundrySource.ArtifactId,
                     ArtifactName = foundrySource.ArtifactName,
                     ProviderArchiveDigest = foundrySource.ProviderArchiveDigest,
