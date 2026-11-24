@@ -19,7 +19,7 @@ LLM response
   -> execute approved operation or leave it rejected
 ```
 
-A pending request contains the task/correlation identity, repository, exact candidate SHA, model identity, operation kind, human-readable summary and rationale, exact JSON arguments, SHA-256 of those arguments, creation/expiry timestamps, and sequence. The proposal is immutable after creation. A decision is a second append-only snapshot with actor, reason, timestamp, and incremented sequence.
+A pending request contains the task/correlation/turn identity, repository, exact candidate SHA, model identity, operation kind, human-readable summary and rationale, exact JSON arguments, SHA-256 of those arguments, creation/expiry timestamps, and sequence. The proposal is immutable after creation. A decision is a second append-only snapshot with actor, reason, timestamp, and incremented sequence.
 
 ## Structured model operations
 
