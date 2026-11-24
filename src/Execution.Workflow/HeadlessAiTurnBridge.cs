@@ -373,6 +373,10 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
         return result;
     }
 
+    /// <summary>Loads the original completed provider result for an approval-resume operation.</summary>
+    public ExecutionHeadlessAiTurnResult? GetCompletedTurn(string taskId, string turnId) =>
+        _journal.GetCompletedTurn(taskId, turnId);
+
     private static void ValidateRequestFingerprint(string fingerprint)
     {
         if (fingerprint is not { Length: 64 } || !fingerprint.All(Uri.IsHexDigit))
