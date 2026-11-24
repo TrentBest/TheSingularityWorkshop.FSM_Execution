@@ -160,22 +160,22 @@ jobs:
           test "$actual" = "$expected"
           echo "Verified CiAi composite-gate source pin: $actual"
 
-      - name: Check out pinned CiAi workflow-evidence v2 packet source
+      - name: Check out pinned CiAi workflow-evidence and development-capability source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.CiAi
-          ref: faebc0fa3add76812b8360b6ff6df0820ee2e96e
+          ref: 47f5e417572fecfd2c95e2e3fe0269ad6a7b3cdf
           path: external/CiAiEvidence
           persist-credentials: false
 
-      - name: Verify pinned CiAi workflow-evidence v2 packet source
+      - name: Verify pinned CiAi workflow-evidence and development-capability source
         shell: bash
         run: |
           set -euo pipefail
-          expected="faebc0fa3add76812b8360b6ff6df0820ee2e96e"
+          expected="47f5e417572fecfd2c95e2e3fe0269ad6a7b3cdf"
           actual="$(git -C external/CiAiEvidence rev-parse HEAD)"
           test "$actual" = "$expected"
-          echo "Verified CiAi workflow-evidence v2 source pin: $actual"
+          echo "Verified CiAi workflow-evidence and development-capability source pin: $actual"
 
       - name: Check out pinned HeadlessAi source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
