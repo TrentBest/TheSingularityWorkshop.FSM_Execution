@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.HeadlessAi
-          ref: 2a968fe03a1a04e2a67df7fc2e2c627aa9a3659f
+          ref: 106bb37c400948c1099d4d1875d0e525ef914bff
           path: headlessai
 
       - name: Set up .NET 10
