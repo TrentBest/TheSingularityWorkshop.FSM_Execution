@@ -243,7 +243,7 @@ public sealed class CiAiArtifactHostCompositionTests
             });
 
             var client = new RecordingHeadlessAiClient();
-            var turnCoordinator = new FoundryHeadlessAiTurnCoordinator(
+            var turnCoordinator = new ExecutionHeadlessAiTurnCoordinator(
                 tasks, client, turns, new FixedTimeProvider(Now.AddMinutes(1)));
             var turn = await turnCoordinator.InvokeAsync(
                 "task-1", leaseId, "work/task-1", "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
