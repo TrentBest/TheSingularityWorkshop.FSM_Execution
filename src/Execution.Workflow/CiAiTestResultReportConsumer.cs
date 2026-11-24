@@ -131,20 +131,44 @@ public sealed class ExecutionAcceptedCiAiReportContext
 /// Diagnostic-only projection of a validated ciai.test-results.v1 report. It cannot transition
 /// task lifecycle, satisfy required checks, or grant repository capabilities.
 /// </summary>
-public sealed record CiAiDiagnosticReportContext(
-    string TaskId,
-    string CorrelationId,
-    string Repository,
-    string CandidateSha,
-    long WorkflowRunId,
-    int RunAttempt,
-    string AuthoritativeWorkflowEvidenceSha256,
-    ExecutionHeadlessAiEvidence HeadlessAiEvidence,
-    string Verdict,
-    IReadOnlyList<string> ReasonCodes,
-    string ReportSha256,
-    string? SourceArtifactIdentitySha256,
-    ExecutionAcceptedCiAiReportContext AcceptedReport);
+public sealed class CiAiDiagnosticReportContext
+{
+    internal CiAiDiagnosticReportContext(
+        string taskId, string correlationId, string repository, string candidateSha,
+        long workflowRunId, int runAttempt, string authoritativeWorkflowEvidenceSha256,
+        ExecutionHeadlessAiEvidence headlessAiEvidence, string verdict,
+        IReadOnlyList<string> reasonCodes, string reportSha256,
+        string? sourceArtifactIdentitySha256, ExecutionAcceptedCiAiReportContext acceptedReport)
+    {
+        TaskId = taskId;
+        CorrelationId = correlationId;
+        Repository = repository;
+        CandidateSha = candidateSha;
+        WorkflowRunId = workflowRunId;
+        RunAttempt = runAttempt;
+        AuthoritativeWorkflowEvidenceSha256 = authoritativeWorkflowEvidenceSha256;
+        HeadlessAiEvidence = headlessAiEvidence;
+        Verdict = verdict;
+        ReasonCodes = reasonCodes;
+        ReportSha256 = reportSha256;
+        SourceArtifactIdentitySha256 = sourceArtifactIdentitySha256;
+        AcceptedReport = acceptedReport;
+    }
+
+    public string TaskId { get; }
+    public string CorrelationId { get; }
+    public string Repository { get; }
+    public string CandidateSha { get; }
+    public long WorkflowRunId { get; }
+    public int RunAttempt { get; }
+    public string AuthoritativeWorkflowEvidenceSha256 { get; }
+    public ExecutionHeadlessAiEvidence HeadlessAiEvidence { get; }
+    public string Verdict { get; }
+    public IReadOnlyList<string> ReasonCodes { get; }
+    public string ReportSha256 { get; }
+    public string? SourceArtifactIdentitySha256 { get; }
+    public ExecutionAcceptedCiAiReportContext AcceptedReport { get; }
+}
 
 /// <summary>
 /// Consumes the versioned ciai.test-results.v1 JSON report after Execution has authenticated
