@@ -13,6 +13,8 @@ public sealed record CiAiProviderSourceArtifactObservation(
     long JobId,
     string JobName,
     string JobKey,
+    string JobStatus,
+    string? JobConclusion,
     long ArtifactId,
     string ArtifactName,
     string ProviderArchiveDigest,
@@ -50,6 +52,7 @@ public static class CiAiSourceArtifactBindingFactory
             !string.Equals(observation.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
             observation.WorkflowPath != mapping.WorkflowPath ||
             observation.JobName != mapping.JobName ||
+            observation.JobStatus != "completed" ||
             string.IsNullOrWhiteSpace(mapping.JobKey) ||
             observation.JobKey != mapping.JobKey ||
             string.IsNullOrWhiteSpace(mapping.SourceArtifactName) ||
@@ -71,6 +74,8 @@ public static class CiAiSourceArtifactBindingFactory
             observation.JobId,
             observation.JobName,
             observation.JobKey,
+            observation.JobStatus,
+            observation.JobConclusion,
             observation.ArtifactId,
             observation.ArtifactName,
             archive.ProviderArchiveDigest,
