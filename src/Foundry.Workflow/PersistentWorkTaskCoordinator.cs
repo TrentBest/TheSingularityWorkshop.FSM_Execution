@@ -12,15 +12,24 @@ public sealed class PersistentWorkTaskCoordinator
     private readonly WorkTaskCoordinator _coordinator;
     private readonly JsonlWorkTaskStore _store;
     private readonly JsonlWorkTaskRepairAttemptJournal? _repairAttemptJournal;
+    private readonly JsonlDependencyAdmissionStore? _dependencyAdmissionStore;
+    private readonly JsonlCompositeDependencyAdmissionStore? _compositeDependencyAdmissionStore;
+    private readonly IWorkTaskClaimAdmissionPolicy? _claimAdmissionPolicy;
     private Exception? _persistenceFailure;
     private bool _admissionReady = true;
 
     public PersistentWorkTaskCoordinator(JsonlWorkTaskStore store,
         JsonlWorkTaskRepairAttemptJournal? repairAttemptJournal = null,
-        ICodeRedRecoveryReceiptVerifier? recoveryReceiptVerifier = null)
+        ICodeRedRecoveryReceiptVerifier? recoveryReceiptVerifier = null,
+        JsonlDependencyAdmissionStore? dependencyAdmissionStore = null,
+        JsonlCompositeDependencyAdmissionStore? compositeDependencyAdmissionStore = null,
+        IWorkTaskClaimAdmissionPolicy? claimAdmissionPolicy = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _repairAttemptJournal = repairAttemptJournal;
+        _dependencyAdmissionStore = dependencyAdmissionStore;
+        _compositeDependencyAdmissionStore = compositeDependencyAdmissionStore;
+        _claimAdmissionPolicy = claimAdmissionPolicy;
         _coordinator = new WorkTaskCoordinator(recoveryReceiptVerifier);
         var restored = _store.GetAll();
         foreach (var snapshot in restored)
@@ -31,6 +40,18 @@ public sealed class PersistentWorkTaskCoordinator
 
     /// <summary>The exact durable repair-attempt journal used by evidence decisions, if configured.</summary>
     public JsonlWorkTaskRepairAttemptJournal? RepairAttemptJournal => _repairAttemptJournal;
+
+    /// <summary>
+    /// The durable dependency admission journal. Hosts must create a task's Waiting gate
+    /// before making that task eligible for dispatch.
+    /// </summary>
+    public JsonlDependencyAdmissionStore? DependencyAdmissionStore => _dependencyAdmissionStore;
+
+    /// <summary>Durable CiAi composite admission journal, if configured.</summary>
+    public JsonlCompositeDependencyAdmissionStore? CompositeDependencyAdmissionStore => _compositeDependencyAdmissionStore;
+
+    /// <summary>The host-owned claim admission policy configured for this coordinator.</summary>
+    public IWorkTaskClaimAdmissionPolicy? ClaimAdmissionPolicy => _claimAdmissionPolicy;
 
     /// <summary>
     /// Revalidates every restored governed task against the trusted host before the coordinator
@@ -107,12 +128,95 @@ public sealed class PersistentWorkTaskCoordinator
         });
     }
 
+    /// <summary>
+    /// Creates a durable Waiting gate before the task becomes claimable. The per-task
+    /// reservation prevents a concurrent Claim through this coordinator instance from
+    /// racing task creation and admission registration.
+    /// </summary>
+    public WorkTaskSnapshot SubmitWaiting(WorkTaskRequest request,
+        DependencyGateIdentity requiredGate, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(requiredGate);
+        var validated = request.Validate();
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(validated.Repository))
+            throw new UnauthorizedAccessException(
+                "Governed repositories must complete AgentOnboarding admission before dependency-gated task creation.");
+        var admissionStore = _dependencyAdmissionStore ?? throw new InvalidOperationException(
+            "A durable dependency admission store is required for SubmitWaiting.");
+
+        return WithTaskLock(validated.TaskId, () =>
+        {
+            lock (_gate)
+            {
+                EnsureHealthy();
+                if (_store.GetAll().Any(snapshot => snapshot.Request.TaskId == validated.TaskId))
+                    throw new InvalidOperationException($"Task '{validated.TaskId}' already exists.");
+                admissionStore.CreateWaiting(validated.TaskId, requiredGate, now);
+                var snapshot = _coordinator.Submit(validated);
+                return Persist(snapshot, create: true);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Creates a task behind a durable CiAi composite Waiting decision. The supplied
+    /// identity must bind this exact task, repository, and source SHA. CiAi expression
+    /// evaluation and evidence verification remain outside this coordinator.
+    /// </summary>
+    public WorkTaskSnapshot SubmitCompositeWaiting(WorkTaskRequest request,
+        CompositeDependencyAdmissionIdentity identity, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(identity);
+        var validated = request.Validate();
+        identity.Validate();
+        if (identity.TaskId != validated.TaskId ||
+            !string.Equals(identity.ConsumerRepository, validated.Repository, StringComparison.Ordinal) ||
+            !string.Equals(identity.ConsumerSourceSha, validated.BaseSha, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException(
+                "Composite admission identity must bind the exact work-task ID, repository, and source SHA.");
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(validated.Repository))
+            throw new UnauthorizedAccessException(
+                "Governed repositories must complete AgentOnboarding admission before composite dependency admission.");
+        var admissionStore = _compositeDependencyAdmissionStore ?? throw new InvalidOperationException(
+            "A durable composite dependency admission store is required for SubmitCompositeWaiting.");
+
+        return WithTaskLock(validated.TaskId, () =>
+        {
+            lock (_gate)
+            {
+                EnsureHealthy();
+                if (_store.GetAll().Any(snapshot => snapshot.Request.TaskId == validated.TaskId))
+                    throw new InvalidOperationException($"Task '{validated.TaskId}' already exists.");
+                admissionStore.CreateWaiting(identity, now);
+                var snapshot = _coordinator.Submit(validated);
+                return Persist(snapshot, create: true);
+            }
+        });
+    }
+
     public WorkTaskSnapshot Claim(string taskId, string agentId, TimeSpan leaseDuration, DateTimeOffset now) =>
         WithTaskLock(taskId, () =>
         {
             lock (_gate)
             {
                 EnsureHealthy();
+                _claimAdmissionPolicy?.EnsureClaimAllowed(_coordinator.GetSnapshot(taskId).Request);
+                var dependency = _dependencyAdmissionStore?.Get(taskId);
+                if (dependency is { Status: DependencyAdmissionStatus.Waiting })
+                    throw new InvalidOperationException(
+                        "Task is dormant: its declared provider capability is still Waiting. No execution lease may be claimed.");
+                if (dependency is { Status: DependencyAdmissionStatus.Blocked })
+                    throw new InvalidOperationException(
+                        "Task is blocked: its declared provider capability was rejected or failed terminally.");
+                var composite = _compositeDependencyAdmissionStore?.Get(taskId);
+                if (composite is { State: CompositeDependencyAdmissionState.Waiting })
+                    throw new InvalidOperationException(
+                        "Task is dormant: its CiAi composite prerequisite expression is still Waiting. No execution lease may be claimed.");
+                if (composite is { State: CompositeDependencyAdmissionState.Blocked })
+                    throw new InvalidOperationException(
+                        "Task is blocked: CiAi's authoritative composite prerequisite evaluation returned Blocked.");
                 var snapshot = _coordinator.Claim(taskId, agentId, leaseDuration, now);
                 return Persist(snapshot);
             }

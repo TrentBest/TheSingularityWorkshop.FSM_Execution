@@ -7,6 +7,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1">
@@ -19,5 +20,6 @@
     <ProjectReference Include="../../src/Foundry.Workflow/Foundry.Workflow.csproj" />
     <ProjectReference Include="../../src/Foundry.HeadlessAiHost/Foundry.HeadlessAiHost.csproj" />
     <ProjectReference Include="../../src/Foundry.GitHubHost/Foundry.GitHubHost.csproj" />
+    <ProjectReference Include="../../src/FSM_Execution.GitHubHost/FSM_Execution.GitHubHost.csproj" />
   </ItemGroup>
 </Project>

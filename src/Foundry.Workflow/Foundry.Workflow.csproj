@@ -5,4 +5,7 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../FSM_Execution/JsonlCiAiTaskWakeupOutbox.cs" Link="JsonlCiAiTaskWakeupOutbox.cs" />
+  </ItemGroup>
 </Project>

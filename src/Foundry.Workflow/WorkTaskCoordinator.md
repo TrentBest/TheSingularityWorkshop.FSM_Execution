@@ -7,11 +7,11 @@
 
 `WorkTaskCoordinator` is the deterministic in-process authority for a governed repository-work task's lifecycle. It validates the task envelope, issues and checks agent leases, serializes state transitions, records an ordered event history, enforces bounded validation attempts, applies evidence-derived repair decisions, and gates CODE RED recovery on a trusted single-use approval receipt.
 
-It is not a GitHub issue poller, distributed scheduler, agent executor, or credential provider. The caller/host supplies the task request, agent identity, timestamps, CI attempt evidence, incident, and approval receipt. Repository transport and durable storage are separate host/persistence boundaries.
+It is not a GitHub issue/PR poller, distributed scheduler, agent executor, or credential provider. The caller/host supplies the task request, exact optional GitHub work-item provenance, agent identity, timestamps, CI attempt evidence, incident, and approval receipt. Repository transport and durable storage are separate host/persistence boundaries.
 
 ## Public contract
 
-- `Submit(WorkTaskRequest)` validates schema version, task/correlation identity, canonical owner/repository identity, exact GitHub issue URL, full base SHA, repository-relative allowed paths, and a bounded maximum-attempt count. Duplicate task IDs are rejected.
+- `Submit(WorkTaskRequest)` validates schema version, task/correlation identity, canonical owner/repository identity, canonical GitHub Issue URL (or a provenance-bound pull-request URL), full snapshot SHA, repository-relative allowed paths, and a bounded maximum-attempt count. Duplicate task IDs are rejected.
 - `Claim(taskId, agentId, leaseDuration, now)` creates a lease of at most one hour. An unexpired lease conflicts; an expired lease may be replaced. A non-queued task without a lease requires recovery rather than an ordinary reclaim.
 - `Transition(...)` requires the current unexpired lease and an allowed transition. Validation attempts are counted at entry to `Validating`. Callers cannot assert `ReviewReady` or `RepairRequired` through this generic method.
 - `ApplyRepairDecision(...)` re-evaluates the exact current attempt against the task identity, evidence expectation, prior attempt history, configured attempt budget, and maximum duration. It alone derives `ReviewReady`, `RepairRequired`, `Blocked`, or `CodeRed` from that evidence.

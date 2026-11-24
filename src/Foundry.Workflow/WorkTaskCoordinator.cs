@@ -7,6 +7,7 @@ public sealed record WorkTaskRequest(int SchemaVersion, string TaskId, string Co
     public const int CurrentSchemaVersion = 1;
 
     public AgentOnboardingAdmissionEvidence? AdmissionEvidence { get; init; }
+    public GitHubWorkItemTaskProvenance? GitHubProvenance { get; init; }
 
     public WorkTaskRequest Validate(bool requireAdmissionEvidence = true)
     {
@@ -22,13 +23,18 @@ public sealed record WorkTaskRequest(int SchemaVersion, string TaskId, string Co
             string.IsNullOrWhiteSpace(part) || part.Any(character =>
                 !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'))))
             throw new ArgumentException("Repository must use canonical owner/name identity.");
+        var expectedIssuePath = $"/{repositoryParts[0]}/{repositoryParts[1]}/issues/{IssueNumber}";
+        var expectedPullPath = $"/{repositoryParts[0]}/{repositoryParts[1]}/pull/{IssueNumber}";
         if (IssueNumber <= 0 || string.IsNullOrWhiteSpace(IssueUrl) || IssueUrl.Length > 512 ||
             !Uri.TryCreate(IssueUrl, UriKind.Absolute, out var uri) ||
             uri.Scheme != Uri.UriSchemeHttps || uri.Host != "github.com" ||
             !uri.IsDefaultPort || !string.IsNullOrEmpty(uri.UserInfo) ||
             !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) ||
-            uri.AbsolutePath != $"/{repositoryParts[0]}/{repositoryParts[1]}/issues/{IssueNumber}")
-            throw new ArgumentException("Issue URL must identify this repository and issue number.");
+            (GitHubProvenance is null ? uri.AbsolutePath != expectedIssuePath :
+                uri.AbsolutePath != expectedIssuePath && uri.AbsolutePath != expectedPullPath))
+            throw new ArgumentException("GitHub work-item URL must identify this repository and issue or pull request number.");
+        if (GitHubProvenance is not null)
+            GitHubProvenance.Validate(Repository, IssueNumber, IssueUrl, BaseSha);
         if (BaseSha is null || BaseSha.Length != 40 || !BaseSha.All(Uri.IsHexDigit))
             throw new ArgumentException("Base SHA must be a full 40-character hexadecimal commit.");
         if (AllowedPaths is null || AllowedPaths.Count == 0 || AllowedPaths.Count > 128 ||

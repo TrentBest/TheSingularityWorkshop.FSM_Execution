@@ -176,11 +176,15 @@ public sealed class WorkflowExecutionCoordinator : IAsyncDisposable
 
         lock (_gate)
         {
-            // Evaluate both signals at the terminal-state boundary. If the caller has
-            // requested cancellation by this point, it wins even when timeout also fired.
-            if (result.Status != WorkflowStatus.Invalid &&
-                state.Timeout!.IsCancellationRequested &&
-                !state.Cancellation.IsCancellationRequested)
+            // Resolve cancellation precedence at the terminal-state boundary. A caller
+            // cancellation request wins even if a handler races to return success after
+            // releasing its final await; timeout wins only when the caller did not cancel.
+            if (result.Status != WorkflowStatus.Invalid && state.Cancellation.IsCancellationRequested)
+            {
+                result = new WorkflowResult(result.WorkflowId, WorkflowStatus.Cancelled,
+                    result.Steps, result.Diagnostics);
+            }
+            else if (result.Status != WorkflowStatus.Invalid && state.Timeout!.IsCancellationRequested)
             {
                 result = new WorkflowResult(result.WorkflowId, WorkflowStatus.TimedOut,
                     result.Steps, result.Diagnostics);
