@@ -55,27 +55,35 @@ public sealed class ExecutionAgentTurnOrchestrator
     /// actionable CiAi report. The report bytes, nested source-artifact identity, and exact
     /// workflow run are carried unchanged into HeadlessAi as opaque accepted context.
     /// </summary>
-    public Task<ExecutionAgentTurnOutcome> InvokeRepairAndRouteAsync(
+    public async Task<ExecutionAgentTurnOutcome> InvokeRepairAndRouteAsync(
         string taskId, Guid leaseId, string authorizedBranch, string candidateCommitSha,
         Guid capabilityId, string role, string instructions, string canonicalPrompt,
         string responseSchema, string priorTurnId, string priorCandidateCommitSha,
-        CiAiRepairFeedbackResult feedback, TimeSpan? turnLifetime = null,
+        CiAiDiagnosticReportContext diagnosticReport, TimeSpan? turnLifetime = null,
         TimeSpan? approvalLifetime = null, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(feedback);
-        var consumed = feedback.Consumed
-            ?? throw new InvalidOperationException("A duplicate or incomplete CiAi delivery has no new report context to send to HeadlessAi.");
-        if (feedback.Snapshot.Request.TaskId != taskId ||
-            feedback.Snapshot.Status != WorkTaskStatus.RepairRequired ||
-            consumed.Verdict != "ActionableFailure" ||
-            !string.Equals(consumed.Attempt.CandidateSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(consumed.AcceptedReport.CandidateCommitSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase))
-            throw new UnauthorizedAccessException("Repair feedback is not an actionable report for this task and exact prior candidate.");
+        ArgumentNullException.ThrowIfNull(diagnosticReport);
+        var current = _tasks.GetSnapshot(taskId);
+        var repairEvent = current.Events.LastOrDefault(item => item.Current == WorkTaskStatus.RepairRequired);
+        if (current.Status != WorkTaskStatus.RepairRequired ||
+            diagnosticReport.TaskId != taskId ||
+            diagnosticReport.CorrelationId != current.Request.CorrelationId ||
+            !string.Equals(diagnosticReport.Repository, current.Request.Repository, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(diagnosticReport.CandidateSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
+            diagnosticReport.Verdict != "ActionableFailure" ||
+            string.IsNullOrWhiteSpace(diagnosticReport.SourceArtifactIdentitySha256) ||
+            repairEvent is null ||
+            repairEvent.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
+            !string.Equals(repairEvent.CandidateSha, diagnosticReport.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+            repairEvent.CiRunId != diagnosticReport.WorkflowRunId ||
+            repairEvent.CiRunAttempt != diagnosticReport.RunAttempt ||
+            !string.Equals(repairEvent.EvidencePayloadSha256, diagnosticReport.AuthoritativeWorkflowEvidenceSha256, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Repair turn requires an already-authorized exact-candidate workflow-evidence v2 failure plus matching diagnostic report context.");
 
-        return InvokeAndRouteAsync(taskId, leaseId, authorizedBranch, candidateCommitSha,
+        return await InvokeAndRouteAsync(taskId, leaseId, authorizedBranch, candidateCommitSha,
             capabilityId, role, instructions, canonicalPrompt, responseSchema,
-            new[] { consumed.HeadlessAiEvidence }, priorTurnId, priorCandidateCommitSha,
-            turnLifetime, approvalLifetime, cancellationToken, consumed.AcceptedReport);
+            new[] { diagnosticReport.HeadlessAiEvidence }, priorTurnId, priorCandidateCommitSha,
+            turnLifetime, approvalLifetime, cancellationToken, diagnosticReport.AcceptedReport).ConfigureAwait(false);
     }
 
     public async Task<ExecutionAgentTurnOutcome> InvokeAndRouteAsync(
