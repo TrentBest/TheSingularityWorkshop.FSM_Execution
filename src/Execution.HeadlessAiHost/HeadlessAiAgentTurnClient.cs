@@ -163,10 +163,18 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
             AcceptedReportRunAttempt = result.AcceptedReportRunAttempt,
             AcceptedReportCandidateCommitSha = result.AcceptedReportCandidateCommitSha,
             AcceptedReportSourceArtifactIdentitySha256 = result.AcceptedReportSourceArtifactIdentitySha256,
+            AcceptedReportAuthoritativeWorkflowEvidenceSha256 = result.AcceptedReportAuthoritativeWorkflowEvidenceSha256,
             ErrorCode = result.ErrorCode,
             Diagnosis = proposal.Diagnosis,
             PatchIntent = proposal.PatchIntent,
             Questions = proposal.Questions.ToArray(),
+            Operations = proposal.Operations.Select(operation => new ExecutionHeadlessAiOperationProposal
+            {
+                Operation = operation.Operation,
+                Summary = operation.Summary,
+                Rationale = operation.Rationale,
+                ArgumentsJson = operation.ArgumentsJson
+            }).ToArray(),
             Confidence = proposal.Confidence,
             Uncertainty = proposal.Uncertainty,
             OperationalStatus = proposal.OperationalStatus,
