@@ -37,6 +37,8 @@ jobs:
           test -s _site/index.html
           grep -F "Execution · Workshop Workbench" _site/index.html
           grep -F "workflow-evidence.v2" _site/index.html
+      - name: Validate navigation, required sections, and JavaScript syntax
+        run: python3 site/validate.py
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # pinned commit SHA
         with:
