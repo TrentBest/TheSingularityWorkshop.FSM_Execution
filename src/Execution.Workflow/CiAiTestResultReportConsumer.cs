@@ -214,11 +214,13 @@ public static class CiAiTestResultReportConsumer
 
         var repairRequiredEvent = task.Events.LastOrDefault(item => item.Current == WorkTaskStatus.RepairRequired)
             ?? throw new InvalidOperationException("Task has no durable RepairRequired event from authoritative workflow evidence.");
-        if (repairRequiredEvent.CiRunId != run.RunId || repairRequiredEvent.CiRunAttempt != run.RunAttempt ||
+        if (repairRequiredEvent.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
+            !string.Equals(repairRequiredEvent.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+            repairRequiredEvent.CiRunId != run.RunId || repairRequiredEvent.CiRunAttempt != run.RunAttempt ||
             string.IsNullOrWhiteSpace(repairRequiredEvent.EvidencePayloadSha256) ||
             repairRequiredEvent.EvidencePayloadSha256.Length != 64 ||
             !repairRequiredEvent.EvidencePayloadSha256.All(Uri.IsHexDigit))
-            throw new UnauthorizedAccessException("Diagnostic report does not match the exact run/attempt and authoritative workflow-evidence digest that placed the task in RepairRequired.");
+            throw new UnauthorizedAccessException("Diagnostic report does not match the exact run/attempt, candidate SHA, and ciai.workflow-evidence.v2 digest that placed the task in RepairRequired.");
 
         var bytes = artifact.Bytes;
         if (bytes.IsEmpty || bytes.Length > MaximumReportBytes || bytes.Length != artifact.SizeBytes)
