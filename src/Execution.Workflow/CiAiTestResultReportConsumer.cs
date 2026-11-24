@@ -5,17 +5,6 @@ using System.Text.Json;
 
 namespace TheSingularityWorkshop.Execution;
 
-public sealed record CiAiRepairFeedbackResult(
-    WorkTaskSnapshot Snapshot,
-    CiAiConsumedTestResult? Consumed,
-    bool IsDuplicateDelivery);
-
-
-/// <summary>
-/// Result of consuming a verified CiAi test-result artifact. The attempt is constructed
-/// only from CiAi's versioned report verdict; callers cannot supply verdict booleans.
-/// HeadlessAi context remains untrusted proposal input.
-/// </summary>
 /// <summary>
 /// Host-accepted, byte-exact CiAi report context for one subsequent HeadlessAi repair turn.
 /// The report remains opaque to HeadlessAi; Execution preserves the accepted bytes and trusted lineage.
@@ -199,7 +188,7 @@ public static class CiAiTestResultReportConsumer
     /// Validates the report against the task and exact run binding retained in the verified
     /// artifact notice, then derives the durable attempt and bounded HeadlessAi evidence.
     /// </summary>
-    public static CiAiConsumedTestResult Consume(
+    public static CiAiDiagnosticReportContext Consume(
         ExecutionVerifiedCiAiReportArtifact artifact,
         WorkTaskSnapshot task,
         CiAiHostObservedSourceArtifactBinding? sourceArtifactBinding,
@@ -673,6 +662,4 @@ public static class CiAiTestResultReportConsumer
             throw new UnauthorizedAccessException($"CiAi report {identity} does not match the persisted dispatch intent.");
     }
 
-    private static string HashText(string value) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 }
