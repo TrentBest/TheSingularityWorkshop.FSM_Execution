@@ -28,7 +28,9 @@ public sealed record HumanApprovalRequest(
     HumanApprovalStatus Status,
     string? DecisionBy,
     string? DecisionReason,
-    DateTimeOffset? DecidedAt)
+    DateTimeOffset? DecidedAt,
+    string? ExecutionResult = null,
+    DateTimeOffset? ExecutedAt = null)
 {
     public const int CurrentSchemaVersion = 1;
 
@@ -76,7 +78,7 @@ public sealed record HumanApprovalRequest(
             throw new ArgumentException("Approval expiry must be after creation and no more than seven days later.");
         if (Sequence < 1 || !Enum.IsDefined(Status))
             throw new ArgumentException("Approval sequence or status is invalid.");
-        var decided = Status is HumanApprovalStatus.Approved or HumanApprovalStatus.Rejected or HumanApprovalStatus.Expired or HumanApprovalStatus.Cancelled;
+        var decided = Status is HumanApprovalStatus.Approved or HumanApprovalStatus.Rejected or HumanApprovalStatus.Expired or HumanApprovalStatus.Cancelled or HumanApprovalStatus.Executing or HumanApprovalStatus.Executed;
         var hasDecisionFields = DecisionBy is not null || DecisionReason is not null || DecidedAt.HasValue;
         if (decided != hasDecisionFields || (decided &&
             (DecisionBy is null || DecisionReason is null || !DecidedAt.HasValue)))
@@ -88,6 +90,23 @@ public sealed record HumanApprovalRequest(
             if (DecidedAt < CreatedAt || DecidedAt > ExpiresAt.AddDays(1))
                 throw new ArgumentException("Decision timestamp is outside the supported request window.");
         }
+
+        if (Status == HumanApprovalStatus.Executing)
+        {
+            if (ExecutionResult is not null || ExecutedAt.HasValue)
+                throw new ArgumentException("An executing approval cannot already contain a completion receipt.");
+        }
+        else if (Status == HumanApprovalStatus.Executed)
+        {
+            if (!ExecutedAt.HasValue || ExecutedAt < DecidedAt || ExecutedAt > DecidedAt.Value.AddDays(7) ||
+                ExecutionResult?.Length > 2048)
+                throw new ArgumentException("Executed approvals require a bounded completion receipt and timestamp.");
+        }
+        else if (ExecutionResult is not null || ExecutedAt.HasValue)
+        {
+            throw new ArgumentException("Only an executed approval may contain execution receipt fields.");
+        }
+
         return this;
     }
 
@@ -113,9 +132,28 @@ public sealed record HumanApprovalRequest(
         return (this with { Sequence = Sequence + 1, Status = decision, DecisionBy = actor,
             DecisionReason = reason, DecidedAt = at }).Validate();
     }
+
+    public HumanApprovalRequest BeginExecution(DateTimeOffset at)
+    {
+        if (Status != HumanApprovalStatus.Approved)
+            throw new InvalidOperationException("Only an approved request can begin execution.");
+        if (at < DecidedAt || at > ExpiresAt)
+            throw new ArgumentOutOfRangeException(nameof(at), "Approved operation execution must occur before request expiry.");
+        return (this with { Sequence = Sequence + 1, Status = HumanApprovalStatus.Executing }).Validate();
+    }
+
+    public HumanApprovalRequest CompleteExecution(string? result, DateTimeOffset at)
+    {
+        if (Status != HumanApprovalStatus.Executing)
+            throw new InvalidOperationException("Only an executing approval can be completed.");
+        if (result?.Length > 2048 || at < DecidedAt || at > ExpiresAt.AddDays(7))
+            throw new ArgumentOutOfRangeException(nameof(at), "Execution receipt is outside its supported bounds.");
+        return (this with { Sequence = Sequence + 1, Status = HumanApprovalStatus.Executed,
+            ExecutionResult = result, ExecutedAt = at }).Validate();
+    }
 }
 
-public enum HumanApprovalStatus { Pending, Approved, Rejected, Expired, Cancelled }
+public enum HumanApprovalStatus { Pending, Approved, Rejected, Expired, Cancelled, Executing, Executed }
 
 /// <summary>
 /// Append-only, fsync-backed, single-process journal for human approval requests.
@@ -173,10 +211,13 @@ public sealed class JsonlHumanApprovalRequestStore
                     Status = HumanApprovalStatus.Pending,
                     DecisionBy = null,
                     DecisionReason = null,
-                    DecidedAt = null
+                    DecidedAt = null,
+                    ExecutionResult = null,
+                    ExecutedAt = null
                 };
                 var candidate = request with { Sequence = 1, Status = HumanApprovalStatus.Pending,
                     DecisionBy = null, DecisionReason = null, DecidedAt = null,
+                    ExecutionResult = null, ExecutedAt = null,
                     CreatedAt = existing.CreatedAt, ExpiresAt = existing.ExpiresAt };
                 if (original != candidate)
                     throw new InvalidOperationException("An approval ID was replayed with different proposal content.");
@@ -206,6 +247,32 @@ public sealed class JsonlHumanApprovalRequestStore
         }
     }
 
+    public HumanApprovalRequest BeginExecution(string approvalId, DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            if (!_latest.TryGetValue(approvalId, out var current))
+                throw new KeyNotFoundException($"Unknown approval request '{approvalId}'.");
+            var updated = current.BeginExecution(at);
+            Append(updated);
+            _latest[approvalId] = updated;
+            return updated;
+        }
+    }
+
+    public HumanApprovalRequest CompleteExecution(string approvalId, string? result, DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            if (!_latest.TryGetValue(approvalId, out var current))
+                throw new KeyNotFoundException($"Unknown approval request '{approvalId}'.");
+            var updated = current.CompleteExecution(result, at);
+            Append(updated);
+            _latest[approvalId] = updated;
+            return updated;
+        }
+    }
+
     public HumanApprovalRequest Get(string approvalId)
     {
         lock (_gate)
@@ -228,6 +295,12 @@ public sealed class JsonlHumanApprovalRequestStore
             return Array.AsReadOnly(_latest.Values.OrderBy(x => x.CreatedAt)
                 .ThenBy(x => x.ApprovalId, StringComparer.Ordinal).ToArray());
     }
+
+    private static bool IsAllowedTransition(HumanApprovalStatus previous, HumanApprovalStatus next) =>
+        (previous == HumanApprovalStatus.Pending &&
+            next is HumanApprovalStatus.Approved or HumanApprovalStatus.Rejected or HumanApprovalStatus.Expired or HumanApprovalStatus.Cancelled) ||
+        (previous == HumanApprovalStatus.Approved && next == HumanApprovalStatus.Executing) ||
+        (previous == HumanApprovalStatus.Executing && next == HumanApprovalStatus.Executed);
 
     private void Append(HumanApprovalRequest request)
     {
@@ -267,13 +340,13 @@ public sealed class JsonlHumanApprovalRequestStore
                     throw new InvalidDataException($"Approval '{item.ApprovalId}' does not begin pending at sequence one.");
             }
             else if (item.Sequence != previous.Sequence + 1 ||
-                previous.Status != HumanApprovalStatus.Pending ||
-                item.Status == HumanApprovalStatus.Pending ||
+                !IsAllowedTransition(previous.Status, item.Status) ||
                 (item with { Sequence = previous.Sequence, Status = previous.Status,
                     DecisionBy = previous.DecisionBy, DecisionReason = previous.DecisionReason,
-                    DecidedAt = previous.DecidedAt }) != previous)
+                    DecidedAt = previous.DecidedAt, ExecutionResult = previous.ExecutionResult,
+                    ExecutedAt = previous.ExecutedAt }) != previous)
             {
-                throw new InvalidDataException($"Approval history for '{item.ApprovalId}' is discontinuous or mutates its proposal.");
+                throw new InvalidDataException($"Approval history for '{item.ApprovalId}' is discontinuous, mutates its proposal, or uses an invalid transition.");
             }
             _latest[item.ApprovalId] = item;
         }
