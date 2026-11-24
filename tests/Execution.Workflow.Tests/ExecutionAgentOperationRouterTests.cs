@@ -183,6 +183,70 @@ public sealed class ExecutionAgentOperationRouterTests
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+    [Fact]
+    public async Task ApprovedProposalResumesFromExactTurnAndExecutesOnlyOnce()
+    {
+        var (task, registry, capability) = CreateActiveTask([WorkTaskAction.CreateDraftPullRequest]);
+        var path = Path.Combine(Path.GetTempPath(), $"adp-router-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var approvals = new JsonlHumanApprovalRequestStore(path);
+            var executor = new FakeExecutor();
+            var turn = Turn(DraftProposal());
+            var router = new ExecutionAgentOperationRouter(registry,
+                new FakePolicy(ExecutionAgentOperationPolicyDecision.RequiresHumanApproval),
+                executor, approvals, new FixedTimeProvider(Now.AddSeconds(4)));
+
+            var pending = await router.ProcessAsync(task, turn, capability.CapabilityId,
+                "agent/task-1", TimeSpan.FromDays(1));
+            var approvalId = Assert.Single(pending.Outcomes).ApprovalId!;
+            var approval = approvals.Get(approvalId);
+            approvals.Decide(approvalId, HumanApprovalStatus.Approved,
+                "human:owner", "Reviewed the exact candidate proposal.", approval.CreatedAt.AddSeconds(1));
+
+            var resumed = await router.ResumeApprovedAsync(task, turn, approvalId,
+                capability.CapabilityId, "agent/task-1");
+            Assert.Equal(ExecutionAgentOperationDisposition.Executed, resumed.Disposition);
+            Assert.Equal(1, executor.CallCount);
+            Assert.Equal(HumanApprovalStatus.Executed, approvals.Get(approvalId).Status);
+
+            var duplicate = await router.ResumeApprovedAsync(task, turn, approvalId,
+                capability.CapabilityId, "agent/task-1");
+            Assert.Equal(ExecutionAgentOperationDisposition.Executed, duplicate.Disposition);
+            Assert.Equal(1, executor.CallCount);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task ApprovedProposalFailsClosedWhenTheFreshCapabilityDoesNotCoverIt()
+    {
+        var (task, registry, capability) = CreateActiveTask();
+        var path = Path.Combine(Path.GetTempPath(), $"adp-router-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var approvals = new JsonlHumanApprovalRequestStore(path);
+            var executor = new FakeExecutor();
+            var turn = Turn(DraftProposal());
+            var router = new ExecutionAgentOperationRouter(registry,
+                new FakePolicy(ExecutionAgentOperationPolicyDecision.RequiresHumanApproval),
+                executor, approvals, new FixedTimeProvider(Now.AddSeconds(4)));
+            var pending = await router.ProcessAsync(task, turn, capability.CapabilityId,
+                "agent/task-1", TimeSpan.FromDays(1));
+            var approvalId = Assert.Single(pending.Outcomes).ApprovalId!;
+            var approval = approvals.Get(approvalId);
+            approvals.Decide(approvalId, HumanApprovalStatus.Approved,
+                "human:owner", "Approved.", approval.CreatedAt.AddSeconds(1));
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                router.ResumeApprovedAsync(task, turn, approvalId, capability.CapabilityId,
+                    "agent/task-1"));
+            Assert.Equal(HumanApprovalStatus.Approved, approvals.Get(approvalId).Status);
+            Assert.Equal(0, executor.CallCount);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     private sealed class FakePolicy(ExecutionAgentOperationPolicyDecision decision) : IExecutionAgentOperationPolicy
     {
         public ExecutionAgentOperationPolicyResult Classify(WorkTaskSnapshot task,
