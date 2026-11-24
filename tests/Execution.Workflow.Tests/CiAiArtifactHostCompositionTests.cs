@@ -373,7 +373,7 @@ public sealed class CiAiArtifactHostCompositionTests
     private static CiAiHostObservedSourceArtifactBinding CreateSourceBinding() =>
         new(
             Repository, RunId, RunAttempt, CandidateSha, WorkflowPath,
-            JobId, "test-minesweeper", "minesweeper-required-check",
+            JobId, "test-minesweeper", "minesweeper-required-check", "completed", "failure",
             7001, "minesweeper-test-results", "sha256:" + new string('a', 64), 512,
             DateTimeOffset.Parse("2026-10-31T10:18:00Z"),
             DateTimeOffset.Parse("2026-10-31T10:30:00Z"),
