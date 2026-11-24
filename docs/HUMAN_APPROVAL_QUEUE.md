@@ -33,7 +33,7 @@ Execution's ExecutionAgentOperationRouter processes the ordered proposals agains
 - a policy-approved operation must still pass the live WorkTaskCapabilityRegistry demand before the host executor is called;
 - processing stops at the first approval/rejection barrier; later proposals remain deferred.
 
-The last-mile host executor must re-read current task state and re-demand the capability immediately before its side effect. An approved request is not auto-executed by the queue; the host must resume it through a separate approval-consumption path that revalidates the exact candidate and current policy.
+The last-mile host executor must re-read current task state and re-demand the capability immediately before its side effect. An approved request is not auto-executed by the queue. The host resumes it through `ExecutionAgentTurnOrchestrator.ResumeApprovedAsync`, which reloads the exact completed turn from the durable journal and revalidates the candidate and current policy. The approval journal's one-way `Executing` fence prevents automatic replay after an ambiguous interruption; the host must reconcile that outcome.
 
 ## Implemented in this slice
 
@@ -44,11 +44,13 @@ The last-mile host executor must re-read current task state and re-demand the ca
 - Structured model operation proposals are mapped to the closed Execution action vocabulary and routed through host policy, capability demand, or the human approval queue.
 - Replayed model turns use deterministic approval identities and return the existing exact request instead of creating duplicates.
 - Only Pending requests can be decided; a second decision is rejected.
-- Tests cover restart recovery, pending-query filtering, durable approval, immutable proposals, argument-digest validation, expiry bounds, and duplicate decisions.
+- An approved request resumes from the exact original completed HeadlessAi turn in the durable turn journal. Execution rechecks task/turn/candidate identity, current host policy, approval expiry, and a fresh narrow capability before invoking the host executor.
+- The approval journal records `Executing` before the side effect and `Executed` only after a durable completion receipt. An interrupted `Executing` record is indeterminate and blocks automatic replay; an already `Executed` request returns its stored receipt without repeating the side effect.
+- Tests cover restart recovery, pending-query filtering, durable approval and execution, immutable proposals, argument-digest validation, expiry bounds, capability revalidation, and duplicate execution prevention.
 
 ## Authority boundary
 
-**Approval is not execution.** The store does not grant a repository capability, create a branch, write a file, dispatch CI, merge a pull request, publish a package, or deploy anything. The host must authenticate the human, record the decision, revalidate the exact task and candidate identity, re-evaluate current policy, and issue a fresh narrowly scoped capability immediately before executing the approved operation.
+**Approval is not execution.** The store does not grant a repository capability, create a branch, write a file, dispatch CI, merge a pull request, publish a package, or deploy anything. An approved proposal is only executable through the explicit host resume path, with a newly demanded capability and current host policy. The host must authenticate the human, record the decision, revalidate the exact task and candidate identity, re-evaluate current policy, and issue a fresh narrowly scoped capability immediately before executing the approved operation.
 
 The JSONL implementation is a single-process local durability primitive. It is not distributed storage, does not provide cross-process locking, and must be placed on a trusted host volume with appropriate access controls.
 
