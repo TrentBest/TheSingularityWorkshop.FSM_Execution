@@ -124,7 +124,7 @@ public sealed class CiAiTestResultReportConsumerTests
     public void CompletePassIsDerivedOnlyFromCiAiVerdict()
     {
         var bytes = CreateReport("CompletePass", "Passed", "success", EventSha);
-        var consumed = Consume(bytes);
+        var consumed = Consume(bytes, jobConclusion: "success");
 
         Assert.True(consumed.Attempt.EvidenceComplete);
         Assert.True(consumed.Attempt.IsSuccessful);
