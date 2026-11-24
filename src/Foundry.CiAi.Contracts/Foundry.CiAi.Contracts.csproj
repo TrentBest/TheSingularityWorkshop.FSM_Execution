@@ -41,6 +41,24 @@
              Link="GitHubActionsWorkflowJobCollector.cs" />
     <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiWorkflowEvidencePacket.cs"
              Link="CiWorkflowEvidencePacket.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiWorkflowRunEvidenceObservation.cs"
+             Link="CiWorkflowRunEvidenceObservation.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiWorkflowProvenanceRecord.cs"
+             Link="CiWorkflowProvenanceRecord.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiWorkflowProvenanceArtifactReader.cs"
+             Link="CiWorkflowProvenanceArtifactReader.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiRequiredJobPolicy.cs"
+             Link="CiRequiredJobPolicy.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiTestResultArtifactArchive.cs"
+             Link="CiTestResultArtifactArchive.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiTestResultProviderArtifactBinding.cs"
+             Link="CiTestResultProviderArtifactBinding.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiTestResultReport.cs"
+             Link="CiTestResultReport.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiAiDevelopmentCapabilityEvidence.cs"
+             Link="CiAiDevelopmentCapabilityEvidence.cs" />
+    <Compile Include="../../external/CiAiEvidence/src/TheSingularityWorkshop.CiAi/CiAiDevelopmentCapabilityEvidenceVerifier.cs"
+             Link="CiAiDevelopmentCapabilityEvidenceVerifier.cs" />
     <Compile Include="../../external/CiAiWorkItems/src/TheSingularityWorkshop.CiAi/GitHubWorkItemEvent.cs"
              Link="GitHubWorkItemEvent.cs" />
   </ItemGroup>
