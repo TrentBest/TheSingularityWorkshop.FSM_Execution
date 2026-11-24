@@ -117,7 +117,14 @@ public sealed class HeadlessAiAgentTurnClient : IHeadlessAiAgentTurnClient
             Blocker = proposal.Blocker,
             NextExpectedUpdate = proposal.NextExpectedUpdate,
             StopOrEscalateReason = proposal.StopOrEscalateReason,
-            HumanDecisionRequired = proposal.HumanDecisionRequired
+            HumanDecisionRequired = proposal.HumanDecisionRequired,
+            Operations = proposal.Operations.Select(operation => new ExecutionHeadlessAiOperationProposal
+            {
+                Operation = operation.Operation,
+                Summary = operation.Summary,
+                Rationale = operation.Rationale,
+                ArgumentsJson = operation.ArgumentsJson
+            }).ToArray()
         };
 
         mapped.ValidateAgainst(request);
