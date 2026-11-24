@@ -122,6 +122,7 @@ async function refreshApprovals(){
  }catch(error){status.className="state warn";status.textContent="NOT CONNECTED";const empty=document.createElement("div");empty.className="approval-empty";empty.textContent=error.message+" Serve this page from the authenticated approval host to view live requests.";list.append(empty);}
 }
 document.getElementById("refreshApprovals").addEventListener("click",refreshApprovals);
+refreshApprovals();
 })();
 </script>
 </body>
