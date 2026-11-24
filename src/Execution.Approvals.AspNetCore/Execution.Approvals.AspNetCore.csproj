@@ -7,6 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="../Foundry.Workflow/Foundry.Workflow.csproj" />
+    <ProjectReference Include="../Execution.Workflow/Execution.Workflow.csproj" />
   </ItemGroup>
 </Project>
