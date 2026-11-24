@@ -74,11 +74,11 @@ document.querySelectorAll("[data-role]").forEach(button=>button.addEventListener
 }));
 const stages=[...document.querySelectorAll("#pipeline .stage")],readout=document.getElementById("lifecycleReadout"),overall=document.getElementById("overall");
 const scenarios={
- success:{state:"SUCCEEDED",kind:"good",end:5,title:"Workflow completed",body:"The request was accepted and validated before execution. Registered handlers ran in order, the terminal result was retained, and the host can observe the outcome. This says what happened; it does not authorize another operation."},
+ success:{state:"SUCCEEDED",kind:"good",end:6,title:"Workflow completed",body:"The request was accepted and validated before execution. Registered handlers ran in order, the terminal result was retained, and the host can observe the outcome. This says what happened; it does not authorize another operation."},
  failure:{state:"FAILED",kind:"bad",end:3,title:"A handler failed",body:"Execution stops after the failing step. Remaining steps are skipped, and the result preserves the failure. A failure is not silently retried or converted into success."},
  cancel:{state:"CANCELLED",kind:"warn",end:3,title:"Cancellation requested",body:"Cancellation is cooperative. Execution signals the handler through its cancellation token and records Cancelled when the operation observes it. A handler that ignores the token cannot be forcibly stopped."},
  timeout:{state:"TIMED OUT",kind:"warn",end:3,title:"Workflow time budget elapsed",body:"TimedOut is distinct from caller-requested Cancelled. The coordinator can report the timeout, but it cannot forcibly terminate a non-cooperative handler."},
- invalid:{state:"REJECTED",kind:"bad",end:0,title:"Validation stopped the request",body:"The complete workflow definition is checked before any handler is invoked. Invalid input is rejected without starting side effects."}
+ invalid:{state:"REJECTED",kind:"bad",end:1,title:"Validation stopped the request",body:"The complete workflow definition is checked before any handler is invoked. Invalid input is rejected without starting side effects."}
 };
 function reset(){stages.forEach(x=>x.className="stage");overall.className="state";overall.textContent="NOT STARTED";readout.replaceChildren();const h=document.createElement("h3");h.textContent="Ready";const p=document.createElement("p");p.textContent="Choose an outcome to inspect the state transitions and the reason the run terminates there.";readout.append(h,p);}
 document.querySelectorAll("[data-scenario]").forEach(button=>button.addEventListener("click",()=>{
