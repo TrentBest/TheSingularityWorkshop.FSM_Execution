@@ -12,7 +12,7 @@ namespace TheSingularityWorkshop.Foundry.GitHubHost;
 /// </summary>
 public static class CiAiArtifactReadyEndpointRouteBuilderExtensions
 {
-    public const string DefaultRoute = "/api/foundry/ciai/artifacts/ready";
+    public const string DefaultRoute = "/api/v1/integrations/ciai/artifact-ready";
     private const int MaximumBodyBytes = 64 * 1024;
 
     /// <summary>
@@ -27,8 +27,8 @@ public static class CiAiArtifactReadyEndpointRouteBuilderExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
 
         return endpoints.MapPost(pattern, HandleAsync)
-            .WithName("FoundryCiAiArtifactReadyIngress")
-            .WithTags("Foundry", "CiAi");
+            .WithName("ExecutionCiAiArtifactReadyIngress")
+            .WithTags("Execution", "CiAi");
     }
 
     private static async Task<IResult> HandleAsync(
@@ -79,7 +79,7 @@ public static class CiAiArtifactReadyEndpointRouteBuilderExtensions
             var accepted = ingress.Accept(context.Request.Headers.Authorization.ToString(), body);
             var response = new
             {
-                contract = "foundry.ciai-artifact-ingress.v1",
+                contract = "execution.ciai-artifact-ingress.v1",
                 outcome = accepted.Outcome.ToString(),
                 receiptId = accepted.Receipt.ReceiptId,
                 payloadSha256 = accepted.Receipt.PayloadSha256,
@@ -95,7 +95,7 @@ public static class CiAiArtifactReadyEndpointRouteBuilderExtensions
                 CiAiArtifactNoticeReceiptOutcome.Conflict =>
                     Results.Conflict(new
                     {
-                        contract = "foundry.ciai-artifact-ingress.v1",
+                        contract = "execution.ciai-artifact-ingress.v1",
                         code = "receipt_conflict",
                         message = "The notice identity was already used with different content."
                     }),
