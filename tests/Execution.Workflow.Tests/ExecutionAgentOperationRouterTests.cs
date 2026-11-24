@@ -203,14 +203,17 @@ public sealed class ExecutionAgentOperationRouterTests
             var approval = approvals.Get(approvalId);
             approvals.Decide(approvalId, HumanApprovalStatus.Approved,
                 "human:owner", "Reviewed the exact candidate proposal.", approval.CreatedAt.AddSeconds(1));
+            var resumeRouter = new ExecutionAgentOperationRouter(registry,
+                new FakePolicy(ExecutionAgentOperationPolicyDecision.RequiresHumanApproval),
+                executor, approvals, new FixedTimeProvider(approval.CreatedAt.AddSeconds(2)));
 
-            var resumed = await router.ResumeApprovedAsync(task, turn, approvalId,
+            var resumed = await resumeRouter.ResumeApprovedAsync(task, turn, approvalId,
                 capability.CapabilityId, "agent/task-1");
             Assert.Equal(ExecutionAgentOperationDisposition.Executed, resumed.Disposition);
             Assert.Equal(1, executor.CallCount);
             Assert.Equal(HumanApprovalStatus.Executed, approvals.Get(approvalId).Status);
 
-            var duplicate = await router.ResumeApprovedAsync(task, turn, approvalId,
+            var duplicate = await resumeRouter.ResumeApprovedAsync(task, turn, approvalId,
                 capability.CapabilityId, "agent/task-1");
             Assert.Equal(ExecutionAgentOperationDisposition.Executed, duplicate.Disposition);
             Assert.Equal(1, executor.CallCount);
@@ -237,9 +240,12 @@ public sealed class ExecutionAgentOperationRouterTests
             var approval = approvals.Get(approvalId);
             approvals.Decide(approvalId, HumanApprovalStatus.Approved,
                 "human:owner", "Approved.", approval.CreatedAt.AddSeconds(1));
+            var resumeRouter = new ExecutionAgentOperationRouter(registry,
+                new FakePolicy(ExecutionAgentOperationPolicyDecision.RequiresHumanApproval),
+                executor, approvals, new FixedTimeProvider(approval.CreatedAt.AddSeconds(2)));
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-                router.ResumeApprovedAsync(task, turn, approvalId, capability.CapabilityId,
+                resumeRouter.ResumeApprovedAsync(task, turn, approvalId, capability.CapabilityId,
                     "agent/task-1"));
             Assert.Equal(HumanApprovalStatus.Approved, approvals.Get(approvalId).Status);
             Assert.Equal(0, executor.CallCount);
