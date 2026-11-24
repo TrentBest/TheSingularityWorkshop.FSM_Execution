@@ -262,7 +262,8 @@ public static class CiAiTestResultReportConsumer
         _ = ReadGitHubEvidenceUrl(properties, "jobEvidenceUrl",
             $"/{mapping.Repository}/actions/runs/{run.RunId}/job/{jobId}");
 
-        if (ReadText(properties, "jobStatus", 64) != "completed")
+        var jobStatus = ReadText(properties, "jobStatus", 64);
+        if (jobStatus != "completed")
             throw new InvalidDataException("CiAi report job is not complete.");
         var jobConclusion = OptionalText(properties, "jobConclusion", 64);
         if (string.IsNullOrWhiteSpace(jobConclusion))
@@ -283,7 +284,7 @@ public static class CiAiTestResultReportConsumer
             if (sourceArtifactBinding is null)
                 throw new UnauthorizedAccessException("A host-observed source-artifact binding is required before accepting complete CI evidence.");
             ValidateSourceArtifactMetadata(properties, mapping, sourceArtifactBinding,
-                jobId, jobName, observedAt);
+                jobId, jobName, jobStatus, jobConclusion, observedAt);
         }
 
 
@@ -366,6 +367,8 @@ public static class CiAiTestResultReportConsumer
         CiAiHostObservedSourceArtifactBinding sourceBinding,
         long reportJobId,
         string reportJobName,
+        string reportJobStatus,
+        string? reportJobConclusion,
         DateTimeOffset observedAt)
     {
         var sourceArtifactId = ReadInt64(properties, "sourceArtifactId");
@@ -383,6 +386,8 @@ public static class CiAiTestResultReportConsumer
              !string.Equals(sourceJobKey, mapping.JobKey, StringComparison.Ordinal)) ||
             reportJobId != sourceBinding.JobId ||
             !string.Equals(reportJobName, sourceBinding.JobName, StringComparison.Ordinal) ||
+            !string.Equals(reportJobStatus, sourceBinding.JobStatus, StringComparison.Ordinal) ||
+            !string.Equals(reportJobConclusion, sourceBinding.JobConclusion, StringComparison.Ordinal) ||
             sourceArtifactId != sourceBinding.ArtifactId ||
             !string.Equals(sourceArtifactName, sourceBinding.ArtifactName, StringComparison.Ordinal) ||
             !string.Equals(sourceJobKey, sourceBinding.JobKey, StringComparison.Ordinal))
