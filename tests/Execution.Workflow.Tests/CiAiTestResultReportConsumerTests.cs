@@ -37,7 +37,7 @@ public sealed class CiAiTestResultReportConsumerTests
     public void ConsumesActionableReportIntoBoundAttemptAndHeadlessEvidence()
     {
         var bytes = CreateReport("ActionableFailure", "Failed", "failure", EventSha);
-        var consumed = Consume(bytes);
+        var consumed = Consume(bytes, jobConclusion: "success");
 
         Assert.Equal("ActionableFailure", consumed.Verdict);
         Assert.Equal("task-1", consumed.Attempt.TaskId);
@@ -311,10 +311,11 @@ public sealed class CiAiTestResultReportConsumerTests
             Consume(duplicate));
     }
 
-    private static CiAiConsumedTestResult Consume(byte[] bytes, bool includeJobKey = true) =>
+    private static CiAiConsumedTestResult Consume(
+        byte[] bytes, bool includeJobKey = true, string jobConclusion = "failure") =>
         CiAiTestResultReportConsumer.Consume(
             CreateVerifiedArtifact(bytes, includeJobKey), CreateTask(),
-            includeJobKey ? CreateSourceBinding() : null, Now);
+            includeJobKey ? CreateSourceBinding(jobConclusion: jobConclusion) : null, Now);
 
     private static CiAiHostObservedSourceArtifactBinding CreateSourceBinding(
         long artifactId = 7001,
@@ -329,10 +330,12 @@ public sealed class CiAiTestResultReportConsumerTests
         long? runId = null,
         int? runAttempt = null,
         string? candidateSha = null,
-        DateTimeOffset? jobStartedAt = null) =>
+        DateTimeOffset? jobStartedAt = null,
+        string jobStatus = "completed",
+        string? jobConclusion = "failure") =>
         new(
             Repository, runId ?? RunId, runAttempt ?? RunAttempt, candidateSha ?? CandidateSha, WorkflowPath,
-            JobId, "test-minesweeper", jobKey, artifactId, artifactName,
+            JobId, "test-minesweeper", jobKey, jobStatus, jobConclusion, artifactId, artifactName,
             archiveDigest, archiveSize,
             jobStartedAt ?? DateTimeOffset.Parse("2026-10-31T10:18:00Z"),
             DateTimeOffset.Parse("2026-10-31T10:30:00Z"),
