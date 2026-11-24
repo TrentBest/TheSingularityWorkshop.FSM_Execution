@@ -124,7 +124,13 @@ public sealed class ExecutionAgentOperationRouter
                 break;
             }
 
-            var path = ReadPathArgument(action, proposal.ArgumentsJson);
+            string? path;
+            try { path = ReadPathArgument(action, proposal.ArgumentsJson); }
+            catch (ArgumentException exception)
+            {
+                outcomes.Add(new(proposal.Operation, ExecutionAgentOperationDisposition.Rejected, exception.Message));
+                break;
+            }
             var policy = _policy.Classify(task, turn, action, proposal);
             if (!Enum.IsDefined(policy.Decision) || string.IsNullOrWhiteSpace(policy.Reason) ||
                 policy.Reason.Length > 2048 || policy.Reason.Any(char.IsControl))
@@ -139,11 +145,12 @@ public sealed class ExecutionAgentOperationRouter
             if (policy.Decision == ExecutionAgentOperationPolicyDecision.RequiresHumanApproval)
             {
                 var approvalId = CreateApprovalId(turn, index, proposal);
+                var approvalRationale = proposal.Rationale + " Host policy: " + policy.Reason;
+                if (approvalRationale.Length > 4096) approvalRationale = approvalRationale[..4096];
                 var request = HumanApprovalRequest.Create(approvalId, task.Request.TaskId,
                     task.Request.CorrelationId, task.Request.Repository, turn.CandidateCommitSha,
                     turn.ProviderId + "/" + turn.ModelId, proposal.Operation, proposal.Summary,
-                    proposal.Rationale + " Host policy: " + policy.Reason, proposal.ArgumentsJson,
-                    now, now.Add(approvalLifetime));
+                    approvalRationale, proposal.ArgumentsJson, now, now.Add(approvalLifetime));
                 var stored = _approvals.CreateOrGet(request);
                 var disposition = stored.Status switch
                 {
