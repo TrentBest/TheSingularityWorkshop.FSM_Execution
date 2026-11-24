@@ -157,6 +157,32 @@ public sealed class ExecutionAgentOperationRouterTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    [Fact]
+    public async Task ReplayedTurnReturnsTheSamePendingApprovalWithoutDuplicatingIt()
+    {
+        var (task, registry, capability) = CreateActiveTask();
+        var path = Path.Combine(Path.GetTempPath(), $"adp-router-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var approvals = new JsonlHumanApprovalRequestStore(path);
+            var executor = new FakeExecutor();
+            var turn = Turn(DraftProposal());
+            var firstRouter = new ExecutionAgentOperationRouter(registry,
+                new FakePolicy(ExecutionAgentOperationPolicyDecision.RequiresHumanApproval),
+                executor, approvals, new FixedTimeProvider(Now.AddSeconds(4)));
+            var secondRouter = new ExecutionAgentOperationRouter(registry,
+                new FakePolicy(ExecutionAgentOperationPolicyDecision.RequiresHumanApproval),
+                executor, approvals, new FixedTimeProvider(Now.AddSeconds(5)));
+            var first = await firstRouter.ProcessAsync(task, turn, capability.CapabilityId,
+                "agent/task-1", TimeSpan.FromDays(1));
+            var second = await secondRouter.ProcessAsync(task, turn, capability.CapabilityId,
+                "agent/task-1", TimeSpan.FromDays(1));
+            Assert.Equal(first.Outcomes[0].ApprovalId, second.Outcomes[0].ApprovalId);
+            Assert.Single(approvals.GetPending());
+            Assert.Equal(0, executor.CallCount);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
     private sealed class FakePolicy(ExecutionAgentOperationPolicyDecision decision) : IExecutionAgentOperationPolicy
     {
         public ExecutionAgentOperationPolicyResult Classify(WorkTaskSnapshot task,
