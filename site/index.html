@@ -97,7 +97,7 @@ async function refreshApprovals(){
    const card=document.createElement("article");card.className="approval-card";
    const title=document.createElement("h3");title.textContent=item.summary||item.operation||"Approval request";card.append(title);
    const meta=document.createElement("div");meta.className="approval-meta";
-   for(const value of [item.repository,item.taskId,"Candidate "+item.candidateSha,item.requestedBy,item.operation,new Date(item.createdAt).toLocaleString(),item.isExpired?"EXPIRED":"PENDING"]){const span=document.createElement("span");span.textContent=value;meta.append(span);}card.append(meta);
+   for(const value of [item.repository,item.taskId,"Turn "+item.turnId,"Candidate "+item.candidateSha,item.requestedBy,item.operation,new Date(item.createdAt).toLocaleString(),item.isExpired?"EXPIRED":"PENDING"]){const span=document.createElement("span");span.textContent=value;meta.append(span);}card.append(meta);
    const rationale=document.createElement("p");rationale.textContent=item.rationale||"";card.append(rationale);
    const digest=document.createElement("p");digest.textContent="Arguments SHA-256: "+item.argumentsSha256;card.append(digest);
    const args=document.createElement("pre");args.textContent=item.argumentsJson||"{}";card.append(args);
