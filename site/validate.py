@@ -43,7 +43,7 @@ audit.feed(page)
 assert not audit.duplicates, f"Duplicate HTML ids: {audit.duplicates}"
 missing = sorted(set(audit.anchors) - audit.ids)
 assert not missing, f"Broken in-page links: {missing}"
-for required in ("architecture", "lifecycle", "proof", "evidence", "boundaries"):
+for required in ("architecture", "lifecycle", "proof", "evidence", "approvals", "boundaries"):
     assert required in audit.ids, f"Missing required section: {required}"
 assert "documented Execution–CiAi contract, not a live integration" in page
 assert "No live dispatch" in page
