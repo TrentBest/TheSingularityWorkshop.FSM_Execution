@@ -230,10 +230,13 @@ public sealed class WorkTaskCoordinatorTests
             new string('d', 64), Now.AddMinutes(1), Now.AddMinutes(2));
 
     private static WorkTaskRepairAttempt SuccessfulAttempt() =>
-        new(1, "execution-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
+        new WorkTaskRepairAttempt(1, "execution-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
             "work/code-red-task-lifecycle", ".github/workflows/build.yml", Now, 1,
             new string('a', 40), 1001, 1, new string('f', 64), true, true, false,
-            null, Now.AddMinutes(1), Now.AddMinutes(2));
+            null, Now.AddMinutes(1), Now.AddMinutes(2))
+        {
+            EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
+        };
 
     private static WorkTaskRepairEvidenceExpectation Expectation(WorkTaskRepairAttempt attempt) =>
         new(attempt.TaskId, attempt.CorrelationId, attempt.Repository, attempt.Branch,
