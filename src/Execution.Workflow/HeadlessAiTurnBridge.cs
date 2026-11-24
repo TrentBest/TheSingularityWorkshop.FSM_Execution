@@ -229,6 +229,7 @@ public sealed record ExecutionHeadlessAiTurnResult
     public int? AcceptedReportRunAttempt { get; init; }
     public string? AcceptedReportCandidateCommitSha { get; init; }
     public string? AcceptedReportSourceArtifactIdentitySha256 { get; init; }
+    public string? AcceptedReportAuthoritativeWorkflowEvidenceSha256 { get; init; }
     public string? ErrorCode { get; init; }
     public string? Diagnosis { get; init; }
     public string? PatchIntent { get; init; }
@@ -265,7 +266,8 @@ public sealed record ExecutionHeadlessAiTurnResult
                 AcceptedReportIdentity is not null || AcceptedReportSha256 is not null ||
                 AcceptedReportNoticeIdentitySha256 is not null || AcceptedReportWorkflowRunId is not null ||
                 AcceptedReportRunAttempt is not null || AcceptedReportCandidateCommitSha is not null ||
-                AcceptedReportSourceArtifactIdentitySha256 is not null)
+                AcceptedReportSourceArtifactIdentitySha256 is not null ||
+                AcceptedReportAuthoritativeWorkflowEvidenceSha256 is not null)
                 throw new InvalidOperationException("HeadlessAi returned accepted-report lineage for a turn that supplied no accepted report.");
         }
         else if (AcceptedReportSchemaVersion != accepted.SchemaVersion ||
@@ -276,7 +278,8 @@ public sealed record ExecutionHeadlessAiTurnResult
             AcceptedReportWorkflowRunId != accepted.WorkflowRunId ||
             AcceptedReportRunAttempt != accepted.RunAttempt ||
             !string.Equals(AcceptedReportCandidateCommitSha, accepted.CandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(AcceptedReportSourceArtifactIdentitySha256, accepted.SourceArtifactIdentitySha256, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(AcceptedReportSourceArtifactIdentitySha256, accepted.SourceArtifactIdentitySha256, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(AcceptedReportAuthoritativeWorkflowEvidenceSha256, accepted.AuthoritativeWorkflowEvidenceSha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("HeadlessAi result accepted-report lineage does not match the exact report supplied to the turn.");
 
         if (string.IsNullOrWhiteSpace(TurnId) || TurnId.Length > 128 ||
