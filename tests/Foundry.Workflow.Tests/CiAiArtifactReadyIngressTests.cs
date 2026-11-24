@@ -11,7 +11,7 @@ public sealed class CiAiArtifactReadyIngressTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 22, 17, 30, 0, TimeSpan.Zero);
     private const string Issuer = "https://identity.example.test";
-    private const string Audience = "foundry-ci-evidence-ingress";
+    private const string Audience = "execution-ci-evidence-ingress";
     private const string Subject = "ciai-production";
     private const string KeyId = "ciai-ingress-2026-01";
     private const string ProviderRepository = "TrentBest/TheSingularityWorkshop.CiAi";
