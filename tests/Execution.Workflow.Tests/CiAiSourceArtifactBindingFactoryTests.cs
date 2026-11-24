@@ -28,7 +28,7 @@ public sealed class CiAiSourceArtifactBindingFactoryTests
             Repository, 1001, 1, CandidateSha, WorkflowPath,
             2001, "Build and Test", "required-check", "completed", "failure",
             3001, "test-results", digest, archive.Length,
-            Created.AddMinutes(2), Created.AddMinutes(20),
+            Created.AddMinutes(2), Created.AddMinutes(22),
             Created.AddMinutes(21), Created.AddDays(7));
 
         var binding = CiAiSourceArtifactBindingFactory.VerifyAndBind(
@@ -54,7 +54,7 @@ public sealed class CiAiSourceArtifactBindingFactoryTests
             Repository, 1001, 2, CandidateSha, WorkflowPath,
             2001, "Build and Test", "required-check", "completed", "failure",
             3001, "test-results", digest, archive.Length,
-            Created.AddMinutes(2), Created.AddMinutes(20),
+            Created.AddMinutes(2), Created.AddMinutes(22),
             Created.AddMinutes(21), Created.AddDays(7));
 
         Assert.Throws<UnauthorizedAccessException>(() =>
@@ -72,7 +72,7 @@ public sealed class CiAiSourceArtifactBindingFactoryTests
             Repository, 1001, 1, CandidateSha, WorkflowPath,
             2001, "Build and Test", "required-check", "completed", "failure",
             3001, "test-results", "sha256:" + new string('f', 64), archive.Length,
-            Created.AddMinutes(2), Created.AddMinutes(20),
+            Created.AddMinutes(2), Created.AddMinutes(22),
             Created.AddMinutes(21), Created.AddDays(7));
 
         Assert.Throws<InvalidDataException>(() =>
