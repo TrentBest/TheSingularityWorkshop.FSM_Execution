@@ -99,6 +99,64 @@ public sealed class JsonlHumanApprovalRequestStoreTests
     }
 
     [Fact]
+    public void ApprovedOperationHasOneWayDurableExecutionFence()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"adp-approvals-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var store = new JsonlHumanApprovalRequestStore(path);
+            store.Create(Request());
+            store.Decide("approval-1", HumanApprovalStatus.Approved,
+                "human:owner", "Approved after reviewing the exact proposal.", Created.AddMinutes(1));
+
+            var executing = store.BeginExecution("approval-1", Created.AddMinutes(2));
+            Assert.Equal(HumanApprovalStatus.Executing, executing.Status);
+            Assert.Throws<InvalidOperationException>(() =>
+                store.BeginExecution("approval-1", Created.AddMinutes(3)));
+
+            var reopenedDuringExecution = new JsonlHumanApprovalRequestStore(path);
+            Assert.Equal(HumanApprovalStatus.Executing, reopenedDuringExecution.Get("approval-1").Status);
+            Assert.Throws<InvalidOperationException>(() =>
+                reopenedDuringExecution.BeginExecution("approval-1", Created.AddMinutes(3)));
+
+            var completed = reopenedDuringExecution.CompleteExecution("approval-1",
+                "Draft PR created.", Created.AddMinutes(4));
+            Assert.Equal(HumanApprovalStatus.Executed, completed.Status);
+            Assert.Equal("Draft PR created.", completed.ExecutionResult);
+            Assert.Equal(4, completed.Sequence);
+
+            var reopened = new JsonlHumanApprovalRequestStore(path);
+            Assert.Equal(HumanApprovalStatus.Executed, reopened.Get("approval-1").Status);
+            Assert.Equal("Draft PR created.", reopened.Get("approval-1").ExecutionResult);
+            Assert.Throws<InvalidOperationException>(() =>
+                reopened.BeginExecution("approval-1", Created.AddMinutes(5)));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ExecutionCannotCompleteBeforeTheExecutionFence()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"adp-approvals-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var store = new JsonlHumanApprovalRequestStore(path);
+            store.Create(Request());
+            store.Decide("approval-1", HumanApprovalStatus.Approved,
+                "human:owner", "Approved.", Created.AddMinutes(1));
+            Assert.Throws<InvalidOperationException>(() =>
+                store.CompleteExecution("approval-1", "not executed", Created.AddMinutes(2)));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void ApprovalDoesNotMutateOrGrantAnExecutionCapability()
     {
         var request = Request();
