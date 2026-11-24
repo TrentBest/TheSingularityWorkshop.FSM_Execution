@@ -20,6 +20,8 @@ public sealed record CiAiHostObservedSourceArtifactBinding
     public long JobId { get; }
     public string JobName { get; }
     public string JobKey { get; }
+    public string JobStatus { get; }
+    public string? JobConclusion { get; }
     public long ArtifactId { get; }
     public string ArtifactName { get; }
     public string ProviderArchiveDigest { get; }
@@ -42,6 +44,8 @@ public sealed record CiAiHostObservedSourceArtifactBinding
         long jobId,
         string jobName,
         string jobKey,
+        string jobStatus,
+        string? jobConclusion,
         long artifactId,
         string artifactName,
         string providerArchiveDigest,
@@ -61,6 +65,8 @@ public sealed record CiAiHostObservedSourceArtifactBinding
         JobId = jobId;
         JobName = jobName;
         JobKey = jobKey;
+        JobStatus = jobStatus;
+        JobConclusion = jobConclusion;
         ArtifactId = artifactId;
         ArtifactName = artifactName;
         ProviderArchiveDigest = providerArchiveDigest;
@@ -86,6 +92,8 @@ public sealed record CiAiHostObservedSourceArtifactBinding
                 JobId.ToString(CultureInfo.InvariantCulture),
                 JobName,
                 JobKey,
+                JobStatus,
+                JobConclusion ?? string.Empty,
                 ArtifactId.ToString(CultureInfo.InvariantCulture),
                 ArtifactName,
                 ProviderArchiveDigest.ToLowerInvariant(),
@@ -123,6 +131,8 @@ public sealed record CiAiHostObservedSourceArtifactBinding
             !Clean(WorkflowPath, 512) || !WorkflowPath.StartsWith(".github/workflows/", StringComparison.Ordinal) ||
             !Clean(JobName, 200) || !Clean(JobKey, 100) || JobKey.Any(c =>
                 !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.')) ||
+            JobStatus != "completed" ||
+            (JobConclusion is not null && !new[] { "success", "failure", "cancelled", "timed_out", "action_required", "neutral", "skipped", "stale", "startup_failure" }.Contains(JobConclusion, StringComparer.Ordinal)) ||
             JobId <= 0 || ArtifactId <= 0 || !Clean(ArtifactName, 200) ||
             ProviderArchiveDigest is not { Length: 71 } ||
             !ProviderArchiveDigest.StartsWith("sha256:", StringComparison.Ordinal) ||
