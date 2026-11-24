@@ -202,7 +202,7 @@ public sealed class JsonlWorkTaskStore
                      !item.EvidencePayloadSha256.All(Uri.IsHexDigit))) ||
                 (item.EvidenceSchema is not null &&
                     item.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema) ||
-                (item.EvidenceSchema is not null != (item.CandidateSha is not null)) ||
+                ((item.EvidenceSchema is not null) != (item.CandidateSha is not null)) ||
                 (item.CandidateSha is not null &&
                     (item.CandidateSha.Length != 40 || !item.CandidateSha.All(Uri.IsHexDigit))) ||
                 (item.Current is WorkTaskStatus.ReviewReady or WorkTaskStatus.RepairRequired &&
