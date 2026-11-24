@@ -98,7 +98,8 @@ public sealed record HumanApprovalRequest(
         }
         else if (Status == HumanApprovalStatus.Executed)
         {
-            if (!ExecutedAt.HasValue || ExecutedAt < DecidedAt || ExecutedAt > DecidedAt.Value.AddDays(7) ||
+            if (!DecidedAt.HasValue || !ExecutedAt.HasValue ||
+                ExecutedAt.Value < DecidedAt.Value || ExecutedAt.Value > DecidedAt.Value.AddDays(7) ||
                 ExecutionResult?.Length > 2048)
                 throw new ArgumentException("Executed approvals require a bounded completion receipt and timestamp.");
         }
@@ -137,8 +138,8 @@ public sealed record HumanApprovalRequest(
     {
         if (Status != HumanApprovalStatus.Approved)
             throw new InvalidOperationException("Only an approved request can begin execution.");
-        if (at < DecidedAt || at > ExpiresAt)
-            throw new ArgumentOutOfRangeException(nameof(at), "Approved operation execution must occur before request expiry.");
+        if (!DecidedAt.HasValue || at < DecidedAt.Value || at > ExpiresAt)
+            throw new ArgumentOutOfRangeException(nameof(at), "Approved operation execution must occur after approval and before request expiry.");
         return (this with { Sequence = Sequence + 1, Status = HumanApprovalStatus.Executing }).Validate();
     }
 
@@ -146,7 +147,8 @@ public sealed record HumanApprovalRequest(
     {
         if (Status != HumanApprovalStatus.Executing)
             throw new InvalidOperationException("Only an executing approval can be completed.");
-        if (result?.Length > 2048 || at < DecidedAt || at > ExpiresAt.AddDays(7))
+        if (result?.Length > 2048 || !DecidedAt.HasValue ||
+            at < DecidedAt.Value || at > ExpiresAt.AddDays(7))
             throw new ArgumentOutOfRangeException(nameof(at), "Execution receipt is outside its supported bounds.");
         return (this with { Sequence = Sequence + 1, Status = HumanApprovalStatus.Executed,
             ExecutionResult = result, ExecutedAt = at }).Validate();
