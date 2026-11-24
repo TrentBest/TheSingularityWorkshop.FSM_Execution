@@ -153,6 +153,42 @@ public sealed class JsonlHumanApprovalRequestStore
         }
     }
 
+    /// <summary>
+    /// Creates a pending request once, or returns the existing exact proposal when the same
+    /// turn is replayed. Reusing an approval ID for different proposal bytes is rejected.
+    /// </summary>
+    public HumanApprovalRequest CreateOrGet(HumanApprovalRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.Validate();
+        lock (_gate)
+        {
+            if (_latest.TryGetValue(request.ApprovalId, out var existing))
+            {
+                var original = existing with
+                {
+                    Sequence = 1,
+                    Status = HumanApprovalStatus.Pending,
+                    DecisionBy = null,
+                    DecisionReason = null,
+                    DecidedAt = null
+                };
+                var candidate = request with { Sequence = 1, Status = HumanApprovalStatus.Pending,
+                    DecisionBy = null, DecisionReason = null, DecidedAt = null };
+                if (original != candidate)
+                    throw new InvalidOperationException("An approval ID was replayed with different proposal content.");
+                return existing;
+            }
+
+            if (request.Status != HumanApprovalStatus.Pending || request.Sequence != 1 ||
+                request.DecisionBy is not null || request.DecisionReason is not null || request.DecidedAt.HasValue)
+                throw new ArgumentException("A new approval request must be pending at sequence one.", nameof(request));
+            Append(request);
+            _latest.Add(request.ApprovalId, request);
+            return request;
+        }
+    }
+
     public HumanApprovalRequest Decide(string approvalId, HumanApprovalStatus decision,
         string actor, string reason, DateTimeOffset at)
     {
