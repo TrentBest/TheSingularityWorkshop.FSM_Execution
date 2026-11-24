@@ -25,9 +25,9 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
     private const string WorkflowPath = ".github/workflows/ci.yml";
 
     [Fact]
-    public async Task AppliesCiAiVerdictOnceAndResumesSameTaskThroughHeadlessAiRepairTurn()
+    public async Task DiagnosticReportCannotCreateRepairStateAndOnlyEnrichesAnAuthoritativeV2Failure()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"foundry-ciai-feedback-{Guid.NewGuid():N}");
+        var root = Path.Combine(Path.GetTempPath(), $"execution-ciai-diagnostic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         try
         {
@@ -45,32 +45,42 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
             tasks.Transition("task-1", leaseId, WorkTaskStatus.Validating,
                 ValidationStart, "Validate exact candidate.");
 
+            var authoritativeAttempt = new WorkTaskRepairAttempt(
+                WorkTaskRepairAttempt.CurrentSchemaVersion,
+                "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
+                TaskStart, 1, CandidateSha, RunId, RunAttempt, new string('e', 64),
+                EvidenceComplete: true, IsSuccessful: false, HasActionableDiagnostics: true,
+                DiagnosticsFingerprint: new string('d', 64), ValidationStart, ObservedAt)
+            {
+                EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
+            }.Validate();
+            var expectation = new WorkTaskRepairEvidenceExpectation(
+                "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
+                CandidateSha, TaskStart, RunId, RunAttempt);
+            var repairRequired = tasks.ApplyRepairDecision("task-1", leaseId,
+                authoritativeAttempt, expectation, TimeSpan.FromHours(1), Now);
+            Assert.Equal(WorkTaskStatus.RepairRequired, repairRequired.Status);
+            Assert.Equal(WorkTaskRepairAttempt.RequiredEvidenceSchema,
+                repairRequired.Events[^1].EvidenceSchema);
+
             var artifact = CreateArtifact();
-            var feedback = tasks.ApplyCiAiReport("task-1", leaseId, artifact, CreateSourceBinding(),
-                TimeSpan.FromHours(1), Now);
+            var diagnostic = tasks.ConsumeCiAiDiagnosticReport(
+                "task-1", leaseId, artifact, CreateSourceBinding(), Now);
 
-            Assert.Equal(WorkTaskStatus.RepairRequired, feedback.Snapshot.Status);
-            Assert.NotNull(feedback.Consumed);
-            Assert.Equal(CreateSourceBinding().IdentitySha256, feedback.Consumed!.Attempt.SourceArtifactIdentitySha256);
-            Assert.Equal(CreateSourceBinding().IdentitySha256, feedback.Consumed.AcceptedReport.SourceArtifactIdentitySha256);
-            Assert.False(feedback.IsDuplicateDelivery);
+            Assert.Equal(WorkTaskStatus.RepairRequired, tasks.GetSnapshot("task-1").Status);
+            Assert.Equal(new string('e', 64), diagnostic.AuthoritativeWorkflowEvidenceSha256);
+            Assert.Equal(CandidateSha, diagnostic.CandidateSha);
+            Assert.Equal(RunId, diagnostic.WorkflowRunId);
+            Assert.Equal("ActionableFailure", diagnostic.Verdict);
+            Assert.Equal(CreateSourceBinding().IdentitySha256, diagnostic.SourceArtifactIdentitySha256);
             Assert.Single(attempts.GetAttempts("task-1"));
-            Assert.Equal(RunId, feedback.Snapshot.Events[^1].CiRunId);
-            Assert.Equal(CreateSourceBinding().IdentitySha256,
-                feedback.Snapshot.Events[^1].SourceArtifactIdentitySha256);
-            Assert.Equal(RunAttempt, feedback.Snapshot.Events[^1].CiRunAttempt);
+            Assert.Equal(repairRequired.Events.Count, tasks.GetSnapshot("task-1").Events.Count);
 
-            var duplicate = tasks.ApplyCiAiReport("task-1", leaseId, artifact, CreateSourceBinding(),
-                TimeSpan.FromHours(1), Now);
-            Assert.True(duplicate.IsDuplicateDelivery);
-            Assert.Null(duplicate.Consumed);
-            Assert.Equal(feedback.Snapshot.Events.Count, duplicate.Snapshot.Events.Count);
+            var duplicateDiagnostic = tasks.ConsumeCiAiDiagnosticReport(
+                "task-1", leaseId, artifact, CreateSourceBinding(), Now);
+            Assert.Equal(diagnostic.ReportSha256, duplicateDiagnostic.ReportSha256);
+            Assert.Equal(WorkTaskStatus.RepairRequired, tasks.GetSnapshot("task-1").Status);
             Assert.Single(attempts.GetAttempts("task-1"));
-
-            var changedBinding = CreateSourceBinding(
-                DateTimeOffset.Parse("2026-10-31T10:19:00Z"));
-            Assert.Throws<InvalidOperationException>(() => tasks.ApplyCiAiReport(
-                "task-1", leaseId, artifact, changedBinding, TimeSpan.FromHours(1), Now));
 
             var client = new RecordingHeadlessAiClient();
             var turnJournal = new JsonlHeadlessAiTurnJournal(Path.Combine(root, "turns.jsonl"));
@@ -97,21 +107,21 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
                 tasks, client, turnJournal, new FixedTimeProvider(Now.AddMinutes(1)));
             await Assert.ThrowsAsync<InvalidOperationException>(() => turnCoordinator.InvokeAsync(
                 "task-1", leaseId, "work/task-1", RepairCandidateSha,
-                "experiences-developer", "Repair the exact failing candidate using the supplied CiAi evidence.",
+                "experiences-developer", "Repair the exact failing candidate using the supplied diagnostic evidence.",
                 "Return a bounded patch proposal; do not claim authorization.",
                 """{"type":"object","required":["diagnosis","patchIntent"]}""",
-                new[] { feedback.Consumed!.HeadlessAiEvidence },
+                new[] { diagnostic.HeadlessAiEvidence },
                 priorTurnId: "turn-initial-1",
                 priorCandidateCommitSha: CandidateSha));
             var turn = await turnCoordinator.InvokeAsync(
                 "task-1", leaseId, "work/task-1", RepairCandidateSha,
-                "experiences-developer", "Repair the exact failing candidate using the supplied CiAi evidence.",
+                "experiences-developer", "Repair the exact failing candidate using the supplied diagnostic evidence.",
                 "Return a bounded patch proposal; do not claim authorization.",
                 """{"type":"object","required":["diagnosis","patchIntent"]}""",
-                new[] { feedback.Consumed!.HeadlessAiEvidence },
+                new[] { diagnostic.HeadlessAiEvidence },
                 priorTurnId: "turn-initial-1",
                 priorCandidateCommitSha: CandidateSha,
-                acceptedCiAiReport: feedback.Consumed!.AcceptedReport);
+                acceptedCiAiReport: diagnostic.AcceptedReport);
 
             Assert.Equal("task-1", turn.TaskId);
             Assert.Equal("correlation-1", turn.CorrelationId);
@@ -123,9 +133,9 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
             Assert.Single(client.Request.Evidence);
             Assert.Equal(CandidateSha, client.Request.Evidence[0].CommitSha);
             Assert.NotNull(client.Request.AcceptedCiAiReport);
-            Assert.Equal("sha256:" + feedback.Consumed.ReportSha256,
+            Assert.Equal("sha256:" + diagnostic.ReportSha256,
                 client.Request.AcceptedCiAiReport!.ReportIdentity);
-            Assert.Equal(feedback.Consumed.AcceptedReport.CanonicalReportJson,
+            Assert.Equal(diagnostic.AcceptedReport.CanonicalReportJson,
                 client.Request.AcceptedCiAiReport.CanonicalReportJson);
         }
         finally
