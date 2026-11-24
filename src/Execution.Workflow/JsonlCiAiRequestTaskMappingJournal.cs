@@ -28,8 +28,13 @@ public sealed record CiAiRequestTaskMapping(
     string AcknowledgementDestination,
     string AcknowledgementAuthProfileId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset ExpiresAt)
+    DateTimeOffset ExpiresAt,
+    string? TrustedEventSha = null)
 {
+    /// <summary>Configured required-check key; distinct from the provider display job name.</summary>
+    public string? JobKey { get; init; }
+    /// <summary>Exact provider artifact name registered for the required job key.</summary>
+    public string? SourceArtifactName { get; init; }
     public const int CurrentSchemaVersion = 1;
 
     public CiAiRequestTaskMapping Validate()
@@ -49,6 +54,13 @@ public sealed record CiAiRequestTaskMapping(
             throw new ArgumentException("Candidate ref must identify an isolated branch.", nameof(CandidateRef));
         ValidateSha(CandidateSha, nameof(CandidateSha));
         ValidateSha(TrustedWorkflowSha, nameof(TrustedWorkflowSha));
+        if (TrustedEventSha is not null)
+            ValidateSha(TrustedEventSha, nameof(TrustedEventSha));
+        if ((JobKey is not null && (!Clean(JobKey, 100) ||
+                !JobKey.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))) ||
+            (SourceArtifactName is not null && !Clean(SourceArtifactName, 200)) ||
+            (JobKey is null && SourceArtifactName is not null))
+            throw new ArgumentException("Required-check key and optional source artifact name must be bounded and consistent.");
         if (!Clean(WorkflowPath, 512) ||
             !WorkflowPath.StartsWith(".github/workflows/", StringComparison.Ordinal) ||
             !(WorkflowPath.EndsWith(".yml", StringComparison.Ordinal) || WorkflowPath.EndsWith(".yaml", StringComparison.Ordinal)) ||
@@ -92,15 +104,19 @@ public sealed record CiAiDispatchRunBinding(
     string CandidateRef,
     string CandidateSha,
     string Event,
-    DateTimeOffset BoundAt)
+    DateTimeOffset BoundAt,
+    string? EventSha = null)
 {
     public CiAiDispatchRunBinding ValidateAgainst(CiAiRequestTaskMapping mapping)
     {
         ArgumentNullException.ThrowIfNull(mapping);
+        var expectedEventSha = mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
+        var observedEventSha = EventSha ?? WorkflowSha;
         if (RunId <= 0 || RunAttempt <= 0 || BoundAt == default ||
             !string.Equals(Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
             WorkflowPath != mapping.WorkflowPath || WorkflowRef != mapping.TrustedWorkflowRef ||
             !string.Equals(WorkflowSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(observedEventSha, expectedEventSha, StringComparison.OrdinalIgnoreCase) ||
             CandidateRef != mapping.CandidateRef ||
             !string.Equals(CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
             Event != "workflow_dispatch" || BoundAt < mapping.CreatedAt || BoundAt > mapping.ExpiresAt)
