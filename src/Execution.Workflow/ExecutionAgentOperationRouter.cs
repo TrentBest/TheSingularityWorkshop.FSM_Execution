@@ -220,9 +220,9 @@ public sealed class ExecutionAgentOperationRouter
         ArgumentException.ThrowIfNullOrWhiteSpace(approvalId);
 
         var now = _timeProvider.GetUtcNow();
-        if (task.Status != WorkTaskStatus.Investigating ||
+        if (task.Status is not (WorkTaskStatus.Investigating or WorkTaskStatus.RepairRequired) ||
             task.Lease is not { } lease || lease.ExpiresAt <= now)
-            throw new UnauthorizedAccessException("A live Investigating task lease is required to resume an approved operation.");
+            throw new UnauthorizedAccessException("A live Investigating or RepairRequired task lease is required to resume an approved operation.");
         if (turn.TaskId != task.Request.TaskId || turn.CorrelationId != task.Request.CorrelationId ||
             !string.Equals(turn.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(turn.BaseCommitSha, task.Request.BaseSha, StringComparison.OrdinalIgnoreCase) ||
