@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.HeadlessAi
-          ref: 088c638ae85a25649e0ddabb3773ac2ee5b941cc
+          ref: 309e75aa1647a51a10516d7d4abd2556efc48a35
           path: headlessai
 
       - name: Check out pinned FSM_Serialization development source
