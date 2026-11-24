@@ -211,12 +211,20 @@ public sealed class ExecutionAgentOperationRouter
             if (!root.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.String ||
                 string.IsNullOrWhiteSpace(path.GetString()))
                 throw new ArgumentException("Repository read/write operations require a non-empty 'path' argument.");
-            return path.GetString();
+            var value = path.GetString();
+            if (!IsSafeRepositoryPath(value))
+                throw new ArgumentException("Repository path must be safe and repository-relative.");
+            return value;
         }
         if (root.TryGetProperty("path", out _))
             throw new ArgumentException("A repository path is not valid for this operation.");
         return null;
     }
+
+    private static bool IsSafeRepositoryPath(string path) =>
+        !string.IsNullOrWhiteSpace(path) && path[0] != '/' && path.IndexOf((char)92) < 0 &&
+        path.IndexOf(':') < 0 && path.Split('/').All(segment => segment.Length > 0 &&
+            segment is not "." and not ".." && !segment.Any(char.IsControl));
 
     private static string CreateApprovalId(ExecutionHeadlessAiTurnResult turn, int index,
         ExecutionHeadlessAiOperationProposal proposal)
