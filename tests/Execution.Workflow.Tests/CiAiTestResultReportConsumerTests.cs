@@ -37,7 +37,7 @@ public sealed class CiAiTestResultReportConsumerTests
     public void ConsumesActionableReportIntoBoundAttemptAndHeadlessEvidence()
     {
         var bytes = CreateReport("ActionableFailure", "Failed", "failure", EventSha);
-        var consumed = Consume(bytes, jobConclusion: "success");
+        var consumed = Consume(bytes, jobConclusion: "failure");
 
         Assert.Equal("ActionableFailure", consumed.Verdict);
         Assert.Equal("task-1", consumed.TaskId);
