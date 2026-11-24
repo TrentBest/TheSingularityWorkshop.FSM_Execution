@@ -21,6 +21,8 @@ public sealed class ExecutionAcceptedCiAiReportContext
     public string Verdict { get; }
     public string ReportIdentity { get; }
     public string NoticeIdentitySha256 { get; }
+    /// <summary>Digest of the authoritative ciai.workflow-evidence.v2 packet that gated repair.</summary>
+    public string AuthoritativeWorkflowEvidenceSha256 { get; }
     public string CanonicalReportJson { get; }
     public string ReportSha256 { get; }
     public string WorkflowRunId { get; }
@@ -38,6 +40,7 @@ public sealed class ExecutionAcceptedCiAiReportContext
         string verdict,
         string reportIdentity,
         string noticeIdentitySha256,
+        string authoritativeWorkflowEvidenceSha256,
         string canonicalReportJson,
         string reportSha256,
         string workflowRunId,
@@ -52,6 +55,7 @@ public sealed class ExecutionAcceptedCiAiReportContext
         Verdict = verdict;
         ReportIdentity = reportIdentity;
         NoticeIdentitySha256 = noticeIdentitySha256;
+        AuthoritativeWorkflowEvidenceSha256 = authoritativeWorkflowEvidenceSha256;
         CanonicalReportJson = canonicalReportJson;
         ReportSha256 = reportSha256;
         WorkflowRunId = workflowRunId;
@@ -77,6 +81,11 @@ public sealed class ExecutionAcceptedCiAiReportContext
         if (NoticeIdentitySha256 is not { Length: 64 } || !NoticeIdentitySha256.All(Uri.IsHexDigit) ||
             !string.Equals(NoticeIdentitySha256, NoticeIdentitySha256.ToLowerInvariant(), StringComparison.Ordinal))
             throw new InvalidDataException("Accepted outer notice identity must be a lowercase SHA-256 fingerprint.");
+        if (AuthoritativeWorkflowEvidenceSha256 is not { Length: 64 } ||
+            !AuthoritativeWorkflowEvidenceSha256.All(Uri.IsHexDigit) ||
+            !string.Equals(AuthoritativeWorkflowEvidenceSha256,
+                AuthoritativeWorkflowEvidenceSha256.ToLowerInvariant(), StringComparison.Ordinal))
+            throw new InvalidDataException("Accepted diagnostic report must retain the authoritative workflow-evidence v2 digest.");
 
         if (string.IsNullOrWhiteSpace(WorkflowPath) || WorkflowPath.Length > 512 ||
             !WorkflowPath.StartsWith(".github/workflows/", StringComparison.Ordinal) ||
@@ -339,6 +348,7 @@ public static class CiAiTestResultReportConsumer
             verdict,
             "sha256:" + reportDigest,
             artifact.NoticeIdentitySha256,
+            repairRequiredEvent.EvidencePayloadSha256,
             new UTF8Encoding(false, true).GetString(bytes.Span),
             reportDigest,
             run.RunId.ToString(CultureInfo.InvariantCulture),
