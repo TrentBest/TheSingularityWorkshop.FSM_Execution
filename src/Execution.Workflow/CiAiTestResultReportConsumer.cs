@@ -18,7 +18,7 @@ public sealed record CiAiRepairFeedbackResult(
 /// </summary>
 /// <summary>
 /// Host-accepted, byte-exact CiAi report context for one subsequent HeadlessAi repair turn.
-/// The report remains opaque to HeadlessAi; Foundry preserves the accepted bytes and trusted lineage.
+/// The report remains opaque to HeadlessAi; Execution preserves the accepted bytes and trusted lineage.
 /// </summary>
 public sealed class ExecutionAcceptedCiAiReportContext
 {
@@ -147,9 +147,9 @@ public sealed record CiAiDiagnosticReportContext(
     ExecutionAcceptedCiAiReportContext AcceptedReport);
 
 /// <summary>
-/// Consumes the versioned ciai.test-results.v1 JSON report after Foundry has authenticated
+/// Consumes the versioned ciai.test-results.v1 JSON report after Execution has authenticated
 /// the sender, validated its dispatch notice, retrieved the artifact, and verified its bytes.
-/// This adapter verifies the report's binding to Foundry's persisted dispatch intent; it does
+/// This adapter verifies the report's binding to Execution's persisted dispatch intent; it does
 /// not parse TRX, reinterpret test failures, or decide whether diagnostics are actionable.
 /// </summary>
 public static class CiAiTestResultReportConsumer
@@ -204,7 +204,7 @@ public static class CiAiTestResultReportConsumer
         if (task.Request.TaskId != mapping.TaskId ||
             task.Request.CorrelationId != mapping.CorrelationId ||
             !string.Equals(task.Request.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase))
-            throw new UnauthorizedAccessException("CiAi report dispatch mapping does not identify the supplied Foundry task.");
+            throw new UnauthorizedAccessException("CiAi report dispatch mapping does not identify the supplied Execution task.");
         if (task.Status != WorkTaskStatus.RepairRequired)
             throw new UnauthorizedAccessException("Diagnostic test reports can be consumed for repair only after authoritative workflow evidence has already placed the task in RepairRequired.");
         if (task.Attempt < 1 || task.Events.Count == 0)
