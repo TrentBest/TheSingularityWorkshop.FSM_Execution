@@ -221,7 +221,7 @@ public sealed class ExecutionAgentOperationRouter
         return null;
     }
 
-    private static bool IsSafeRepositoryPath(string path) =>
+    private static bool IsSafeRepositoryPath(string? path) =>
         !string.IsNullOrWhiteSpace(path) && path[0] != '/' && path.IndexOf((char)92) < 0 &&
         path.IndexOf(':') < 0 && path.Split('/').All(segment => segment.Length > 0 &&
             segment is not "." and not ".." && !segment.Any(char.IsControl));
