@@ -183,7 +183,7 @@ public sealed class CiAiArtifactHostCompositionTests
             {
                 EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
             }.Validate();
-            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Appended, attempts.Append(authoritativeAttempt));
+            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Appended, attemptJournal.Append(authoritativeAttempt));
             var expectation = new WorkTaskRepairEvidenceExpectation(
                 "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
                 CandidateSha, Created, RunId, RunAttempt);
