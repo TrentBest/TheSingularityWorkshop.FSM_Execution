@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using TheSingularityWorkshop.Foundry;
+using TheSingularityWorkshop.Execution;
 
-namespace TheSingularityWorkshop.Foundry.Approvals;
+namespace TheSingularityWorkshop.Execution.Approvals;
 
 /// <summary>
 /// Host-supplied authorization boundary. Implementations must authenticate the caller and
