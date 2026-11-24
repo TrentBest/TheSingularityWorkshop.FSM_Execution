@@ -154,6 +154,34 @@ public sealed record ExecutionHeadlessAiEvidence
 /// Normalized HeadlessAi output returned to Execution. Every proposal field remains untrusted;
 /// this result cannot authorize a repository operation or lifecycle transition.
 /// </summary>
+/// <summary>One untrusted structured operation proposed by HeadlessAi.</summary>
+public sealed record ExecutionHeadlessAiOperationProposal
+{
+    public required string Operation { get; init; }
+    public required string Summary { get; init; }
+    public required string Rationale { get; init; }
+    public required string ArgumentsJson { get; init; }
+
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(Operation) || Operation.Length > 128 || Operation.Any(char.IsControl) ||
+            string.IsNullOrWhiteSpace(Summary) || Summary.Length > 1024 || Summary.Any(char.IsControl) ||
+            string.IsNullOrWhiteSpace(Rationale) || Rationale.Length > 4096 || Rationale.Any(char.IsControl) ||
+            string.IsNullOrWhiteSpace(ArgumentsJson) || ArgumentsJson.Length > 64 * 1024)
+            throw new ArgumentException("HeadlessAi operation proposal fields are missing or exceed their bounds.");
+        try
+        {
+            using var document = JsonDocument.Parse(ArgumentsJson, new JsonDocumentOptions { MaxDepth = 16 });
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                throw new ArgumentException("HeadlessAi operation arguments must be a JSON object.");
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("HeadlessAi operation arguments must be valid JSON.", nameof(ArgumentsJson), exception);
+        }
+    }
+}
+
 public sealed record ExecutionHeadlessAiTurnResult
 {
     public required string TurnId { get; init; }
@@ -185,6 +213,7 @@ public sealed record ExecutionHeadlessAiTurnResult
     public string? NextExpectedUpdate { get; init; }
     public string? StopOrEscalateReason { get; init; }
     public string? HumanDecisionRequired { get; init; }
+    public IReadOnlyList<ExecutionHeadlessAiOperationProposal> Operations { get; init; } = Array.Empty<ExecutionHeadlessAiOperationProposal>();
 
     public void ValidateAgainst(ExecutionHeadlessAiTurnRequest request)
     {
@@ -203,6 +232,7 @@ public sealed record ExecutionHeadlessAiTurnResult
             string.IsNullOrWhiteSpace(ModelId) || ModelId.Length > 256 ||
             RequestFingerprint is not { Length: 64 } || !RequestFingerprint.All(Uri.IsHexDigit) ||
             CompletedAt < StartedAt || CompletedAt > request.ExpiresAt || Questions is null || Questions.Count > 64 ||
+            Operations is null || Operations.Count > 16 || Operations.Any(operation => operation is null) ||
             Questions.Any(question => string.IsNullOrWhiteSpace(question) || question.Length > 2_048) ||
             Confidence is < 0 or > 1 || (Confidence.HasValue && double.IsNaN(Confidence.Value)))
             throw new InvalidOperationException("HeadlessAi returned a malformed or unbounded result.");
@@ -213,6 +243,11 @@ public sealed record ExecutionHeadlessAiTurnResult
             Blocker?.Length > 4_096 || NextExpectedUpdate?.Length > 2_048 ||
             StopOrEscalateReason?.Length > 4_096 || HumanDecisionRequired?.Length > 4_096)
             throw new InvalidOperationException("HeadlessAi returned proposal text beyond the accepted bounds.");
+        foreach (var operation in Operations)
+        {
+            try { operation.Validate(); }
+            catch (ArgumentException exception) { throw new InvalidOperationException("HeadlessAi returned an invalid structured operation proposal.", exception); }
+        }
     }
 }
 
