@@ -33,6 +33,13 @@ jobs:
           ref: 97e907c98498cf2fa4c713ac774e718e912ee366
           path: headlessai
 
+      - name: Check out pinned FSM_Serialization development source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: TrentBest/TheSingularityWorkshop.FSM_Serialization
+          ref: da730f0e33239c6031e44fdcc5ee350ac57b385d
+          path: dependencies/FSM_Serialization
+
       - name: Set up .NET 10
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
