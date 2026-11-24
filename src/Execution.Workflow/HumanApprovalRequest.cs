@@ -13,6 +13,7 @@ public sealed record HumanApprovalRequest(
     string ApprovalId,
     string TaskId,
     string CorrelationId,
+    string TurnId,
     string Repository,
     string CandidateSha,
     string RequestedBy,
@@ -44,6 +45,7 @@ public sealed record HumanApprovalRequest(
         Required(ApprovalId, nameof(ApprovalId), 128);
         Required(TaskId, nameof(TaskId), 128);
         Required(CorrelationId, nameof(CorrelationId), 128);
+        Required(TurnId, nameof(TurnId), 128);
         Required(Repository, nameof(Repository), 256);
         var repositoryParts = Repository.Split('/');
         if (repositoryParts.Length != 2 || repositoryParts.Any(part => string.IsNullOrWhiteSpace(part) ||
@@ -90,12 +92,12 @@ public sealed record HumanApprovalRequest(
     }
 
     public static HumanApprovalRequest Create(string approvalId, string taskId, string correlationId,
-        string repository, string candidateSha, string requestedBy, string operation, string summary,
+        string turnId, string repository, string candidateSha, string requestedBy, string operation, string summary,
         string rationale, string argumentsJson, DateTimeOffset createdAt, DateTimeOffset expiresAt)
     {
         ArgumentNullException.ThrowIfNull(argumentsJson);
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(argumentsJson))).ToLowerInvariant();
-        return new HumanApprovalRequest(CurrentSchemaVersion, approvalId, taskId, correlationId,
+        return new HumanApprovalRequest(CurrentSchemaVersion, approvalId, taskId, correlationId, turnId,
             repository, candidateSha, requestedBy, operation, summary, rationale, argumentsJson,
             digest, createdAt, expiresAt, 1, HumanApprovalStatus.Pending, null, null, null).Validate();
     }
