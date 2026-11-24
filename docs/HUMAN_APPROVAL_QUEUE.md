@@ -21,12 +21,28 @@ LLM response
 
 A pending request contains the task/correlation identity, repository, exact candidate SHA, model identity, operation kind, human-readable summary and rationale, exact JSON arguments, SHA-256 of those arguments, creation/expiry timestamps, and sequence. The proposal is immutable after creation. A decision is a second append-only snapshot with actor, reason, timestamp, and incremented sequence.
 
+## Structured model operations
+
+HeadlessAi can return a bounded list of structured operation proposals: an operation identifier, summary, rationale, and JSON-object arguments. These are still untrusted model data; HeadlessAi does not decide whether they are allowed.
+
+Execution's ExecutionAgentOperationRouter processes the ordered proposals against the closed WorkTaskAction vocabulary and host-owned IExecutionAgentOperationPolicy:
+
+- unknown operations are rejected;
+- a host policy rejection stops the plan;
+- a policy decision requiring human authority creates or retrieves one idempotent durable approval request;
+- a policy-approved operation must still pass the live WorkTaskCapabilityRegistry demand before the host executor is called;
+- processing stops at the first approval/rejection barrier; later proposals remain deferred.
+
+The last-mile host executor must re-read current task state and re-demand the capability immediately before its side effect. An approved request is not auto-executed by the queue; the host must resume it through a separate approval-consumption path that revalidates the exact candidate and current policy.
+
 ## Implemented in this slice
 
 - `HumanApprovalRequest` is a versioned immutable proposal contract.
 - `JsonlHumanApprovalRequestStore` persists requests and decisions in an append-only, fsync-backed JSONL journal.
 - Replay validates request schema, argument digest, sequence continuity, and immutable proposal identity.
 - Pending requests can be queried globally or filtered by repository.
+- Structured model operation proposals are mapped to the closed Execution action vocabulary and routed through host policy, capability demand, or the human approval queue.
+- Replayed model turns use deterministic approval identities and return the existing exact request instead of creating duplicates.
 - Only Pending requests can be decided; a second decision is rejected.
 - Tests cover restart recovery, pending-query filtering, durable approval, immutable proposals, argument-digest validation, expiry bounds, and duplicate decisions.
 
