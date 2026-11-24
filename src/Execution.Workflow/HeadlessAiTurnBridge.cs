@@ -360,6 +360,8 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
         var expectedStatus = task.Status;
         if (expectedStatus is not (WorkTaskStatus.Investigating or WorkTaskStatus.RepairRequired))
             throw new InvalidOperationException("HeadlessAi may be invoked only during investigation or for a CiAi-authorized repair-required turn.");
+        if (expectedStatus == WorkTaskStatus.Investigating && acceptedCiAiReport is not null)
+            throw new UnauthorizedAccessException("Diagnostic test reports may be supplied only after authoritative workflow-evidence v2 has placed the task in RepairRequired.");
         if (expectedStatus == WorkTaskStatus.RepairRequired)
         {
             if (string.IsNullOrWhiteSpace(priorTurnId) ||
