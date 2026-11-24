@@ -302,6 +302,7 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
                 AcceptedReportRunAttempt = request.AcceptedCiAiReport?.RunAttempt,
                 AcceptedReportCandidateCommitSha = request.AcceptedCiAiReport?.CandidateCommitSha,
                 AcceptedReportSourceArtifactIdentitySha256 = request.AcceptedCiAiReport?.SourceArtifactIdentitySha256,
+                AcceptedReportAuthoritativeWorkflowEvidenceSha256 = request.AcceptedCiAiReport?.AuthoritativeWorkflowEvidenceSha256,
                 Diagnosis = "The required action is rejected in terminal state.",
                 PatchIntent = "Propose a narrowly scoped correction."
             });
