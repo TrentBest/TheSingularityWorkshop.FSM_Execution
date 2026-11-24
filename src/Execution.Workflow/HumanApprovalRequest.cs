@@ -174,7 +174,8 @@ public sealed class JsonlHumanApprovalRequestStore
                     DecidedAt = null
                 };
                 var candidate = request with { Sequence = 1, Status = HumanApprovalStatus.Pending,
-                    DecisionBy = null, DecisionReason = null, DecidedAt = null };
+                    DecisionBy = null, DecisionReason = null, DecidedAt = null,
+                    CreatedAt = existing.CreatedAt, ExpiresAt = existing.ExpiresAt };
                 if (original != candidate)
                     throw new InvalidOperationException("An approval ID was replayed with different proposal content.");
                 return existing;
