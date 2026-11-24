@@ -127,12 +127,23 @@ public sealed class ExecutionAcceptedCiAiReportContext
     }
 }
 
-public sealed record CiAiConsumedTestResult(
-    WorkTaskRepairAttempt Attempt,
+/// <summary>
+/// Diagnostic-only projection of a validated ciai.test-results.v1 report. It cannot transition
+/// task lifecycle, satisfy required checks, or grant repository capabilities.
+/// </summary>
+public sealed record CiAiDiagnosticReportContext(
+    string TaskId,
+    string CorrelationId,
+    string Repository,
+    string CandidateSha,
+    long WorkflowRunId,
+    int RunAttempt,
+    string AuthoritativeWorkflowEvidenceSha256,
     ExecutionHeadlessAiEvidence HeadlessAiEvidence,
     string Verdict,
     IReadOnlyList<string> ReasonCodes,
     string ReportSha256,
+    string? SourceArtifactIdentitySha256,
     ExecutionAcceptedCiAiReportContext AcceptedReport);
 
 /// <summary>
@@ -194,23 +205,20 @@ public static class CiAiTestResultReportConsumer
             task.Request.CorrelationId != mapping.CorrelationId ||
             !string.Equals(task.Request.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("CiAi report dispatch mapping does not identify the supplied Foundry task.");
-        if (task.Status != WorkTaskStatus.Validating)
-            throw new InvalidOperationException("A new CiAi report can be applied only to the task's active validation attempt; CODE RED recovery requires the host approval path first.");
+        if (task.Status != WorkTaskStatus.RepairRequired)
+            throw new UnauthorizedAccessException("Diagnostic test reports can be consumed for repair only after authoritative workflow evidence has already placed the task in RepairRequired.");
         if (task.Attempt < 1 || task.Events.Count == 0)
-            throw new InvalidOperationException("Foundry task has no durable validation-attempt history.");
+            throw new InvalidOperationException("Execution task has no durable lifecycle history.");
+        if (!string.Equals(mapping.CandidateSha, task.Request.CandidateSha, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("CiAi report candidate does not match the active task candidate.");
 
-        var candidateBranch = mapping.CandidateRef.StartsWith("refs/heads/", StringComparison.Ordinal)
-            ? mapping.CandidateRef["refs/heads/".Length..]
-            : throw new InvalidOperationException("Persisted CiAi candidate ref is not a branch ref.");
-        if (candidateBranch is "master" or "development")
-            throw new UnauthorizedAccessException("CiAi evidence cannot target a canonical branch.");
-
-        var validatingEvent = task.Events.LastOrDefault(item => item.Current == WorkTaskStatus.Validating)
-            ?? throw new InvalidOperationException("Foundry task has no durable Validating transition for this CI attempt.");
-        var taskStartedAt = task.Events[0].OccurredAt;
-        if (validatingEvent.CiRunId.HasValue &&
-            (validatingEvent.CiRunId != run.RunId || validatingEvent.CiRunAttempt != run.RunAttempt))
-            throw new InvalidOperationException("The exact GitHub run does not match the task's persisted validation transition.");
+        var repairRequiredEvent = task.Events.LastOrDefault(item => item.Current == WorkTaskStatus.RepairRequired)
+            ?? throw new InvalidOperationException("Task has no durable RepairRequired event from authoritative workflow evidence.");
+        if (repairRequiredEvent.CiRunId != run.RunId || repairRequiredEvent.CiRunAttempt != run.RunAttempt ||
+            string.IsNullOrWhiteSpace(repairRequiredEvent.EvidencePayloadSha256) ||
+            repairRequiredEvent.EvidencePayloadSha256.Length != 64 ||
+            !repairRequiredEvent.EvidencePayloadSha256.All(Uri.IsHexDigit))
+            throw new UnauthorizedAccessException("Diagnostic report does not match the exact run/attempt and authoritative workflow-evidence digest that placed the task in RepairRequired.");
 
         var bytes = artifact.Bytes;
         if (bytes.IsEmpty || bytes.Length > MaximumReportBytes || bytes.Length != artifact.SizeBytes)
@@ -292,38 +300,8 @@ public static class CiAiTestResultReportConsumer
         var (failedResultDigests, failedSummary, counts) = ReadAndValidateResults(properties);
         ValidateResultCounters(properties, counts);
         ValidateVerdictResults(verdict, counts, failedSummary, failedResultDigests);
-        var evidenceComplete = verdict != "IncompleteOrUntrusted";
-        var successful = verdict == "CompletePass";
-        var actionable = verdict == "ActionableFailure";
-
-        var diagnosticsFingerprint = actionable
-            ? HashText(string.Join("\n", reasonCodes.Order(StringComparer.Ordinal)
-                .Concat(failedResultDigests.Order(StringComparer.Ordinal))))
-            : null;
-        var evidencePayloadSha = reportDigest;
-
-        var attempt = new WorkTaskRepairAttempt(
-            WorkTaskRepairAttempt.CurrentSchemaVersion,
-            mapping.TaskId,
-            mapping.CorrelationId,
-            mapping.Repository,
-            candidateBranch,
-            mapping.WorkflowPath,
-            taskStartedAt,
-            task.Attempt,
-            mapping.CandidateSha,
-            run.RunId,
-            run.RunAttempt,
-            evidencePayloadSha,
-            evidenceComplete,
-            successful,
-            actionable,
-            diagnosticsFingerprint,
-            validatingEvent.OccurredAt,
-            observedAt)
-        {
-            SourceArtifactIdentitySha256 = sourceArtifactBinding?.IdentitySha256
-        }.Validate();
+        if (jobConclusion != "failure")
+            throw new UnauthorizedAccessException("A task already in RepairRequired cannot consume a diagnostic report that claims a non-failing provider job.");
 
         var summary = BuildBoundedSummary(verdict, reasonCodes, failedSummary);
         var headlessEvidence = new ExecutionHeadlessAiEvidence
@@ -357,8 +335,20 @@ public static class CiAiTestResultReportConsumer
             sourceArtifactBinding);
         acceptedReport.Validate(mapping.Repository, mapping.CandidateSha, null);
 
-        return new CiAiConsumedTestResult(attempt, headlessEvidence, verdict,
-            Array.AsReadOnly(reasonCodes.ToArray()), reportDigest, acceptedReport);
+        return new CiAiDiagnosticReportContext(
+            mapping.TaskId,
+            mapping.CorrelationId,
+            mapping.Repository,
+            mapping.CandidateSha,
+            run.RunId,
+            run.RunAttempt,
+            repairRequiredEvent.EvidencePayloadSha256,
+            headlessEvidence,
+            verdict,
+            Array.AsReadOnly(reasonCodes.ToArray()),
+            reportDigest,
+            sourceArtifactBinding?.IdentitySha256,
+            acceptedReport);
     }
 
     private static void ValidateSourceArtifactMetadata(
