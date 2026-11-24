@@ -202,6 +202,104 @@ public sealed class ExecutionAgentOperationRouter
             Array.AsReadOnly(outcomes.ToArray()));
     }
 
+    /// <summary>
+    /// Resumes one explicitly approved proposal from its original durable turn. The method
+    /// revalidates the task lease, exact candidate, approval identity, current host policy,
+    /// and a fresh capability. Execution intent is journaled before the side effect; an
+    /// interrupted Executing record is indeterminate and is never replayed automatically.
+    /// </summary>
+    public async Task<ExecutionAgentOperationOutcome> ResumeApprovedAsync(
+        WorkTaskSnapshot task, ExecutionHeadlessAiTurnResult turn, string approvalId,
+        Guid capabilityId, string branch, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        ArgumentNullException.ThrowIfNull(turn);
+        ArgumentNullException.ThrowIfNull(task.Request);
+        ArgumentNullException.ThrowIfNull(turn.Operations);
+
+        var now = _timeProvider.GetUtcNow();
+        if (task.Status != WorkTaskStatus.Investigating ||
+            task.Lease is not { } lease || lease.ExpiresAt <= now)
+            throw new UnauthorizedAccessException("A live Investigating task lease is required to resume an approved operation.");
+        if (turn.TaskId != task.Request.TaskId || turn.CorrelationId != task.Request.CorrelationId ||
+            !string.Equals(turn.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(turn.BaseCommitSha, task.Request.BaseSha, StringComparison.OrdinalIgnoreCase) ||
+            turn.CandidateCommitSha.Length != 40 || !turn.CandidateCommitSha.All(Uri.IsHexDigit) ||
+            !string.Equals(turn.AuthorizedBranch, branch, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("The completed HeadlessAi turn is not bound to the current task, branch, and candidate.");
+        if (turn.Operations.Count > 16)
+            throw new ArgumentException("At most 16 model operations can be resumed from one turn.", nameof(turn));
+
+        var approval = _approvals.Get(approvalId);
+        if (approval.TaskId != task.Request.TaskId ||
+            approval.CorrelationId != task.Request.CorrelationId ||
+            !string.Equals(approval.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(approval.TurnId, turn.TurnId, StringComparison.Ordinal) ||
+            !string.Equals(approval.CandidateSha, turn.CandidateCommitSha, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("The approval request does not match this task and exact HeadlessAi turn.");
+
+        var proposalIndex = -1;
+        ExecutionHeadlessAiOperationProposal? proposal = null;
+        for (var index = 0; index < turn.Operations.Count; index++)
+        {
+            var candidate = turn.Operations[index] ??
+                throw new ArgumentException("Model operation proposal cannot be null.", nameof(turn));
+            if (CreateApprovalId(turn, index, candidate) != approvalId)
+                continue;
+            if (proposal is not null)
+                throw new InvalidDataException("The approval identity unexpectedly matched multiple model proposals.");
+            proposalIndex = index;
+            proposal = candidate;
+        }
+
+        if (proposal is null || proposalIndex < 0)
+            throw new UnauthorizedAccessException("The approval identity does not resolve to one proposal in the durable HeadlessAi turn.");
+        proposal.Validate();
+        if (approval.Operation != proposal.Operation || approval.Summary != proposal.Summary ||
+            approval.ArgumentsJson != proposal.ArgumentsJson ||
+            approval.RequestedBy != turn.ProviderId + "/" + turn.ModelId ||
+            !approval.Rationale.StartsWith(proposal.Rationale + " Host policy: ", StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("The approved proposal content differs from the durable HeadlessAi response.");
+
+        if (approval.Status == HumanApprovalStatus.Executed)
+            return new(approval.Operation, ExecutionAgentOperationDisposition.Executed,
+                "This approved operation already has a durable execution receipt.",
+                approval.ApprovalId, approval.ExecutionResult);
+        if (approval.Status == HumanApprovalStatus.Executing)
+            throw new InvalidOperationException(
+                "The approved operation has a durable Executing record without a completion receipt. Reconcile the host side effect; automatic replay is blocked.");
+        if (approval.Status != HumanApprovalStatus.Approved)
+            throw new UnauthorizedAccessException("The operation does not have an active human approval.");
+        if (approval.ExpiresAt <= now)
+            throw new UnauthorizedAccessException("The human approval expired before execution.");
+
+        if (!Enum.TryParse<WorkTaskAction>(proposal.Operation, ignoreCase: false, out var action) ||
+            !Enum.IsDefined(action) || !string.Equals(Enum.GetName(action), proposal.Operation, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("The approved operation is not part of Execution's closed action vocabulary.");
+
+        var policy = _policy.Classify(task, turn, action, proposal);
+        if (!Enum.IsDefined(policy.Decision) || string.IsNullOrWhiteSpace(policy.Reason) ||
+            policy.Reason.Length > 2048 || policy.Reason.Any(char.IsControl) ||
+            policy.Decision == ExecutionAgentOperationPolicyDecision.Reject)
+            throw new UnauthorizedAccessException("Current host policy no longer permits the approved operation.");
+
+        var path = ReadPathArgument(action, proposal.ArgumentsJson);
+        _capabilities.Demand(capabilityId, task, branch, turn.CandidateCommitSha,
+            action, path, now);
+
+        // Persist the one-way execution fence before any external side effect. If the process
+        // stops after this append, a human must reconcile the outcome rather than replay it.
+        _approvals.BeginExecution(approvalId, now);
+        var executionResult = await _executor.ExecuteAsync(new ExecutionAgentOperationContext(
+            task, turn.TurnId, capabilityId, branch, turn.CandidateCommitSha, action, proposal),
+            cancellationToken).ConfigureAwait(false);
+        var completedAt = _timeProvider.GetUtcNow();
+        _approvals.CompleteExecution(approvalId, executionResult, completedAt);
+        return new(approval.Operation, ExecutionAgentOperationDisposition.Executed,
+            "The approved operation completed and its receipt was durably recorded.",
+            approval.ApprovalId, executionResult);
+    }
+
     private static string? ReadPathArgument(WorkTaskAction action, string argumentsJson)
     {
         using var document = JsonDocument.Parse(argumentsJson, new JsonDocumentOptions { MaxDepth = 16 });
