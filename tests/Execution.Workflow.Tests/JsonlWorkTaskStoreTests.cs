@@ -216,11 +216,12 @@ public sealed class JsonlWorkTaskStoreTests
             coordinator.Transition("task-1", lease, WorkTaskStatus.Investigating, Now, "inspect");
             coordinator.Transition("task-1", lease, WorkTaskStatus.Implementing, Now, "implement");
             coordinator.Transition("task-1", lease, WorkTaskStatus.Validating, Now, "validate");
-            var attempt = new WorkTaskRepairAttempt(1, "task-1", "correlation-1",
+            var attempt = new WorkTaskRepairAttempt(WorkTaskRepairAttempt.CurrentSchemaVersion, "task-1", "correlation-1",
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", Now, 1, new string('a', 40), 1001, 1,
                 new string('f', 64), true, true, false, null,
-                Now.AddMinutes(1), Now.AddMinutes(2));
+                Now.AddMinutes(1), Now.AddMinutes(2))
+            { SourceArtifactIdentitySha256 = new string('c', 64) };
             var expectation = new WorkTaskRepairEvidenceExpectation("task-1", "correlation-1",
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", new string('a', 40), Now);
@@ -266,11 +267,12 @@ public sealed class JsonlWorkTaskStoreTests
             coordinator.Transition("task-1", lease, WorkTaskStatus.Investigating, Now, "inspect");
             coordinator.Transition("task-1", lease, WorkTaskStatus.Implementing, Now, "implement");
             coordinator.Transition("task-1", lease, WorkTaskStatus.Validating, Now, "validate");
-            var attempt = new WorkTaskRepairAttempt(1, "task-1", "correlation-1",
+            var attempt = new WorkTaskRepairAttempt(WorkTaskRepairAttempt.CurrentSchemaVersion, "task-1", "correlation-1",
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", Now, 1, new string('a', 40), 1001, 1,
                 new string('f', 64), true, true, false, null,
-                Now.AddMinutes(1), Now.AddMinutes(2));
+                Now.AddMinutes(1), Now.AddMinutes(2))
+            { SourceArtifactIdentitySha256 = new string('c', 64) };
             var expectation = new WorkTaskRepairEvidenceExpectation("task-1", "correlation-1",
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", new string('a', 40), Now);
