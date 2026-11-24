@@ -394,16 +394,26 @@ public static class CiAiTestResultReportConsumer
         var payloadSize = ReadInt64(properties, "payloadSizeBytes");
 
         if (sourceArtifactId <= 0 || string.IsNullOrWhiteSpace(sourceArtifactName) ||
-            (string.IsNullOrWhiteSpace(mapping.JobKey) ||
-             !string.Equals(sourceJobKey, mapping.JobKey, StringComparison.Ordinal)) ||
-            reportJobId != sourceBinding.JobId ||
-            !string.Equals(reportJobName, sourceBinding.JobName, StringComparison.Ordinal) ||
-            !string.Equals(reportJobStatus, sourceBinding.JobStatus, StringComparison.Ordinal) ||
-            !string.Equals(reportJobConclusion, sourceBinding.JobConclusion, StringComparison.Ordinal) ||
-            sourceArtifactId != sourceBinding.ArtifactId ||
-            !string.Equals(sourceArtifactName, sourceBinding.ArtifactName, StringComparison.Ordinal) ||
-            !string.Equals(sourceJobKey, sourceBinding.JobKey, StringComparison.Ordinal))
-            throw new UnauthorizedAccessException("CiAi report source artifact ID/name or job ID/name/key does not match the independent host observation.");
+            string.IsNullOrWhiteSpace(sourceJobKey))
+            throw new InvalidDataException("CiAi report source-artifact identity fields are missing or invalid.");
+
+        if (string.IsNullOrWhiteSpace(mapping.JobKey) ||
+            !string.Equals(sourceJobKey, mapping.JobKey, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi report source job key does not match the registered required job.");
+
+        if (reportJobId != sourceBinding.JobId)
+            throw new UnauthorizedAccessException("CiAi report job ID does not match the independent host observation.");
+        if (!string.Equals(reportJobName, sourceBinding.JobName, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi report job name does not match the independent host observation.");
+        if (!string.Equals(reportJobStatus, sourceBinding.JobStatus, StringComparison.Ordinal) ||
+            !string.Equals(reportJobConclusion, sourceBinding.JobConclusion, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi report job status or conclusion does not match the independent host observation.");
+        if (sourceArtifactId != sourceBinding.ArtifactId)
+            throw new UnauthorizedAccessException("CiAi report source artifact ID does not match the independent host observation.");
+        if (!string.Equals(sourceArtifactName, sourceBinding.ArtifactName, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi report source artifact name does not match the independent host observation.");
+        if (!string.Equals(sourceJobKey, sourceBinding.JobKey, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi report source job key does not match the independent host observation.");
 
         if (archiveDigest.Length != 71 ||
             !archiveDigest.StartsWith("sha256:", StringComparison.Ordinal) ||
