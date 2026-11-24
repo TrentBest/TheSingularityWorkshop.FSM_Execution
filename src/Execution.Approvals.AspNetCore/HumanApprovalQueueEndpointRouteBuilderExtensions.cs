@@ -51,6 +51,7 @@ public static class HumanApprovalQueueEndpointRouteBuilderExtensions
                 item.ApprovalId,
                 item.TaskId,
                 item.CorrelationId,
+                item.TurnId,
                 item.Repository,
                 item.CandidateSha,
                 item.RequestedBy,
