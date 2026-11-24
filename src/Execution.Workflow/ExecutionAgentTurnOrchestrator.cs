@@ -28,6 +28,28 @@ public sealed class ExecutionAgentTurnOrchestrator
         _operations = operations ?? throw new ArgumentNullException(nameof(operations));
     }
 
+    /// <summary>
+    /// Resumes an approved proposal from its original durable HeadlessAi turn. The original
+    /// model is not invoked again; Execution reloads the exact result and demands a fresh
+    /// task lease and capability before the host executor can perform the operation.
+    /// </summary>
+    public async Task<ExecutionAgentOperationOutcome> ResumeApprovedAsync(
+        string taskId, Guid leaseId, string turnId, string approvalId,
+        string authorizedBranch, Guid capabilityId,
+        CancellationToken cancellationToken = default)
+    {
+        var current = _tasks.GetSnapshot(taskId);
+        if (current.Lease is not { } lease || lease.LeaseId != leaseId ||
+            lease.ExpiresAt <= DateTimeOffset.UtcNow ||
+            current.Status != WorkTaskStatus.Investigating)
+            throw new UnauthorizedAccessException("A current Investigating task lease is required to resume an approved operation.");
+
+        var turn = _turns.GetCompletedTurn(taskId, turnId)
+            ?? throw new KeyNotFoundException("The original completed HeadlessAi turn was not found in the durable journal.");
+        return await _operations.ResumeApprovedAsync(current, turn, approvalId,
+            capabilityId, authorizedBranch, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<ExecutionAgentTurnOutcome> InvokeAndRouteAsync(
         string taskId, Guid leaseId, string authorizedBranch, string candidateCommitSha,
         Guid capabilityId, string role, string instructions, string canonicalPrompt,
