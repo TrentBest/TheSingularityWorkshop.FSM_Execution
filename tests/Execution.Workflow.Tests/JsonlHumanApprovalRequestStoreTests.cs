@@ -9,7 +9,7 @@ public sealed class JsonlHumanApprovalRequestStoreTests
 {
     private static readonly DateTimeOffset Created = new(2026, 11, 24, 4, 0, 0, TimeSpan.Zero);
     private static HumanApprovalRequest Request(string id = "approval-1") =>
-        HumanApprovalRequest.Create(id, "task-1", "correlation-1",
+        HumanApprovalRequest.Create(id, "task-1", "correlation-1", "turn-1",
             "TrentBest/TheSingularityWorkshop.Execution", new string('a', 40),
             "HeadlessAi/provider-model", "CreatePullRequest",
             "Create a draft pull request", "The proposed change requires human review.",
