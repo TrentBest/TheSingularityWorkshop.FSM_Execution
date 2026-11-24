@@ -40,6 +40,23 @@ public sealed class WorkTaskRepairDecisionPolicyTests
     }
 
     [Fact]
+    public void DiagnosticOrUnversionedEvidenceCannotDriveLifecycleDecision()
+    {
+        var attempt = Attempt() with { EvidenceSchema = null };
+        var result = Evaluate(Array.Empty<WorkTaskRepairAttempt>(), attempt);
+        Assert.Equal(WorkTaskRepairDecision.Blocked, result.Decision);
+        Assert.Equal("repair.authoritative-workflow-evidence-required", result.ReasonCode);
+    }
+
+    [Fact]
+    public void TestResultSchemaCannotBePresentedAsAuthoritativeEvidence()
+    {
+        var attempt = Attempt() with { EvidenceSchema = "ciai.test-results.v1" };
+        Assert.Throws<ArgumentException>(() =>
+            Evaluate(Array.Empty<WorkTaskRepairAttempt>(), attempt));
+    }
+
+    [Fact]
     public void CompleteSuccessfulEvidenceMovesTaskToReviewReady()
     {
         var result = Evaluate(Array.Empty<WorkTaskRepairAttempt>(),
