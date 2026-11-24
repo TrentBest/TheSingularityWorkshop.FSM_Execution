@@ -41,8 +41,8 @@ public sealed class ExecutionAgentTurnOrchestrator
         var current = _tasks.GetSnapshot(taskId);
         if (current.Lease is not { } lease || lease.LeaseId != leaseId ||
             lease.ExpiresAt <= DateTimeOffset.UtcNow ||
-            current.Status != WorkTaskStatus.Investigating)
-            throw new UnauthorizedAccessException("A current Investigating task lease is required to resume an approved operation.");
+            current.Status is not (WorkTaskStatus.Investigating or WorkTaskStatus.RepairRequired))
+            throw new UnauthorizedAccessException("A current Investigating or RepairRequired task lease is required to resume an approved operation.");
 
         var turn = _turns.GetCompletedTurn(taskId, turnId)
             ?? throw new KeyNotFoundException("The original completed HeadlessAi turn was not found in the durable journal.");
@@ -56,11 +56,13 @@ public sealed class ExecutionAgentTurnOrchestrator
         string responseSchema, IReadOnlyList<ExecutionHeadlessAiEvidence>? evidence = null,
         string? priorTurnId = null, string? priorCandidateCommitSha = null,
         TimeSpan? turnLifetime = null, TimeSpan? approvalLifetime = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ExecutionAcceptedCiAiReportContext? acceptedCiAiReport = null)
     {
         var turn = await _turns.InvokeAsync(taskId, leaseId, authorizedBranch, candidateCommitSha,
             role, instructions, canonicalPrompt, responseSchema, evidence, priorTurnId,
-            priorCandidateCommitSha, turnLifetime, cancellationToken).ConfigureAwait(false);
+            priorCandidateCommitSha, turnLifetime, cancellationToken,
+            acceptedCiAiReport).ConfigureAwait(false);
 
         // Re-read authoritative task state after the provider call; never route against the
         // stale snapshot captured before network I/O.
