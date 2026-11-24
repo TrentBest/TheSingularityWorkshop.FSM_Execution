@@ -50,7 +50,8 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
                 "task-1", "correlation-1", Repository, "work/task-1", WorkflowPath,
                 TaskStart, 1, CandidateSha, RunId, RunAttempt, new string('e', 64),
                 EvidenceComplete: true, IsSuccessful: false, HasActionableDiagnostics: true,
-                DiagnosticsFingerprint: new string('d', 64), ValidationStart, ObservedAt)
+                DiagnosticsFingerprint: new string('d', 64),
+                StartedAt: ValidationStart, ObservedAt: ObservedAt)
             {
                 EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
             }.Validate();
