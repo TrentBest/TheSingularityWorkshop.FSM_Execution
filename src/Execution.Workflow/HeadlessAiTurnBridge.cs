@@ -108,7 +108,7 @@ public sealed record ExecutionHeadlessAiTurnRequest
         string candidateSha, string role, string instructions, string canonicalPrompt,
         string responseSchema, string? priorTurnId, string? priorCandidateCommitSha,
         IReadOnlyList<ExecutionHeadlessAiEvidence> evidence,
-        ExecutionAcceptedCiAiReportContext? acceptedCiAiReport)
+        ExecutionAcceptedCiAiReportContext? acceptedCiAiReport = null)
     {
         var material = JsonSerializer.SerializeToUtf8Bytes(new
         {
