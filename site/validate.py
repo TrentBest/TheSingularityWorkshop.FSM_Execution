@@ -50,7 +50,7 @@ assert "No live dispatch" in page
 assert audit.inline_scripts, "No inline interaction script found"
 
 with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8") as script:
-    script.write("\\n".join(audit.inline_scripts))
+    script.write("".join(audit.inline_scripts))
     script.flush()
     subprocess.run(["node", "--check", script.name], check=True)
 
