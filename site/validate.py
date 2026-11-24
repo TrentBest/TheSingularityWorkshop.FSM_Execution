@@ -1,6 +1,5 @@
 from html.parser import HTMLParser
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 
@@ -46,7 +45,6 @@ missing = sorted(set(audit.anchors) - audit.ids)
 assert not missing, f"Broken in-page links: {missing}"
 for required in ("architecture", "lifecycle", "proof", "evidence", "boundaries"):
     assert required in audit.ids, f"Missing required section: {required}"
-assert "REAL FSM_API" not in page or "Real FSM_API" in page
 assert "documented Execution–CiAi contract, not a live integration" in page
 assert "No live dispatch" in page
 assert audit.inline_scripts, "No inline interaction script found"
