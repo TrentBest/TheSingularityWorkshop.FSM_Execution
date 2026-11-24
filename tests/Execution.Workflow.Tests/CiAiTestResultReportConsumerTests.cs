@@ -311,7 +311,7 @@ public sealed class CiAiTestResultReportConsumerTests
             Consume(duplicate));
     }
 
-    private static CiAiConsumedTestResult Consume(
+    private static CiAiDiagnosticReportContext Consume(
         byte[] bytes, bool includeJobKey = true, string jobConclusion = "failure") =>
         CiAiTestResultReportConsumer.Consume(
             CreateVerifiedArtifact(bytes, includeJobKey), CreateTask(),
