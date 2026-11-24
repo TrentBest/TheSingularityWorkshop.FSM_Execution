@@ -10,17 +10,18 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     private static WorkTaskRepairAttempt Attempt(int number = 1, char candidate = 'a',
         char diagnostics = 'd', bool successful = false, bool complete = true, bool actionable = true,
         long? runId = null, int runAttempt = 1) =>
-        new(1, "task-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
+        new(WorkTaskRepairAttempt.CurrentSchemaVersion, "task-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
             "work/task-8", ".github/workflows/build.yml", TaskStart, number,
             new string(candidate, 40), runId ?? 1000 + number, runAttempt,
             new string((char)('f' - number), 64), complete, successful,
             successful ? false : actionable, actionable && !successful ? new string(diagnostics, 64) : null,
-            TaskStart.AddMinutes(number * 3 - 2), TaskStart.AddMinutes(number * 3 - 1));
+            TaskStart.AddMinutes(number * 3 - 2), TaskStart.AddMinutes(number * 3 - 1))
+        { SourceArtifactIdentitySha256 = new string('c', 64) };
 
     [Fact]
     public void JournalPersistsEveryExactAttemptAndReplaysAfterRestart()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -45,9 +46,34 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     }
 
     [Fact]
+    public void JournalReplaysLegacyV1ButRequiresV2ForNewCompleteAttempts()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-legacy-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var legacy = Attempt() with
+            {
+                SchemaVersion = 1,
+                SourceArtifactIdentitySha256 = null
+            };
+            File.WriteAllText(path,
+                System.Text.Json.JsonSerializer.Serialize(legacy, new System.Text.Json.JsonSerializerOptions(
+                    System.Text.Json.JsonSerializerDefaults.Web)) + Environment.NewLine);
+
+            var journal = new JsonlWorkTaskRepairAttemptJournal(path);
+            Assert.Equal(legacy, journal.GetAttempts("task-8").Single());
+            Assert.Throws<ArgumentException>(() => journal.Append(legacy));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void JournalRejectsOutOfOrderConflictingAndRepeatedRunAttemptEvidence()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -70,7 +96,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void JournalRejectsAttemptsAfterSuccessAndTornFinalRecords()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -83,7 +109,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
             if (File.Exists(path)) File.Delete(path);
         }
 
-        var tornPath = Path.Combine(Path.GetTempPath(), $"execution-repair-torn-{Guid.NewGuid():N}.jsonl");
+        var tornPath = Path.Combine(Path.GetTempPath(), $"foundry-repair-torn-{Guid.NewGuid():N}.jsonl");
         try
         {
             File.WriteAllText(tornPath, System.Text.Json.JsonSerializer.Serialize(Attempt()));
@@ -98,7 +124,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
     [Fact]
     public void JournalRejectsMalformedAttemptEvidence()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -106,6 +132,11 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
             {
                 EvidencePayloadSha256 = "not-a-digest"
             }));
+            Assert.Throws<ArgumentException>(() => journal.Append(Attempt() with
+            {
+                SourceArtifactIdentitySha256 = null
+            }));
+
             Assert.Throws<ArgumentException>(() => journal.Append(Attempt() with
             {
                 WorkflowPath = "../../unsafe.yml"
@@ -117,9 +148,9 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
         }
     }
     [Fact]
-    public void DecisionCallbackSerializesAgainstConcurrentAttemptAppend()
+    public async Task DecisionCallbackSerializesAgainstConcurrentAttemptAppend()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"execution-repair-lock-{Guid.NewGuid():N}.jsonl");
+        var path = Path.Combine(Path.GetTempPath(), $"foundry-repair-lock-{Guid.NewGuid():N}.jsonl");
         try
         {
             var journal = new JsonlWorkTaskRepairAttemptJournal(path);
@@ -129,7 +160,7 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
 
             using var callbackEntered = new ManualResetEventSlim();
             using var releaseCallback = new ManualResetEventSlim();
-            using var appendStarted = new ManualResetEventSlim();
+            var appendStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
             var decision = Task.Run(() => journal.ExecuteWithAttempts("task-8", history =>
             {
@@ -143,15 +174,16 @@ public sealed class JsonlWorkTaskRepairAttemptJournalTests
             Assert.True(callbackEntered.Wait(TimeSpan.FromSeconds(5)));
             var append = Task.Run(() =>
             {
-                appendStarted.Set();
+                appendStarted.TrySetResult();
                 return journal.Append(second);
             });
-            Assert.True(appendStarted.Wait(TimeSpan.FromSeconds(5)));
-            Assert.False(append.Wait(TimeSpan.FromMilliseconds(100)));
+            await appendStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+            Assert.False(append.IsCompleted);
 
             releaseCallback.Set();
-            Assert.Equal(first, decision.GetAwaiter().GetResult());
-            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Appended, append.GetAwaiter().GetResult());
+            Assert.Equal(first, await decision);
+            Assert.Equal(WorkTaskRepairAttemptAppendOutcome.Appended, await append);
             Assert.Equal(2, journal.GetAttempts("task-8").Count);
         }
         finally
