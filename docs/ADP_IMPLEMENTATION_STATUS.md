@@ -21,7 +21,7 @@ This page separates implemented contracts from the remaining production-host wor
 3. Implement a GitHub provider observer that obtains run, exact job, and artifact metadata from authenticated provider API responses. Do not construct CiAiProviderSourceArtifactObservation from the report JSON.
 4. Implement the authenticated provider artifact-download adapter, including safe handling of the provider's archive redirect and a separately pinned, credential-free storage-origin download.
 5. Wire the ingress and approval endpoints into the selected host (ServerApp or another authoritative host), with explicit DI registrations and authorization policy.
-6. Run a live proof using a real candidate commit and real GitHub Actions artifacts: fail → authoritative v2 evidence → diagnostic report → bounded HeadlessAi proposal → human approval → isolated candidate operation → exact-SHA green rerun → draft PR.
+6. Run a live proof using a real candidate commit and real GitHub Actions artifacts: fail → authoritative V1 evidence → diagnostic report → bounded HeadlessAi proposal → human approval → isolated candidate operation → exact-SHA green rerun → draft PR.
 7. Reconcile repository branches to the two-branch standard (master and development) in one reviewed batch. No branch has been deleted as part of this work.
 
 ## Safety and release boundaries
