@@ -25,7 +25,7 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
     private const string WorkflowPath = ".github/workflows/ci.yml";
 
     [Fact]
-    public async Task DiagnosticReportCannotCreateRepairStateAndOnlyEnrichesAnAuthoritativeV2Failure()
+    public async Task DiagnosticReportCannotCreateRepairStateAndOnlyEnrichesAnAuthoritativeV1Failure()
     {
         var root = Path.Combine(Path.GetTempPath(), $"execution-ciai-diagnostic-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -219,6 +219,7 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
             RunEvidenceUrl = $"https://github.com/{Repository}/actions/runs/{RunId}",
             JobEvidenceUrl = $"https://github.com/{Repository}/actions/runs/{RunId}/job/{JobId}",
             WorkflowDefinitionSha = WorkflowSha,
+            WorkflowEvidenceSha256 = new string('e', 64),
             EventName = "workflow_dispatch",
             EventRef = "refs/heads/development",
             EventSha,
