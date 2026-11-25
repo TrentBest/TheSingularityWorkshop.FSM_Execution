@@ -21,7 +21,7 @@ public sealed class ExecutionAcceptedCiAiReportContext
     public string Verdict { get; }
     public string ReportIdentity { get; }
     public string NoticeIdentitySha256 { get; }
-    /// <summary>Digest of the authoritative ciai.workflow-evidence.v2 packet that gated repair.</summary>
+    /// <summary>Digest of the authoritative ciai.workflow-evidence.v1 packet that gated repair.</summary>
     public string AuthoritativeWorkflowEvidenceSha256 { get; }
     public string CanonicalReportJson { get; }
     public string ReportSha256 { get; }
@@ -85,7 +85,7 @@ public sealed class ExecutionAcceptedCiAiReportContext
             !AuthoritativeWorkflowEvidenceSha256.All(Uri.IsHexDigit) ||
             !string.Equals(AuthoritativeWorkflowEvidenceSha256,
                 AuthoritativeWorkflowEvidenceSha256.ToLowerInvariant(), StringComparison.Ordinal))
-            throw new InvalidDataException("Accepted diagnostic report must retain the authoritative workflow-evidence v2 digest.");
+            throw new InvalidDataException("Accepted diagnostic report must retain the authoritative workflow-evidence v1 digest.");
 
         if (string.IsNullOrWhiteSpace(WorkflowPath) || WorkflowPath.Length > 512 ||
             !WorkflowPath.StartsWith(".github/workflows/", StringComparison.Ordinal) ||
@@ -184,7 +184,7 @@ public static class CiAiTestResultReportConsumer
         "contractVersion", "schema", "repository", "candidateRef", "candidateSha",
         "workflowPath", "workflowDefinitionRef", "pullRequestNumber", "pullRequestHeadRef",
         "pullRequestHeadSha", "pullRequestBaseRef", "pullRequestBaseSha", "runEvidenceUrl",
-        "jobEvidenceUrl", "workflowDefinitionSha", "eventName", "eventRef", "eventSha",
+        "jobEvidenceUrl", "workflowDefinitionSha", "workflowEvidenceSha256", "eventName", "eventRef", "eventSha",
         "runId", "runAttempt", "jobId", "jobName", "jobStatus", "jobConclusion",
         "requiredCheckStatus", "verdict", "reasonCodes", "testFramework", "format",
         "sourceArtifactId", "sourceArtifactName", "sourceJobKey", "providerArchiveDigest",
@@ -239,7 +239,7 @@ public static class CiAiTestResultReportConsumer
             string.IsNullOrWhiteSpace(repairRequiredEvent.EvidencePayloadSha256) ||
             repairRequiredEvent.EvidencePayloadSha256.Length != 64 ||
             !repairRequiredEvent.EvidencePayloadSha256.All(Uri.IsHexDigit))
-            throw new UnauthorizedAccessException("Diagnostic report does not match the exact run/attempt, candidate SHA, and ciai.workflow-evidence.v2 digest that placed the task in RepairRequired.");
+            throw new UnauthorizedAccessException("Diagnostic report does not match the exact run/attempt, candidate SHA, and ciai.workflow-evidence.v1 digest that placed the task in RepairRequired.");
 
         var bytes = artifact.Bytes;
         if (bytes.IsEmpty || bytes.Length > MaximumReportBytes || bytes.Length != artifact.SizeBytes)
@@ -290,6 +290,13 @@ public static class CiAiTestResultReportConsumer
             $"/{mapping.Repository}/actions/runs/{run.RunId}");
         _ = ReadGitHubEvidenceUrl(properties, "jobEvidenceUrl",
             $"/{mapping.Repository}/actions/runs/{run.RunId}/job/{jobId}");
+
+        var workflowEvidenceSha256 = ReadText(properties, "workflowEvidenceSha256", 64);
+        if (workflowEvidenceSha256 is not { Length: 64 } ||
+            !workflowEvidenceSha256.All(Uri.IsHexDigit) ||
+            !string.Equals(workflowEvidenceSha256, workflowEvidenceSha256.ToLowerInvariant(), StringComparison.Ordinal) ||
+            !string.Equals(workflowEvidenceSha256, repairRequiredEvent.EvidencePayloadSha256, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi report does not bind to the exact canonical workflow-evidence v1 payload that authorized this repair event.");
 
         var jobStatus = ReadText(properties, "jobStatus", 64);
         if (jobStatus != "completed")
