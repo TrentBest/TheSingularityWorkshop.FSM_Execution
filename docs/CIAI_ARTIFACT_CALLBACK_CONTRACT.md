@@ -4,9 +4,13 @@ This contract describes the Execution-side receipt and consumption boundary. It 
 
 ## Two distinct evidence contracts
 
-### Authoritative: ciai.workflow-evidence.v2
+### Authoritative target: ciai.workflow-evidence.v1
 
-Only an independently validated ciai.workflow-evidence.v2 packet may drive task lifecycle decisions or repair policy.
+CiAi's current alpha producer contract is `ciai.workflow-evidence.v1`. Alpha contract evolution stays within V1; V2 is not a parallel or fallback contract.
+
+**Execution integration status: blocked/incomplete.** This branch's lifecycle journal and repair policy still require `ciai.workflow-evidence.v1`, and this branch does not yet contain the authoritative V1 packet parser, current-policy revalidation, durable V1 evidence staging/recovery, or a composed V1 packet-delivery/receipt path. Therefore this branch does not yet consume the current CiAi authoritative packet and must not be described as V1-compatible or ADP-ready.
+
+Only an independently validated V1 packet, rebound to the persisted dispatch intent and exact provider run/attempt under current host policy, may drive task lifecycle decisions or repair policy.
 
 The authoritative consumer must bind the packet to the persisted dispatch intent and exact provider run/attempt, including:
 
@@ -18,7 +22,7 @@ The authoritative consumer must bind the packet to the persisted dispatch intent
 - complete required-check discovery and each required check's terminal status/conclusion;
 - packet digest and observation time.
 
-The task repair policy now requires WorkTaskRepairAttempt.EvidenceSchema to equal ciai.workflow-evidence.v2. When the policy accepts a lifecycle decision, the task event persists that evidence schema, candidate SHA, run ID/attempt, and packet digest. Attempts without the authoritative schema are rejected for lifecycle decisions.
+Current code still requires the obsolete V2 identifier in WorkTaskRepairAttempt and WorkTaskRepairDecisionPolicy; that implementation mismatch is intentionally called out above and remains a blocker. The target contract is V1. Do not treat changing the string constant alone as completing the migration: the V1 parser, trust re-evaluation, durable staging/recovery, exact packet digest binding, tests, and delivery receipt path must move together.
 
 ### Diagnostic only: ciai.test-results.v1
 
@@ -30,7 +34,7 @@ The test-results report may contain bounded TRX summaries, failed test identitie
 - grant a repository capability;
 - authorize a write, merge, package publication, or deployment.
 
-Execution consumes this report only after the task is already RepairRequired from a matching ciai.workflow-evidence.v2 event and durable authoritative attempt. The report must match the same repository, candidate SHA, run ID, and attempt. Its provider-observed job status/conclusion and nested source-artifact identity are independently checked. The consumer returns a diagnostic-only context for HeadlessAi; it does not create a WorkTaskRepairAttempt or mutate task state.
+Execution may consume this report only after the task is already RepairRequired from a matching independently validated V1 packet event and durable authoritative attempt. The current V2-only lifecycle policy means this precondition is not yet satisfiable through the current CiAi V1 producer. The report must match the same repository, candidate SHA, run ID, and attempt. Its provider-observed job status/conclusion and nested source-artifact identity are independently checked. The consumer returns a diagnostic-only context for HeadlessAi; it does not create a WorkTaskRepairAttempt or mutate task state.
 
 ## Artifact-ready notice
 
