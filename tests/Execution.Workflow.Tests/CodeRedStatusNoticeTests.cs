@@ -10,33 +10,33 @@ public sealed class CodeRedStatusNoticeTests
 
     private static WorkTaskSnapshot CodeRedTask()
     {
-        var request = new WorkTaskRequest(1, "foundry-8", "correlation-8",
+        var request = new WorkTaskRequest(1, "execution-8", "correlation-8",
             "TrentBest/TheSingularityWorkshop.Execution", 8,
             "https://github.com/TrentBest/TheSingularityWorkshop.Execution/issues/8",
             Sha, new[] { "src/Execution.Workflow" }, 3);
         var coordinator = new WorkTaskCoordinator();
         coordinator.Submit(request);
-        var lease = coordinator.Claim("foundry-8", "agent-a", TimeSpan.FromMinutes(5), Start).Lease!;
-        return coordinator.Transition("foundry-8", lease.LeaseId,
+        var lease = coordinator.Claim("execution-8", "agent-a", TimeSpan.FromMinutes(5), Start).Lease!;
+        return coordinator.Transition("execution-8", lease.LeaseId,
             WorkTaskStatus.CodeRed, Start.AddSeconds(1), "required CI failed");
     }
 
 
     private static WorkTaskSnapshot InvestigatingTask()
     {
-        var request = new WorkTaskRequest(1, "foundry-8", "correlation-8",
+        var request = new WorkTaskRequest(1, "execution-8", "correlation-8",
             "TrentBest/TheSingularityWorkshop.Execution", 8,
             "https://github.com/TrentBest/TheSingularityWorkshop.Execution/issues/8",
             Sha, new[] { "src/Execution.Workflow" }, 3);
         var coordinator = new WorkTaskCoordinator();
         coordinator.Submit(request);
-        var lease = coordinator.Claim("foundry-8", "agent-a", TimeSpan.FromMinutes(5), Start).Lease!;
-        return coordinator.Transition("foundry-8", lease.LeaseId,
+        var lease = coordinator.Claim("execution-8", "agent-a", TimeSpan.FromMinutes(5), Start).Lease!;
+        return coordinator.Transition("execution-8", lease.LeaseId,
             WorkTaskStatus.Investigating, Start.AddSeconds(1), "inspect issue");
     }
 
     private static CodeRedIncident Incident() => new(1, "incident-8",
-        "TrentBest/TheSingularityWorkshop.Execution", "foundry-8", 8, "correlation-8",
+        "TrentBest/TheSingularityWorkshop.Execution", "execution-8", 8, "correlation-8",
         "agent-a", "implementation", "Investigating CI failure", "work/code-red-task-lifecycle",
         Sha, 1234, 1, CodeRedSeverity.Critical, "Required workflow failed",
         3, Start, Start, null, true);
