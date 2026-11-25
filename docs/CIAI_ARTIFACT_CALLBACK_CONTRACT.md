@@ -155,7 +155,7 @@ The provider receiver resolves the exact immutable manifest before recording the
 {
   "contract": "ciai.artifact-receipt-acknowledgement.v1",
   "receiptId": "stable-provider-receipt-id",
-  "acknowledgementId": "foundry-acknowledgement-id",
+  "acknowledgementId": "execution-acknowledgement-id",
   "deduplicationKey": "stable-request-artifact-key",
   "outcome": "recorded",
   "recordedAt": "2026-10-31T00:00:00Z"
