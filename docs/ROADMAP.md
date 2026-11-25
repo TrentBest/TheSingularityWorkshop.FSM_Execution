@@ -145,7 +145,7 @@ This audit was committed as documentation-only follow-up `be35c3d88475462dbedf8e
 
 PR #25's capability gate is in PR #34, PR #14's ingress work/docs and PR #16's pinned transport in PR #15, PR #18's host approval plus PR #30's lease-reclaim guard in PR #32, and PR #27's design contract in PR #26; those six donor PRs are closed. A green run is bounded evidence for its exact SHA; it does not establish that live privileged paths ran, that a PR is integrated, or that a branch is ready to merge.
 
-**Integration caution:** the functional/design PRs still use historical Foundry-era paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and port/rebase each candidate onto the canonical Execution identity, preserving exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
+**Integration caution:** the functional/design PRs still use pre-Execution identity paths and namespaces. Do not merge them blindly across the identity migration. Reconcile dependencies and port/rebase each candidate onto the canonical Execution identity, preserving exact-head CI evidence after each reconciliation. No PR is auto-merged by this roadmap.
 
 ## Readiness rubric
 
