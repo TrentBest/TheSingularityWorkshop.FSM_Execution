@@ -136,7 +136,7 @@ public sealed class PersistentWorkTaskCoordinator
                 authoritativeEvent.CiRunId != run.RunId ||
                 authoritativeEvent.CiRunAttempt != run.RunAttempt ||
                 string.IsNullOrWhiteSpace(authoritativeEvent.EvidencePayloadSha256))
-                throw new UnauthorizedAccessException("The diagnostic report does not match the exact ciai.workflow-evidence.v2 task event.");
+                throw new UnauthorizedAccessException("The diagnostic report does not match the exact ciai.workflow-evidence.v1 task event.");
 
             var authoritativeAttempt = journal.GetAttempts(taskId).SingleOrDefault(item =>
                 item.CiRunId == run.RunId && item.CiRunAttempt == run.RunAttempt);
@@ -146,7 +146,7 @@ public sealed class PersistentWorkTaskCoordinator
                 !string.Equals(authoritativeAttempt.EvidencePayloadSha256, authoritativeEvent.EvidencePayloadSha256, StringComparison.OrdinalIgnoreCase) ||
                 !authoritativeAttempt.EvidenceComplete || authoritativeAttempt.IsSuccessful ||
                 !authoritativeAttempt.HasActionableDiagnostics)
-                throw new UnauthorizedAccessException("The matching authoritative workflow-evidence v2 attempt is missing, incomplete, successful, or non-actionable.");
+                throw new UnauthorizedAccessException("The matching authoritative workflow-evidence v1 attempt is missing, incomplete, successful, or non-actionable.");
 
             return CiAiTestResultReportConsumer.Consume(artifact, task, sourceArtifactBinding, now);
         }
