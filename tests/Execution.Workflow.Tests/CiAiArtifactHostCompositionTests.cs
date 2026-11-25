@@ -429,6 +429,7 @@ public sealed class CiAiArtifactHostCompositionTests
             RunEvidenceUrl = "https://github.com/" + Repository + "/actions/runs/" + RunId,
             JobEvidenceUrl = "https://github.com/" + Repository + "/actions/runs/" + RunId + "/job/" + JobId,
             WorkflowDefinitionSha = WorkflowSha,
+            WorkflowEvidenceSha256 = new string('e', 64),
             EventName = "workflow_dispatch",
             EventRef = "refs/heads/development",
             EventSha,
