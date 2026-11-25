@@ -8,7 +8,7 @@ public sealed class JsonlCodeRedIncidentStoreTests
     private static readonly DateTimeOffset Start = new(2026, 10, 30, 20, 0, 0, TimeSpan.Zero);
 
     private static CodeRedIncident Incident() => new(1, "incident-8",
-        "TrentBest/TheSingularityWorkshop.Execution", "foundry-8", 8, "correlation-8",
+        "TrentBest/TheSingularityWorkshop.Execution", "execution-8", 8, "correlation-8",
         "agent-a", "implementation", "Investigating CI failure", "work/code-red-task-lifecycle",
         new string('a', 40), 1234, 1, CodeRedSeverity.Critical, "Required workflow failed",
         3, Start, Start, null, true);
