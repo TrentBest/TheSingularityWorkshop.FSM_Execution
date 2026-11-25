@@ -427,6 +427,7 @@ public sealed class CiAiTestResultReportConsumerTests
             CandidateRef = BranchRef,
             CandidateSha,
             WorkflowPath,
+            WorkflowEvidenceSha256 = new string('e', 64),
             WorkflowDefinitionRef = $"{Repository}/{WorkflowPath}@refs/heads/development",
             PullRequestNumber = (int?)null,
             PullRequestHeadRef = (string?)null,
