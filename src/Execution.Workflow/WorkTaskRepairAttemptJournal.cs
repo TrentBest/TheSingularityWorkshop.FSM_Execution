@@ -27,7 +27,7 @@ public sealed record WorkTaskRepairAttempt(
     public string? EvidenceSchema { get; init; }
 
     public const int CurrentSchemaVersion = 1;
-    public const string RequiredEvidenceSchema = "ciai.workflow-evidence.v2";
+    public const string RequiredEvidenceSchema = "ciai.workflow-evidence.v1";
 
     public WorkTaskRepairAttempt Validate()
     {
@@ -52,7 +52,7 @@ public sealed record WorkTaskRepairAttempt(
         ValidateSha(CandidateSha, nameof(CandidateSha));
         ValidateDigest(EvidencePayloadSha256, nameof(EvidencePayloadSha256));
         if (EvidenceSchema is not null && EvidenceSchema != RequiredEvidenceSchema)
-            throw new ArgumentException("Repair attempts may only identify the authoritative ciai.workflow-evidence.v2 contract.", nameof(EvidenceSchema));
+            throw new ArgumentException("Repair attempts may only identify the authoritative ciai.workflow-evidence.v1 contract.", nameof(EvidenceSchema));
         if (IsSuccessful && (!EvidenceComplete || HasActionableDiagnostics))
             throw new ArgumentException("Successful evidence must be complete and have no actionable failure diagnostics.");
         if (HasActionableDiagnostics && (!EvidenceComplete || IsSuccessful ||
