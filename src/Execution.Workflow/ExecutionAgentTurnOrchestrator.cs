@@ -78,7 +78,7 @@ public sealed class ExecutionAgentTurnOrchestrator
             repairEvent.CiRunId != diagnosticReport.WorkflowRunId ||
             repairEvent.CiRunAttempt != diagnosticReport.RunAttempt ||
             !string.Equals(repairEvent.EvidencePayloadSha256, diagnosticReport.AuthoritativeWorkflowEvidenceSha256, StringComparison.OrdinalIgnoreCase))
-            throw new UnauthorizedAccessException("Repair turn requires an already-authorized exact-candidate workflow-evidence v2 failure plus matching diagnostic report context.");
+            throw new UnauthorizedAccessException("Repair turn requires an already-authorized exact-candidate workflow-evidence v1 failure plus matching diagnostic report context.");
 
         return await InvokeAndRouteAsync(taskId, leaseId, authorizedBranch, candidateCommitSha,
             capabilityId, role, instructions, canonicalPrompt, responseSchema,
