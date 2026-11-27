@@ -36,7 +36,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             "workflow_dispatch", now, eventSha);
         var snapshot = new CiAiRequestTaskMappingSnapshot(mapping, runBinding, false);
 
-        var runJson = $$$"""
+        var runJson = $$"""
         {
           "total_count": 1,
           "workflow_runs": [{
@@ -135,7 +135,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             mapping.CandidateRef, mapping.CandidateSha,
             "workflow_dispatch", now, workflowSha);
         var snapshot = new CiAiRequestTaskMappingSnapshot(mapping, runBinding, false);
-        var runJson = $"""
+        var runJson = $$"""
         {
           "total_count": 1,
           "workflow_runs": [{
