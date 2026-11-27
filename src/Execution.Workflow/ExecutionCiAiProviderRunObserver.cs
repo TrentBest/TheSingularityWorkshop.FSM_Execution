@@ -75,9 +75,10 @@ public sealed class ExecutionCiAiProviderRunObserver : IExecutionCiAiProviderRun
 
         // A workflow_dispatch run is checked out from the trusted workflow revision; the
         // isolated candidate SHA is a separate identity proved by the registered checkout steps.
+        var expectedEventSha = runBinding.EventSha ?? mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
         var runCollector = new GitHubActionsWorkflowRunCollector(_httpClient, token);
         var runs = await runCollector.GetRunsForCommitAsync(
-            mapping.Repository, mapping.TrustedWorkflowSha,
+            mapping.Repository, expectedEventSha,
             maxPages: 10, perPage: 100, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (runs.IsTruncated)
             throw new InvalidDataException("GitHub run discovery is truncated; exact provider evidence is incomplete.");
@@ -91,11 +92,11 @@ public sealed class ExecutionCiAiProviderRunObserver : IExecutionCiAiProviderRun
 
         var artifactCollector = new GitHubActionsArtifactCollector(_httpClient, token);
         var provenanceArtifact = await artifactCollector.GetRequiredArtifactAsync(
-            mapping.Repository, runBinding.RunId, mapping.TrustedWorkflowSha,
+            mapping.Repository, runBinding.RunId, expectedEventSha,
             observerProfile.ProvenanceArtifactName(runBinding.RunId, runBinding.RunAttempt),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         var testResultsArtifact = await artifactCollector.GetRequiredArtifactAsync(
-            mapping.Repository, runBinding.RunId, mapping.TrustedWorkflowSha,
+            mapping.Repository, runBinding.RunId, expectedEventSha,
             observerProfile.TestArtifactName(runBinding.RunId, runBinding.RunAttempt),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         var artifactReferences = new[]
@@ -113,7 +114,7 @@ public sealed class ExecutionCiAiProviderRunObserver : IExecutionCiAiProviderRun
         if (!string.Equals(observed.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
             observed.WorkflowPath != mapping.WorkflowPath ||
             observed.WorkflowRef != mapping.TrustedWorkflowRef ||
-            !string.Equals(observed.WorkflowSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(observed.WorkflowSha, expectedEventSha, StringComparison.OrdinalIgnoreCase) ||
             observed.Event != runBinding.Event ||
             observed.RunId != runBinding.RunId ||
             observed.RunAttempt != runBinding.RunAttempt)
