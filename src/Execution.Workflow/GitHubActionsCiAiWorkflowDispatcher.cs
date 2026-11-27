@@ -46,7 +46,7 @@ public sealed class GitHubActionsCiAiWorkflowDispatcher : ICiAiWorkflowDispatche
         ArgumentNullException.ThrowIfNull(mapping);
         mapping.Validate();
 
-        var expectedArtifactName = _profile.TestArtifactName(1);
+        var expectedArtifactName = _profile.TestArtifactNameForDispatch(1);
         if (!string.Equals(mapping.WorkflowPath, _profile.WorkflowPath, StringComparison.Ordinal) ||
             !string.Equals(mapping.JobKey, _profile.RequiredJobKey, StringComparison.Ordinal) ||
             !string.Equals(mapping.JobName, _profile.RequiredJobName, StringComparison.Ordinal) ||
