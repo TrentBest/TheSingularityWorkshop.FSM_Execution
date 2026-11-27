@@ -92,16 +92,15 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             new CiWorkflowRequiredCheckBinding(mapping.JobKey, mapping.JobName)
         };
 
-        var packet = CiWorkflowEvidencePacket.FromCollections(
-            independentlyObservedRun.RunCollection,
-            independentlyObservedRun.JobCollection,
-            runBinding.RunId,
-            runBinding.RunAttempt,
-            receivedAt,
+        var checkoutEvidence = new CiWorkflowCandidateCheckoutEvidence(
+            mapping.CandidateRef, mapping.CandidateSha, mapping.JobName,
+            mapping.ResolutionStepName, mapping.VerificationStepName);
+        var packet = CiWorkflowEvidencePacket.FromValidatedProvenance(
+            observedRun,
             provenanceEvidence.Provenance,
             trustDecision,
             requiredChecks,
-            observedRun.ArtifactReferences);
+            candidateCheckoutEvidence: checkoutEvidence);
         var packetBytes = new UTF8Encoding(false, true).GetBytes(packet.ToJson());
         var packetSha256 = Convert.ToHexString(SHA256.HashData(packetBytes)).ToLowerInvariant();
         var expectedWorkflowRef =
