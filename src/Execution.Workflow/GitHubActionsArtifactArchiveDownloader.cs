@@ -25,7 +25,7 @@ public interface IGitHubActionsArtifactArchiveDownloader
 public sealed class GitHubActionsArtifactArchiveDownloader : IGitHubActionsArtifactArchiveDownloader
 {
     private const string GitHubApiOrigin = "https://api.github.com";
-    private const int MaximumArchiveBytes = CiTestResultArtifactArchive.DefaultMaximumArchiveBytes;
+    private const long MaximumArchiveBytes = CiTestResultArtifactArchive.DefaultMaximumArchiveBytes;
     private readonly IReadOnlyDictionary<string, HttpClient> _clientsByOrigin;
     private readonly IGitHubActionsReadCredentialProvider _credentials;
 
