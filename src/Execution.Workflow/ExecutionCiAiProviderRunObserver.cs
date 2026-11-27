@@ -15,7 +15,9 @@ public interface IGitHubActionsReadCredentialProvider
 public sealed record ExecutionObservedCiAiProviderRun(
     CiWorkflowRunEvidenceObservation Run,
     CiWorkflowRunCollection RunCollection,
-    CiWorkflowJobCollection JobCollection);
+    CiWorkflowJobCollection JobCollection,
+    CiProviderArtifactObservation ProvenanceArtifact,
+    CiProviderArtifactObservation TestResultsArtifact);
 
 /// <summary>
 /// Builds independent run/job evidence from GitHub's read-only Actions API using the exact
@@ -37,10 +39,12 @@ public sealed class ExecutionCiAiProviderRunObserver
 
     public async Task<ExecutionObservedCiAiProviderRun> ObserveAsync(
         CiAiRequestTaskMappingSnapshot request,
+        CiWorkflowObserverProfile observerProfile,
         DateTimeOffset observedAt,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(observerProfile);
         if (observedAt == default)
             throw new ArgumentException("A provider observation timestamp is required.", nameof(observedAt));
 
@@ -48,6 +52,10 @@ public sealed class ExecutionCiAiProviderRunObserver
         var runBinding = request.RunBinding
             ?? throw new InvalidOperationException("Provider observation requires a persisted exact-run binding.");
         runBinding.ValidateAgainst(mapping);
+        if (observerProfile.WorkflowPath != mapping.WorkflowPath ||
+            observerProfile.RequiredJobKey != mapping.JobKey ||
+            observerProfile.RequiredJobName != mapping.JobName)
+            throw new UnauthorizedAccessException("Observer profile does not match the persisted workflow and required-check mapping.");
         if (request.Cancelled)
             throw new InvalidOperationException("Cancelled dispatch intent cannot be observed as actionable evidence.");
 
@@ -72,12 +80,26 @@ public sealed class ExecutionCiAiProviderRunObserver
         if (jobs.IsTruncated)
             throw new InvalidDataException("GitHub job discovery is truncated; exact provider evidence is incomplete.");
 
+        var artifactCollector = new GitHubActionsArtifactCollector(_httpClient, token);
+        var provenanceArtifact = await artifactCollector.GetRequiredArtifactAsync(
+            mapping.Repository, runBinding.RunId, mapping.TrustedWorkflowSha,
+            observerProfile.ProvenanceArtifactName(runBinding.RunId, runBinding.RunAttempt),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var testResultsArtifact = await artifactCollector.GetRequiredArtifactAsync(
+            mapping.Repository, runBinding.RunId, mapping.TrustedWorkflowSha,
+            observerProfile.TestArtifactName(runBinding.RunId, runBinding.RunAttempt),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var artifactReferences = new[]
+        {
+            new Uri($"https://github.com/{mapping.Repository}/actions/runs/{runBinding.RunId}/artifacts/{provenanceArtifact.ArtifactId}"),
+            new Uri($"https://github.com/{mapping.Repository}/actions/runs/{runBinding.RunId}/artifacts/{testResultsArtifact.ArtifactId}")
+        };
         var checkoutEvidence = new CiWorkflowCandidateCheckoutEvidence(
             mapping.CandidateRef, mapping.CandidateSha, mapping.JobName,
             mapping.ResolutionStepName, mapping.VerificationStepName);
         var observed = CiWorkflowRunEvidenceObservation.FromCollections(
             runs, jobs, runBinding.RunId, runBinding.RunAttempt,
-            observedAt, checkoutEvidence);
+            observedAt, checkoutEvidence, artifactReferences);
 
         if (!string.Equals(observed.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
             observed.WorkflowPath != mapping.WorkflowPath ||
@@ -88,6 +110,7 @@ public sealed class ExecutionCiAiProviderRunObserver
             observed.RunAttempt != runBinding.RunAttempt)
             throw new UnauthorizedAccessException("Independent GitHub run/job facts do not match the persisted dispatch and trusted workflow mapping.");
 
-        return new ExecutionObservedCiAiProviderRun(observed, runs, jobs);
+        return new ExecutionObservedCiAiProviderRun(
+            observed, runs, jobs, provenanceArtifact, testResultsArtifact);
     }
 }
