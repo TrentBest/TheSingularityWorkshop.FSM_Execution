@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Execution;
 using Xunit;
 
