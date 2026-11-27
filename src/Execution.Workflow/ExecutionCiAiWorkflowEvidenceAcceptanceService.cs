@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using TheSingularityWorkshop.CiAi;
 
 namespace TheSingularityWorkshop.Execution;
@@ -10,6 +12,142 @@ namespace TheSingularityWorkshop.Execution;
 /// </summary>
 public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
 {
+    /// <summary>
+    /// Host-driven evidence path: query GitHub independently, validate the provider provenance
+    /// artifact, build the canonical packet with CiAi's own factory, round-trip it through CiAi's
+    /// parser, and durably stage the exact bytes. No model-supplied packet or verdict is accepted.
+    /// </summary>
+    public static ExecutionAcceptedCiAiWorkflowEvidence ObserveAndAccept(
+        CiAiRequestTaskMappingSnapshot request,
+        ExecutionObservedCiAiProviderRun independentlyObservedRun,
+        ReadOnlyMemory<byte> providerProvenanceArchiveBytes,
+        CiWorkflowObserverProfile observerProfile,
+        ReadOnlyMemory<byte> workflowBytesAtRunRevision,
+        ReadOnlyMemory<byte> workflowBytesAtApprovedRevision,
+        JsonlCiAiWorkflowEvidencePacketStore durableStore,
+        DateTimeOffset receivedAt)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(independentlyObservedRun);
+        ArgumentNullException.ThrowIfNull(observerProfile);
+        ArgumentNullException.ThrowIfNull(durableStore);
+        if (receivedAt == default)
+            throw new ArgumentException("Evidence receipt time is required.", nameof(receivedAt));
+
+        var mapping = request.Mapping.Validate();
+        var runBinding = request.RunBinding
+            ?? throw new InvalidOperationException("Provider evidence requires a persisted exact-run binding.");
+        runBinding.ValidateAgainst(mapping);
+        if (request.Cancelled)
+            throw new InvalidOperationException("Cancelled dispatch intent cannot produce actionable evidence.");
+        if (mapping.JobKey is null ||
+            observerProfile.WorkflowPath != mapping.WorkflowPath ||
+            observerProfile.RequiredJobKey != mapping.JobKey ||
+            observerProfile.RequiredJobName != mapping.JobName)
+            throw new UnauthorizedAccessException("Observer profile does not match the persisted workflow and required-check mapping.");
+
+        var observedRun = independentlyObservedRun.Run;
+        if (observedRun.RunId != runBinding.RunId ||
+            observedRun.RunAttempt != runBinding.RunAttempt ||
+            !string.Equals(observedRun.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
+            observedRun.WorkflowPath != mapping.WorkflowPath ||
+            observedRun.WorkflowRef != mapping.TrustedWorkflowRef ||
+            !string.Equals(observedRun.WorkflowSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            observedRun.Event != runBinding.Event)
+            throw new UnauthorizedAccessException("Independent provider run observation does not match the persisted dispatch binding.");
+
+        ValidateProviderArtifact(
+            independentlyObservedRun.ProvenanceArtifact, mapping, runBinding,
+            observerProfile.ProvenanceArtifactName(runBinding.RunId, runBinding.RunAttempt), receivedAt);
+        ValidateProviderArtifact(
+            independentlyObservedRun.TestResultsArtifact, mapping, runBinding,
+            observerProfile.TestArtifactName(runBinding.RunId, runBinding.RunAttempt), receivedAt);
+
+        var expectedEventSha = mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
+        var provenanceEvidence = CiWorkflowProvenanceArtifactReader.Read(
+            providerProvenanceArchiveBytes,
+            independentlyObservedRun.ProvenanceArtifact,
+            observerProfile,
+            mapping.Repository,
+            runBinding.RunId,
+            runBinding.RunAttempt,
+            mapping.TrustedWorkflowSha,
+            expectedEventSha,
+            mapping.CandidateRef,
+            mapping.CandidateSha,
+            mapping.TrustedWorkflowRef,
+            mapping.TrustedWorkflowSha,
+            runBinding.Event,
+            mapping.TrustedWorkflowRef);
+
+        var trustPolicy = new CiWorkflowDefinitionTrustPolicy(
+            mapping.Repository, mapping.WorkflowPath,
+            mapping.TrustedWorkflowRef, mapping.TrustedWorkflowSha);
+        var trustDecision = trustPolicy.Evaluate(
+            provenanceEvidence.Provenance,
+            workflowBytesAtRunRevision,
+            workflowBytesAtApprovedRevision);
+        var requiredChecks = new[]
+        {
+            new CiWorkflowRequiredCheckBinding(mapping.JobKey, mapping.JobName)
+        };
+
+        var packet = CiWorkflowEvidencePacket.FromCollections(
+            independentlyObservedRun.RunCollection,
+            independentlyObservedRun.JobCollection,
+            runBinding.RunId,
+            runBinding.RunAttempt,
+            receivedAt,
+            provenanceEvidence.Provenance,
+            trustDecision,
+            requiredChecks,
+            observedRun.ArtifactReferences);
+        var packetBytes = new UTF8Encoding(false, true).GetBytes(packet.ToJson());
+        var packetSha256 = Convert.ToHexString(SHA256.HashData(packetBytes)).ToLowerInvariant();
+        var expectedWorkflowRef =
+            mapping.Repository + "/" + mapping.WorkflowPath + "@" + mapping.TrustedWorkflowRef;
+
+        return CiAiWorkflowEvidencePacketConsumer.Consume(
+            packetBytes,
+            mapping.Repository,
+            runBinding.RunId,
+            runBinding.RunAttempt,
+            packetSha256,
+            requiredChecks,
+            expectedWorkflowRef,
+            mapping.TrustedWorkflowSha,
+            mapping.CandidateRef,
+            mapping.CandidateSha,
+            runBinding.Event,
+            mapping.TrustedWorkflowRef,
+            expectedEventSha,
+            observedRun,
+            provenanceEvidence,
+            trustPolicy,
+            workflowBytesAtRunRevision,
+            workflowBytesAtApprovedRevision,
+            durableStore,
+            mapping.TaskId,
+            mapping.CorrelationId,
+            receivedAt);
+    }
+
+    private static void ValidateProviderArtifact(
+        CiProviderArtifactObservation artifact,
+        CiAiRequestTaskMapping mapping,
+        CiAiDispatchRunBinding runBinding,
+        string expectedArtifactName,
+        DateTimeOffset now)
+    {
+        if (!string.Equals(artifact.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
+            artifact.RunId != runBinding.RunId ||
+            !string.Equals(artifact.HeadSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            artifact.ArtifactName != expectedArtifactName ||
+            artifact.IsExpired || artifact.ExpiresAt <= now ||
+            artifact.ArchiveSizeBytes is <= 0 or > CiTestResultArtifactArchive.DefaultMaximumArchiveBytes)
+            throw new UnauthorizedAccessException("Provider artifact metadata does not match the exact registered run and observer profile.");
+    }
+
     public static ExecutionAcceptedCiAiWorkflowEvidence Accept(
         CiAiArtifactNoticeIngressResult ingress,
         CiAiVerifiedArtifactContent retrievedArtifact,
