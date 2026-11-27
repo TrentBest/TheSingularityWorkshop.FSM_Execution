@@ -61,7 +61,7 @@ public sealed class ExecutionCiAiProviderRunObserver
         var runCollector = new GitHubActionsWorkflowRunCollector(_httpClient, token);
         var runs = await runCollector.GetRunsForCommitAsync(
             mapping.Repository, mapping.TrustedWorkflowSha,
-            maxPages: 10, perPage: 100, cancellationToken).ConfigureAwait(false);
+            maxPages: 10, perPage: 100, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (runs.IsTruncated)
             throw new InvalidDataException("GitHub run discovery is truncated; exact provider evidence is incomplete.");
 
