@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using TheSingularityWorkshop.CiAi;
 
 namespace TheSingularityWorkshop.Execution;
@@ -38,7 +39,7 @@ public sealed record ExecutionAcceptedCiAiWorkflowEvidence(
 /// </summary>
 public static class CiAiWorkflowEvidencePacketConsumer
 {
-    public const int MaximumPacketBytes = 4 * 1024 * 1024;
+    public const int MaximumPacketBytes = 1024 * 1024;
     public const int MaximumWorkflowDefinitionBytes = 256 * 1024;
 
     /// <summary>
@@ -60,6 +61,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
         string expectedEventName,
         string expectedEventRef,
         string expectedEventSha,
+        CiWorkflowRunEvidenceObservation independentlyObservedRun,
         CiWorkflowDefinitionTrustPolicy protectedWorkflowPolicy,
         ReadOnlyMemory<byte> workflowBytesAtRunRevision,
         ReadOnlyMemory<byte> workflowBytesAtApprovedRevision,
@@ -69,6 +71,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
         DateTimeOffset receivedAt)
     {
         ArgumentNullException.ThrowIfNull(expectedRequiredChecks);
+        ArgumentNullException.ThrowIfNull(independentlyObservedRun);
         ArgumentNullException.ThrowIfNull(protectedWorkflowPolicy);
         ArgumentNullException.ThrowIfNull(durableStore);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedRepository);
@@ -121,6 +124,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
             packetSha256, requiredChecks, workflowDefinitionTrusted: false);
 
         var provenance = untrustedPacket.Provenance;
+        RequireObservedRunMatches(untrustedPacket.ObservedRun, independentlyObservedRun);
         RequireEqual(provenance.WorkflowRef, expectedWorkflowRef, "workflow definition ref");
         RequireEqualSha(provenance.WorkflowSha, expectedWorkflowSha, "workflow definition SHA");
         RequireEqual(provenance.WorkflowPath, protectedWorkflowPolicy.WorkflowPath, "workflow path");
@@ -156,6 +160,36 @@ public static class CiAiWorkflowEvidencePacketConsumer
             throw new InvalidDataException("A different CiAi packet is already staged for this task/run/attempt identity.");
 
         return new ExecutionAcceptedCiAiWorkflowEvidence(packet, packetSha256, verdict);
+    }
+
+    private static void RequireObservedRunMatches(
+        CiWorkflowRunEvidenceObservation packetObservation,
+        CiWorkflowRunEvidenceObservation hostObservation)
+    {
+        // The packet is producer-supplied. Compare its complete provider-facing run/job facts
+        // with a separate observation assembled by the authenticated Execution host.
+        var sameRun =
+            string.Equals(packetObservation.Repository, hostObservation.Repository, StringComparison.OrdinalIgnoreCase) &&
+            packetObservation.WorkflowPath == hostObservation.WorkflowPath &&
+            packetObservation.RunId == hostObservation.RunId &&
+            packetObservation.RunAttempt == hostObservation.RunAttempt &&
+            packetObservation.WorkflowRef == hostObservation.WorkflowRef &&
+            string.Equals(packetObservation.WorkflowSha, hostObservation.WorkflowSha, StringComparison.OrdinalIgnoreCase) &&
+            packetObservation.Event == hostObservation.Event &&
+            packetObservation.WorkflowName == hostObservation.WorkflowName &&
+            packetObservation.Status == hostObservation.Status &&
+            packetObservation.Conclusion == hostObservation.Conclusion &&
+            packetObservation.RunEvidenceUrl == hostObservation.RunEvidenceUrl &&
+            packetObservation.DiscoveryComplete == hostObservation.DiscoveryComplete &&
+            packetObservation.JobsComplete == hostObservation.JobsComplete &&
+            packetObservation.CandidateCheckoutEvidence == hostObservation.CandidateCheckoutEvidence &&
+            packetObservation.CandidateCheckoutVerified == hostObservation.CandidateCheckoutVerified &&
+            packetObservation.ArtifactReferences.SequenceEqual(hostObservation.ArtifactReferences) &&
+            packetObservation.Jobs.Count == hostObservation.Jobs.Count &&
+            packetObservation.Jobs.Zip(hostObservation.Jobs).All(pair =>
+                string.Equals(JsonSerializer.Serialize(pair.First), JsonSerializer.Serialize(pair.Second), StringComparison.Ordinal));
+        if (!sameRun)
+            throw new UnauthorizedAccessException("CiAi packet run/job observations do not match the independent provider observation.");
     }
 
     private static void RequireEqual(string actual, string expected, string identity)
