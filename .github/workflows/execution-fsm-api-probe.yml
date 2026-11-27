@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.CiAi
-          ref: 0cdf8de128cd1e9190992e662f14d1e0964afa53
+          ref: 6d28e49933b041d7709e2e58487f2fb99a056bdd
           path: dependencies/CiAi
           submodules: recursive
           persist-credentials: false
