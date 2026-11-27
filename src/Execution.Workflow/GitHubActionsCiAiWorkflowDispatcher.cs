@@ -6,20 +6,28 @@ using TheSingularityWorkshop.CiAi;
 namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
-/// Dispatches only the registered workflow on its protected ref. The candidate is supplied as
+/// Dispatches only the registered workflow on its protected ref. The supplied HttpClient must
+/// have automatic redirects and proxies disabled; the credential provider must grant only the
+/// repository-scoped Actions workflow-dispatch permission needed by this operation.
+ The candidate is supplied as
 /// immutable SHA plus its human-readable branch ref; request identity is carried into the trusted
 /// workflow's run-scoped marker artifact for later independent reconciliation.
 /// </summary>
+public interface IGitHubActionsWorkflowDispatchCredentialProvider
+{
+    ValueTask<string?> GetTokenAsync(string repository, CancellationToken cancellationToken = default);
+}
+
 public sealed class GitHubActionsCiAiWorkflowDispatcher : ICiAiWorkflowDispatcher
 {
     private readonly HttpClient _httpClient;
-    private readonly IGitHubActionsReadCredentialProvider _credentials;
+    private readonly IGitHubActionsWorkflowDispatchCredentialProvider _credentials;
     private readonly CiWorkflowObserverProfile _profile;
     private readonly string _protectedWorkflowRef;
 
     public GitHubActionsCiAiWorkflowDispatcher(
         HttpClient httpClient,
-        IGitHubActionsReadCredentialProvider credentials,
+        IGitHubActionsWorkflowDispatchCredentialProvider credentials,
         CiWorkflowObserverProfile profile,
         string protectedWorkflowRef = "refs/heads/development")
     {
