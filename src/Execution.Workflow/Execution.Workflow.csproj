@@ -5,4 +5,8 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Consume CiAi's producer-owned V1 evidence contract; do not fork its wire schema. -->
+    <ProjectReference Include="../../dependencies/CiAi/src/TheSingularityWorkshop.CiAi/TheSingularityWorkshop.CiAi.csproj" />
+  </ItemGroup>
 </Project>
