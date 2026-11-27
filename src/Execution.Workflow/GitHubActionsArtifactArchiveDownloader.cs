@@ -69,7 +69,7 @@ public sealed class GitHubActionsArtifactArchiveDownloader : IGitHubActionsArtif
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(artifact);
-        if (!RepositoryIdentity.IsValid(repository))
+        if (!IsCanonicalRepository(repository))
             throw new ArgumentException("Repository must use canonical owner/name identity.", nameof(repository));
         if (runId <= 0)
             throw new ArgumentOutOfRangeException(nameof(runId));
@@ -206,6 +206,18 @@ public sealed class GitHubActionsArtifactArchiveDownloader : IGitHubActionsArtif
             throw new InvalidDataException("GitHub artifact metadata does not contain a canonical SHA-256 digest.");
 
         return Convert.FromHexString(digest[7..]);
+    }
+
+    private static bool IsCanonicalRepository(string repository)
+    {
+        if (repository.Length > 201)
+            return false;
+        var parts = repository.Split('/');
+        return parts.Length == 2 && parts.All(part =>
+            part.Length is > 0 and <= 100 &&
+            part != "." && part != ".." &&
+            part.All(character => char.IsAsciiLetterOrDigit(character) ||
+                character is '-' or '_' or '.'));
     }
 
     private static void ValidateToken(string? token)
