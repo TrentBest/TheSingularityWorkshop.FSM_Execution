@@ -212,6 +212,10 @@ public static class CiAiWorkflowEvidencePacketConsumer
             packetObservation.CandidateCheckoutEvidence == hostObservation.CandidateCheckoutEvidence &&
             packetObservation.CandidateCheckoutVerified == hostObservation.CandidateCheckoutVerified &&
             packetObservation.ArtifactReferences.SequenceEqual(hostObservation.ArtifactReferences) &&
+            JsonSerializer.Serialize(packetObservation.ProviderPullRequestObservation) ==
+                JsonSerializer.Serialize(hostObservation.ProviderPullRequestObservation) &&
+            JsonSerializer.Serialize(packetObservation.ProviderPullRequestIdentity) ==
+                JsonSerializer.Serialize(hostObservation.ProviderPullRequestIdentity) &&
             packetObservation.Jobs.Count == hostObservation.Jobs.Count &&
             packetObservation.Jobs.Zip(hostObservation.Jobs).All(pair =>
                 string.Equals(JsonSerializer.Serialize(pair.First), JsonSerializer.Serialize(pair.Second), StringComparison.Ordinal));
