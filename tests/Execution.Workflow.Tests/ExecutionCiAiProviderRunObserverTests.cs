@@ -52,7 +52,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
           }]
         }
         """;
-        var jobsJson = $$"""
+        var jobsJson = $"""
         {
           "total_count": 1,
           "jobs": [{
@@ -85,10 +85,11 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         }
         """;
 
-        var handler = new StubGitHubHandler(runJson, jobsJson);
+        var profile = CiWorkflowObserverProfile.CiAiDefault;
+        var handler = new StubGitHubHandler(runJson, jobsJson, workflowSha, profile);
         using var http = new HttpClient(handler);
         var observer = new ExecutionCiAiProviderRunObserver(http, new StaticCredentialProvider());
-        var result = await observer.ObserveAsync(snapshot, now);
+        var result = await observer.ObserveAsync(snapshot, profile, now);
 
         Assert.Equal(42, result.Run.RunId);
         Assert.Equal(2, result.Run.RunAttempt);
@@ -99,7 +100,10 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         Assert.Equal(mapping.CandidateSha, result.Run.CandidateSha);
         Assert.True(result.Run.CandidateCheckoutVerified);
         Assert.True(result.Run.IsSuccessful);
-        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal(2, result.Run.ArtifactReferences.Count);
+        Assert.Equal("ciai-workflow-provenance-2", result.ProvenanceArtifact.ArtifactName);
+        Assert.Equal("ciai-test-results-2", result.TestResultsArtifact.ArtifactName);
+        Assert.Equal(6, handler.RequestCount);
     }
 
     private sealed class StaticCredentialProvider : IGitHubActionsReadCredentialProvider
@@ -108,7 +112,8 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             ValueTask.FromResult<string?>("test-read-token");
     }
 
-    private sealed class StubGitHubHandler(string runJson, string jobsJson) : HttpMessageHandler
+    private sealed class StubGitHubHandler(
+        string runJson, string jobsJson, string workflowSha, CiWorkflowObserverProfile profile) : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
 
@@ -121,11 +126,36 @@ public sealed class ExecutionCiAiProviderRunObserverTests
                 ? runJson
                 : path.EndsWith("/attempts/2/jobs", StringComparison.Ordinal)
                     ? jobsJson
-                    : throw new InvalidOperationException("Unexpected GitHub API request: " + path);
+                    : path.EndsWith("/actions/runs/42/artifacts", StringComparison.Ordinal)
+                        ? ArtifactListing()
+                        : path.EndsWith("/actions/artifacts/7", StringComparison.Ordinal)
+                            ? ArtifactDetail(7, profile.ProvenanceArtifactName(42, 2))
+                            : path.EndsWith("/actions/artifacts/8", StringComparison.Ordinal)
+                                ? ArtifactDetail(8, profile.TestArtifactName(42, 2))
+                                : throw new InvalidOperationException("Unexpected GitHub API request: " + path);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json")
             });
         }
+
+        private static string ArtifactListing() =>
+            "{\\"total_count\\":2,\\"artifacts\\":[" +
+            "{\\"id\\":7,\\"name\\":\\"ciai-workflow-provenance-2\\"}," +
+            "{\\"id\\":8,\\"name\\":\\"ciai-test-results-2\\"}]}";
+
+        private string ArtifactDetail(long id, string name) => $"""
+        {
+          "id": {{id}},
+          "name": "{{name}}",
+          "size_in_bytes": 1,
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expired": false,
+          "created_at": "2026-11-27T20:00:00Z",
+          "expires_at": "2026-11-28T20:00:00Z",
+          "workflow_run": { "id": 42, "head_sha": "{{workflowSha}}" },
+          "archive_download_url": "https://api.github.com/repos/TrentBest/Example/actions/artifacts/{{id}}/zip"
+        }
+        """;
     }
 }
