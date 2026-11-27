@@ -62,6 +62,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
         string expectedEventRef,
         string expectedEventSha,
         CiWorkflowRunEvidenceObservation independentlyObservedRun,
+        CiWorkflowProvenanceArtifactEvidence independentlyObservedProvenance,
         CiWorkflowDefinitionTrustPolicy protectedWorkflowPolicy,
         ReadOnlyMemory<byte> workflowBytesAtRunRevision,
         ReadOnlyMemory<byte> workflowBytesAtApprovedRevision,
@@ -72,6 +73,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
     {
         ArgumentNullException.ThrowIfNull(expectedRequiredChecks);
         ArgumentNullException.ThrowIfNull(independentlyObservedRun);
+        ArgumentNullException.ThrowIfNull(independentlyObservedProvenance);
         ArgumentNullException.ThrowIfNull(protectedWorkflowPolicy);
         ArgumentNullException.ThrowIfNull(durableStore);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedRepository);
@@ -125,6 +127,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
 
         var provenance = untrustedPacket.Provenance;
         RequireObservedRunMatches(untrustedPacket.ObservedRun, independentlyObservedRun);
+        RequireProvenanceMatches(provenance, independentlyObservedProvenance);
         RequireEqual(provenance.WorkflowRef, expectedWorkflowRef, "workflow definition ref");
         RequireEqualSha(provenance.WorkflowSha, expectedWorkflowSha, "workflow definition SHA");
         RequireEqual(provenance.WorkflowPath, protectedWorkflowPolicy.WorkflowPath, "workflow path");
@@ -160,6 +163,30 @@ public static class CiAiWorkflowEvidencePacketConsumer
             throw new InvalidDataException("A different CiAi packet is already staged for this task/run/attempt identity.");
 
         return new ExecutionAcceptedCiAiWorkflowEvidence(packet, packetSha256, verdict);
+    }
+
+    private static void RequireProvenanceMatches(
+        CiWorkflowProvenanceRecord packetProvenance,
+        CiWorkflowProvenanceArtifactEvidence independentlyObservedProvenance)
+    {
+        var observed = independentlyObservedProvenance.Provenance;
+        var matches =
+            string.Equals(packetProvenance.Repository, observed.Repository, StringComparison.OrdinalIgnoreCase) &&
+            packetProvenance.RunId == observed.RunId &&
+            packetProvenance.RunAttempt == observed.RunAttempt &&
+            packetProvenance.WorkflowPath == observed.WorkflowPath &&
+            packetProvenance.WorkflowRef == observed.WorkflowRef &&
+            string.Equals(packetProvenance.WorkflowSha, observed.WorkflowSha, StringComparison.OrdinalIgnoreCase) &&
+            packetProvenance.EventName == observed.EventName &&
+            packetProvenance.EventRef == observed.EventRef &&
+            string.Equals(packetProvenance.EventSha, observed.EventSha, StringComparison.OrdinalIgnoreCase) &&
+            packetProvenance.CheckoutRef == observed.CheckoutRef &&
+            string.Equals(packetProvenance.CheckoutSha, observed.CheckoutSha, StringComparison.OrdinalIgnoreCase) &&
+            JsonSerializer.Serialize(packetProvenance.PullRequest) ==
+                JsonSerializer.Serialize(observed.PullRequest) &&
+            (packetProvenance.PullRequest is null || independentlyObservedProvenance.PullRequestHeadBaseVerified);
+        if (!matches)
+            throw new UnauthorizedAccessException("CiAi packet provenance does not match the independently retrieved and verified workflow-provenance artifact.");
     }
 
     private static void RequireObservedRunMatches(
