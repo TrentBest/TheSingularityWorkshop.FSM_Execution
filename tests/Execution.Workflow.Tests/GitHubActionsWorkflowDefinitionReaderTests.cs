@@ -127,7 +127,7 @@ public sealed class GitHubActionsWorkflowDefinitionReaderTests
             Requests.Add(new RequestCapture(
                 request.RequestUri!,
                 request.Headers.Authorization?.ToString(),
-                request.Headers.Accept.FirstOrDefault()?.MediaType + "+" + request.Headers.Accept.FirstOrDefault()?.Parameters.FirstOrDefault()?.Value?.Trim('"')));
+                request.Headers.Accept.ToString()));
             return Task.FromResult(responseFactory(request));
         }
     }
