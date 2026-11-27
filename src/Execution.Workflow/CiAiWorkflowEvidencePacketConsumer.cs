@@ -122,7 +122,7 @@ public static class CiAiWorkflowEvidencePacketConsumer
         RequireEqual(provenance.EventName, expectedEventName, "event name");
         RequireEqual(provenance.EventRef, expectedEventRef, "event ref");
         RequireEqualSha(provenance.EventSha, expectedEventSha, "event SHA");
-        RequireEqual(proventrusted(untrustedPacket.CandidateRef), expectedCandidateRef, "candidate ref");
+        RequireEqual(untrustedPacket.CandidateRef, expectedCandidateRef, "candidate ref");
         RequireEqualSha(untrustedPacket.CandidateSha, expectedCandidateSha, "candidate SHA");
 
         var trustDecision = protectedWorkflowPolicy.Evaluate(
@@ -146,8 +146,6 @@ public static class CiAiWorkflowEvidencePacketConsumer
 
         return new ExecutionAcceptedCiAiWorkflowEvidence(packet, packetSha256, verdict);
     }
-
-    private static string proventrusted(string value) => value;
 
     private static void RequireEqual(string actual, string expected, string identity)
     {
