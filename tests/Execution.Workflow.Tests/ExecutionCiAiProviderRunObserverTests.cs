@@ -202,7 +202,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
           "event": {
             "name": "workflow_dispatch",
             "ref": "refs/heads/development",
-            "sha": "{{workflowSha}}",
+            "sha": "{{eventSha}}",
             "pullRequest": null
           },
           "checkout": {
@@ -229,6 +229,8 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             Assert.Equal(CiWorkflowEvidencePacket.CurrentSchema, accepted.Packet.Schema);
             Assert.Equal(candidateRef, accepted.Packet.Provenance.CheckoutRef);
             Assert.Equal("refs/heads/development", accepted.Packet.Provenance.EventRef);
+            Assert.Equal(workflowSha, accepted.Packet.Provenance.WorkflowSha);
+            Assert.Equal(eventSha, accepted.Packet.Provenance.EventSha);
             Assert.True(accepted.Packet.WorkflowDefinitionTrusted);
             Assert.True(accepted.Packet.CheckoutVerified);
             Assert.True(accepted.Packet.EvidenceComplete);
