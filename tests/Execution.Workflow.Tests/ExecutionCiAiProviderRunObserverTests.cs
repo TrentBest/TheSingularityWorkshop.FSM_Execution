@@ -15,7 +15,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
     {
         var now = new DateTimeOffset(2026, 11, 27, 21, 0, 0, TimeSpan.Zero);
         var workflowSha = new string('a', 40);
-        var eventSha = workflowSha;
+        var eventSha = new string('b', 40);
         var candidateSha = new string('c', 40);
         var mapping = new CiAiRequestTaskMapping(
             1, "request-42", "operation-42", "idempotency-42",
@@ -43,7 +43,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             "id": 42,
             "repository": { "full_name": "TrentBest/Example" },
             "name": "CI",
-            "head_sha": "{{workflowSha}}",
+            "head_sha": "{{eventSha}}",
             "status": "completed",
             "conclusion": "success",
             "html_url": "https://github.com/TrentBest/Example/actions/runs/42",
@@ -89,7 +89,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         """;
 
         var profile = CiWorkflowObserverProfile.CiAiDefault;
-        var handler = new StubGitHubHandler(runJson, jobsJson, workflowSha, profile);
+        var handler = new StubGitHubHandler(runJson, jobsJson, eventSha, profile);
         using var http = new HttpClient(handler);
         var observer = new ExecutionCiAiProviderRunObserver(http, new StaticCredentialProvider());
         var result = await observer.ObserveAsync(snapshot, profile, now);
@@ -98,7 +98,8 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         Assert.Equal(2, result.Run.RunAttempt);
         Assert.Equal(mapping.WorkflowPath, result.Run.WorkflowPath);
         Assert.Equal(mapping.TrustedWorkflowRef, result.Run.WorkflowRef);
-        Assert.Equal(mapping.TrustedWorkflowSha, result.Run.WorkflowSha);
+        Assert.Equal(eventSha, result.Run.WorkflowSha);
+        Assert.NotEqual(workflowSha, result.Run.WorkflowSha);
         Assert.Equal(mapping.CandidateRef, result.Run.CandidateRef);
         Assert.Equal(mapping.CandidateSha, result.Run.CandidateSha);
         Assert.True(result.Run.CandidateCheckoutVerified);
@@ -114,6 +115,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
     {
         var now = new DateTimeOffset(2026, 11, 27, 21, 0, 0, TimeSpan.Zero);
         var workflowSha = new string('a', 40);
+        var eventSha = new string('b', 40);
         var candidateSha = new string('c', 40);
         const string candidateRef = "refs/heads/feature/candidate";
         const string repository = "TrentBest/Example";
@@ -125,7 +127,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             "contract", "Resolve candidate", "Verify candidate checkout",
             "CiAi", "https://artifacts.example.test",
             "https://execution.example.test/api/v1/ack", "execution-read",
-            now.AddHours(-1), now.AddHours(1), workflowSha)
+            now.AddHours(-1), now.AddHours(1), eventSha)
         {
             JobKey = "contract"
         };
@@ -133,7 +135,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             42, 2, mapping.Repository, mapping.WorkflowPath,
             mapping.TrustedWorkflowRef, mapping.TrustedWorkflowSha,
             mapping.CandidateRef, mapping.CandidateSha,
-            "workflow_dispatch", now, workflowSha);
+            "workflow_dispatch", now, eventSha);
         var snapshot = new CiAiRequestTaskMappingSnapshot(mapping, runBinding, false);
         var runJson = $$"""
         {
@@ -142,7 +144,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             "id": 42,
             "repository": { "full_name": "{{repository}}" },
             "name": "CI",
-            "head_sha": "{{workflowSha}}",
+            "head_sha": "{{eventSha}}",
             "status": "completed",
             "conclusion": "success",
             "html_url": "https://github.com/TrentBest/Example/actions/runs/42",
@@ -210,7 +212,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         }
         """;
         var provenanceArchive = CreateProvenanceArchive(provenanceJson);
-        var handler = new StubGitHubHandler(runJson, jobsJson, workflowSha, profile, provenanceArchive);
+        var handler = new StubGitHubHandler(runJson, jobsJson, eventSha, profile, provenanceArchive);
         using var http = new HttpClient(handler);
         var observer = new ExecutionCiAiProviderRunObserver(http, new StaticCredentialProvider());
         var observed = await observer.ObserveAsync(snapshot, profile, now);
@@ -265,7 +267,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
     }
 
     private sealed class StubGitHubHandler(
-        string runJson, string jobsJson, string workflowSha, CiWorkflowObserverProfile profile,
+        string runJson, string jobsJson, string eventSha, CiWorkflowObserverProfile profile,
         byte[]? provenanceArchive = null) : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
