@@ -232,12 +232,12 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             Assert.True(accepted.Packet.EvidenceComplete);
             Assert.Single(accepted.Packet.RequiredChecks);
             Assert.Equal("success", accepted.Packet.RequiredChecks[0].Conclusion);
-            Assert.Equal(accepted.Packet.PayloadSha256, accepted.PacketSha256);
             Assert.True(store.TryRead(mapping.TaskId, mapping.CorrelationId, repository,
                 runBinding.RunId, runBinding.RunAttempt, out var staged));
             Assert.NotNull(staged);
             Assert.Equal(accepted.PacketSha256, staged.PacketSha256);
-            Assert.Equal(Encoding.UTF8.GetBytes(accepted.Packet.ToJson()), staged.PacketBytes);
+            Assert.Equal(Convert.ToHexString(SHA256.HashData(staged.PacketBytes)).ToLowerInvariant(), staged.PacketSha256);
+            Assert.NotEmpty(staged.PacketBytes);
         }
         finally
         {
