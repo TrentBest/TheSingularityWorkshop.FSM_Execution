@@ -73,6 +73,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             runBinding.RunAttempt,
             mapping.TrustedWorkflowSha,
             expectedEventSha,
+            mapping.CandidateRef,
             mapping.CandidateSha,
             mapping.TrustedWorkflowRef,
             mapping.TrustedWorkflowSha,
