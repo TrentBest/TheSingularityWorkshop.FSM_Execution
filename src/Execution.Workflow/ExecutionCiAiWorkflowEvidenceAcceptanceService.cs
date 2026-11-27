@@ -15,6 +15,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
         CiAiVerifiedArtifactContent retrievedArtifact,
         ExecutionObservedCiAiProviderRun independentlyObservedRun,
         CiWorkflowProvenanceArtifactEvidence independentlyObservedProvenance,
+        CiWorkflowObserverProfile observerProfile,
         string expectedCapabilityIdentity,
         string expectedCapabilityVersion,
         string expectedImplementationRevision,
@@ -27,6 +28,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
         ArgumentNullException.ThrowIfNull(retrievedArtifact);
         ArgumentNullException.ThrowIfNull(independentlyObservedRun);
         ArgumentNullException.ThrowIfNull(independentlyObservedProvenance);
+        ArgumentNullException.ThrowIfNull(observerProfile);
         ArgumentNullException.ThrowIfNull(durableStore);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedCapabilityIdentity);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedCapabilityVersion);
@@ -55,6 +57,20 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
 
         if (mapping.JobKey is null)
             throw new InvalidOperationException("Workflow evidence acceptance requires a host-registered required-check key.");
+        if (observerProfile.WorkflowPath != mapping.WorkflowPath ||
+            observerProfile.RequiredJobKey != mapping.JobKey ||
+            observerProfile.RequiredJobName != mapping.JobName)
+            throw new UnauthorizedAccessException("Observer profile does not match the host-registered workflow and required-check mapping.");
+
+        var providerArtifact = independentlyObservedProvenance.ProviderArtifact;
+        if (!string.Equals(providerArtifact.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
+            providerArtifact.RunId != runBinding.RunId ||
+            !string.Equals(providerArtifact.HeadSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            providerArtifact.ArtifactName != observerProfile.ProvenanceArtifactName(runBinding.RunId, runBinding.RunAttempt) ||
+            providerArtifact.IsExpired || providerArtifact.ExpiresAt <= receivedAt ||
+            providerArtifact.ArchiveSizeBytes is <= 0 or > CiTestResultArtifactArchive.DefaultMaximumArchiveBytes ||
+            independentlyObservedProvenance.PayloadSizeBytes is <= 0 or > CiWorkflowProvenanceArtifactReader.MaximumPayloadBytes)
+            throw new UnauthorizedAccessException("Workflow provenance artifact metadata does not match the exact registered provider run and observer profile.");
 
         var requiredChecks = new[]
         {
