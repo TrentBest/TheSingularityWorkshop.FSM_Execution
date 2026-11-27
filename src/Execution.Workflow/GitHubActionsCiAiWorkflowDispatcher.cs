@@ -9,7 +9,7 @@ namespace TheSingularityWorkshop.Execution;
 /// Dispatches only the registered workflow on its protected ref. The supplied HttpClient must
 /// have automatic redirects and proxies disabled; the credential provider must grant only the
 /// repository-scoped Actions workflow-dispatch permission needed by this operation.
- The candidate is supplied as
+/// The candidate is supplied as
 /// immutable SHA plus its human-readable branch ref; request identity is carried into the trusted
 /// workflow's run-scoped marker artifact for later independent reconciliation.
 /// </summary>
