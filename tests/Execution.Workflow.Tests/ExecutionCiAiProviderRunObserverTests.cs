@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Execution;
@@ -13,7 +15,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
     {
         var now = new DateTimeOffset(2026, 11, 27, 21, 0, 0, TimeSpan.Zero);
         var workflowSha = new string('a', 40);
-        var eventSha = new string('b', 40);
+        var eventSha = workflowSha;
         var candidateSha = new string('c', 40);
         var mapping = new CiAiRequestTaskMapping(
             1, "request-42", "operation-42", "idempotency-42",
@@ -107,6 +109,155 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         Assert.Equal(6, handler.RequestCount);
     }
 
+    [Fact]
+    public async Task ObserveAndAcceptBuildsAndDurablyStagesCanonicalV1Packet()
+    {
+        var now = new DateTimeOffset(2026, 11, 27, 21, 0, 0, TimeSpan.Zero);
+        var workflowSha = new string('a', 40);
+        var candidateSha = new string('c', 40);
+        const string candidateRef = "refs/heads/feature/candidate";
+        const string repository = "TrentBest/Example";
+        var mapping = new CiAiRequestTaskMapping(
+            1, "request-accept-42", "operation-accept-42", "idempotency-accept-42",
+            "task-accept-42", "correlation-accept-42", repository,
+            candidateRef, candidateSha,
+            ".github/workflows/ci.yml", "refs/heads/development", workflowSha,
+            "contract", "Resolve candidate", "Verify candidate checkout",
+            "CiAi", "https://artifacts.example.test",
+            "https://execution.example.test/api/v1/ack", "execution-read",
+            now.AddHours(-1), now.AddHours(1), workflowSha)
+        {
+            JobKey = "contract"
+        };
+        var runBinding = new CiAiDispatchRunBinding(
+            42, 2, mapping.Repository, mapping.WorkflowPath,
+            mapping.TrustedWorkflowRef, mapping.TrustedWorkflowSha,
+            mapping.CandidateRef, mapping.CandidateSha,
+            "workflow_dispatch", now, workflowSha);
+        var snapshot = new CiAiRequestTaskMappingSnapshot(mapping, runBinding, false);
+        var runJson = $"""
+        {
+          "total_count": 1,
+          "workflow_runs": [{
+            "id": 42,
+            "repository": { "full_name": "{{repository}}" },
+            "name": "CI",
+            "head_sha": "{{workflowSha}}",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/TrentBest/Example/actions/runs/42",
+            "updated_at": "2026-11-27T20:59:00Z",
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/ci.yml@refs/heads/development",
+            "run_attempt": 2,
+            "pull_requests": []
+          }]
+        }
+        """;
+        var jobsJson = """
+        {
+          "total_count": 1,
+          "jobs": [{
+            "id": 100,
+            "run_id": 42,
+            "run_attempt": 2,
+            "name": "contract",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/TrentBest/Example/actions/runs/42/job/100",
+            "started_at": "2026-11-27T20:50:00Z",
+            "completed_at": "2026-11-27T20:58:00Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Resolve candidate",
+                "status": "completed",
+                "conclusion": "success",
+                "completed_at": "2026-11-27T20:50:30Z"
+              },
+              {
+                "number": 2,
+                "name": "Verify candidate checkout",
+                "status": "completed",
+                "conclusion": "success",
+                "completed_at": "2026-11-27T20:51:00Z"
+              }
+            ]
+          }]
+        }
+        """;
+        var profile = CiWorkflowObserverProfile.CiAiDefault;
+        var provenanceJson = $"""
+        {
+          "schema": "{{CiWorkflowProvenanceRecord.CurrentSchema}}",
+          "repository": "{{repository}}",
+          "runId": 42,
+          "runAttempt": 2,
+          "workflow": {
+            "ref": "{{repository}}/.github/workflows/ci.yml@refs/heads/development",
+            "sha": "{{workflowSha}}"
+          },
+          "event": {
+            "name": "workflow_dispatch",
+            "ref": "refs/heads/development",
+            "sha": "{{workflowSha}}",
+            "pullRequest": null
+          },
+          "checkout": {
+            "ref": "{{candidateRef}}",
+            "sha": "{{candidateSha}}"
+          }
+        }
+        """;
+        var provenanceArchive = CreateProvenanceArchive(provenanceJson);
+        var handler = new StubGitHubHandler(runJson, jobsJson, workflowSha, profile, provenanceArchive);
+        using var http = new HttpClient(handler);
+        var observer = new ExecutionCiAiProviderRunObserver(http, new StaticCredentialProvider());
+        var observed = await observer.ObserveAsync(snapshot, profile, now);
+        var workflowBytes = Encoding.UTF8.GetBytes("name: CI\njobs:\n  contract:\n    runs-on: ubuntu-latest\n");
+        var directory = Path.Combine(Path.GetTempPath(), $"execution-ciai-accept-{Guid.NewGuid():N}");
+
+        try
+        {
+            var store = new JsonlCiAiWorkflowEvidencePacketStore(directory);
+            var accepted = ExecutionCiAiWorkflowEvidenceAcceptanceService.ObserveAndAccept(
+                snapshot, observed, provenanceArchive, profile,
+                workflowBytes, workflowBytes, store, now);
+
+            Assert.Equal(CiWorkflowEvidencePacket.CurrentSchema, accepted.Packet.Schema);
+            Assert.Equal(candidateRef, accepted.Packet.Provenance.CheckoutRef);
+            Assert.Equal("refs/heads/development", accepted.Packet.Provenance.EventRef);
+            Assert.True(accepted.Packet.WorkflowDefinitionTrusted);
+            Assert.True(accepted.Packet.CheckoutVerified);
+            Assert.True(accepted.Packet.EvidenceComplete);
+            Assert.Single(accepted.Packet.RequiredChecks);
+            Assert.Equal("success", accepted.Packet.RequiredChecks[0].Conclusion);
+            Assert.Equal(accepted.Packet.PayloadSha256, accepted.PacketSha256);
+            Assert.True(store.TryRead(mapping.TaskId, mapping.CorrelationId, repository,
+                runBinding.RunId, runBinding.RunAttempt, out var staged));
+            Assert.NotNull(staged);
+            Assert.Equal(accepted.PacketSha256, staged.PacketSha256);
+            Assert.Equal(Encoding.UTF8.GetBytes(accepted.Packet.ToJson()), staged.PacketBytes);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static byte[] CreateProvenanceArchive(string provenanceJson)
+    {
+        using var memory = new MemoryStream();
+        using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry("workflow-provenance.json", CompressionLevel.Optimal);
+            using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false, true));
+            writer.Write(provenanceJson);
+        }
+        return memory.ToArray();
+    }
+
     private sealed class StaticCredentialProvider : IGitHubActionsReadCredentialProvider
     {
         public ValueTask<string?> GetTokenAsync(string repository, CancellationToken cancellationToken) =>
@@ -114,7 +265,8 @@ public sealed class ExecutionCiAiProviderRunObserverTests
     }
 
     private sealed class StubGitHubHandler(
-        string runJson, string jobsJson, string workflowSha, CiWorkflowObserverProfile profile) : HttpMessageHandler
+        string runJson, string jobsJson, string workflowSha, CiWorkflowObserverProfile profile,
+        byte[]? provenanceArchive = null) : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
 
@@ -150,12 +302,18 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         }
         """;
 
-        private string ArtifactDetail(long id, string name) => $$"""
+        private string ArtifactDetail(long id, string name)
+        {
+            var size = id == 7 && provenanceArchive is not null ? provenanceArchive.Length : 1;
+            var digest = id == 7 && provenanceArchive is not null
+                ? "sha256:" + Convert.ToHexString(SHA256.HashData(provenanceArchive)).ToLowerInvariant()
+                : "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            return $"""
         {
           "id": {{id}},
           "name": "{{name}}",
-          "size_in_bytes": 1,
-          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_in_bytes": {{size}},
+          "digest": "{{digest}}",
           "expired": false,
           "created_at": "2026-11-27T20:00:00Z",
           "expires_at": "2026-11-28T20:00:00Z",
@@ -163,5 +321,6 @@ public sealed class ExecutionCiAiProviderRunObserverTests
           "archive_download_url": "https://api.github.com/repos/TrentBest/Example/actions/artifacts/{{id}}/zip"
         }
         """;
+        }
     }
 }
