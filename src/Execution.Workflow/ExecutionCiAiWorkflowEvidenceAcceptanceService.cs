@@ -14,7 +14,6 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
         CiAiArtifactNoticeIngressResult ingress,
         CiAiVerifiedArtifactContent retrievedArtifact,
         ExecutionObservedCiAiProviderRun independentlyObservedRun,
-        CiProviderArtifactObservation providerProvenanceArtifact,
         ReadOnlyMemory<byte> providerProvenanceArchiveBytes,
         CiWorkflowObserverProfile observerProfile,
         string expectedCapabilityIdentity,
@@ -28,7 +27,6 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
         ArgumentNullException.ThrowIfNull(ingress);
         ArgumentNullException.ThrowIfNull(retrievedArtifact);
         ArgumentNullException.ThrowIfNull(independentlyObservedRun);
-        ArgumentNullException.ThrowIfNull(providerProvenanceArtifact);
         ArgumentNullException.ThrowIfNull(observerProfile);
         ArgumentNullException.ThrowIfNull(durableStore);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedCapabilityIdentity);
@@ -66,7 +64,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
         var expectedEventSha = mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
         var independentlyObservedProvenance = CiWorkflowProvenanceArtifactReader.Read(
             providerProvenanceArchiveBytes,
-            providerProvenanceArtifact,
+            independentlyObservedRun.ProvenanceArtifact,
             observerProfile,
             mapping.Repository,
             runBinding.RunId,
