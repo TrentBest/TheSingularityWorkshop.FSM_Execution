@@ -36,7 +36,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             "workflow_dispatch", now, eventSha);
         var snapshot = new CiAiRequestTaskMappingSnapshot(mapping, runBinding, false);
 
-        var runJson = $$"""
+        var runJson = $$$"""
         {
           "total_count": 1,
           "workflow_runs": [{
@@ -187,7 +187,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
         }
         """;
         var profile = CiWorkflowObserverProfile.CiAiDefault;
-        var provenanceJson = $"""
+        var provenanceJson = $$"""
         {
           "schema": "{{CiWorkflowProvenanceRecord.CurrentSchema}}",
           "repository": "{{repository}}",
@@ -308,7 +308,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             var digest = id == 7 && provenanceArchive is not null
                 ? "sha256:" + Convert.ToHexString(SHA256.HashData(provenanceArchive)).ToLowerInvariant()
                 : "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-            return $"""
+            return $$"""
         {
           "id": {{id}},
           "name": "{{name}}",
