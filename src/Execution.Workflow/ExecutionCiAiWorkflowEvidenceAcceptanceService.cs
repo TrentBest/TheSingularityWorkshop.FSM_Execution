@@ -46,13 +46,14 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             observerProfile.RequiredJobName != mapping.JobName)
             throw new UnauthorizedAccessException("Observer profile does not match the persisted workflow and required-check mapping.");
 
+        var expectedEventSha = runBinding.EventSha ?? mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
         var observedRun = independentlyObservedRun.Run;
         if (observedRun.RunId != runBinding.RunId ||
             observedRun.RunAttempt != runBinding.RunAttempt ||
             !string.Equals(observedRun.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
             observedRun.WorkflowPath != mapping.WorkflowPath ||
             observedRun.WorkflowRef != mapping.TrustedWorkflowRef ||
-            !string.Equals(observedRun.WorkflowSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(observedRun.WorkflowSha, expectedEventSha, StringComparison.OrdinalIgnoreCase) ||
             observedRun.Event != runBinding.Event)
             throw new UnauthorizedAccessException("Independent provider run observation does not match the persisted dispatch binding.");
 
@@ -63,7 +64,6 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             independentlyObservedRun.TestResultsArtifact, mapping, runBinding,
             observerProfile.TestArtifactName(runBinding.RunId, runBinding.RunAttempt), receivedAt);
 
-        var expectedEventSha = runBinding.EventSha ?? mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
         var provenanceEvidence = CiWorkflowProvenanceArtifactReader.Read(
             providerProvenanceArchiveBytes,
             independentlyObservedRun.ProvenanceArtifact,
