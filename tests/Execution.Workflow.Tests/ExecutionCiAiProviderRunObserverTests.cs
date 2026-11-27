@@ -52,7 +52,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
           }]
         }
         """;
-        var jobsJson = $"""
+        var jobsJson = """
         {
           "total_count": 1,
           "jobs": [{
