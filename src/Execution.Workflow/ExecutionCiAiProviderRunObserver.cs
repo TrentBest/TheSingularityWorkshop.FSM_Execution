@@ -24,7 +24,16 @@ public sealed record ExecutionObservedCiAiProviderRun(
 /// persisted dispatch mapping. This observer never reads run identities or job outcomes from a
 /// CiAi packet or model output.
 /// </summary>
-public sealed class ExecutionCiAiProviderRunObserver
+public interface IExecutionCiAiProviderRunObserver
+{
+    Task<ExecutionObservedCiAiProviderRun> ObserveAsync(
+        CiAiRequestTaskMappingSnapshot request,
+        CiWorkflowObserverProfile observerProfile,
+        DateTimeOffset observedAt,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class ExecutionCiAiProviderRunObserver : IExecutionCiAiProviderRunObserver
 {
     private readonly HttpClient _httpClient;
     private readonly IGitHubActionsReadCredentialProvider _credentials;
