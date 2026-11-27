@@ -11,8 +11,7 @@ namespace TheSingularityWorkshop.Execution;
 /// </summary>
 public sealed record ExecutionAcceptedCiAiWorkflowEvidence(
     CiWorkflowEvidencePacket Packet,
-    string PacketSha256,
-    string Verdict)
+    string PacketSha256)
 {
     public string Repository => Packet.Provenance.Repository;
     public long RunId => Packet.Provenance.RunId;
@@ -148,21 +147,13 @@ public static class CiAiWorkflowEvidencePacketConsumer
             json, expectedRepository, expectedRunId, expectedRunAttempt,
             packetSha256, requiredChecks, trustDecision);
 
-        var verdict = !packet.EvidenceComplete || !packet.WorkflowDefinitionTrusted || !packet.CheckoutVerified
-            ? "IncompleteOrUntrusted"
-            : packet.IsSuccessful
-                ? "CompletePass"
-                : packet.HasActionableDiagnostics
-                    ? "ActionableFailure"
-                    : "NonActionableFailure";
-
         var staged = durableStore.Store(
             taskId, correlationId, expectedRepository, expectedRunId, expectedRunAttempt,
             packet.CandidateSha, packetSha256, packetBytes, receivedAt);
         if (staged == CiAiWorkflowEvidencePacketStoreOutcome.Conflict)
             throw new InvalidDataException("A different CiAi packet is already staged for this task/run/attempt identity.");
 
-        return new ExecutionAcceptedCiAiWorkflowEvidence(packet, packetSha256, verdict);
+        return new ExecutionAcceptedCiAiWorkflowEvidence(packet, packetSha256);
     }
 
     private static void RequireProvenanceMatches(
