@@ -139,12 +139,17 @@ public sealed class ExecutionCiAiProviderRunObserverTests
             });
         }
 
-        private static string ArtifactListing() =>
-            "{\\"total_count\\":2,\\"artifacts\\":[" +
-            "{\\"id\\":7,\\"name\\":\\"ciai-workflow-provenance-2\\"}," +
-            "{\\"id\\":8,\\"name\\":\\"ciai-test-results-2\\"}]}";
+        private static string ArtifactListing() => """
+        {
+          "total_count": 2,
+          "artifacts": [
+            { "id": 7, "name": "ciai-workflow-provenance-2" },
+            { "id": 8, "name": "ciai-test-results-2" }
+          ]
+        }
+        """;
 
-        private string ArtifactDetail(long id, string name) => $"""
+        private string ArtifactDetail(long id, string name) => $$"""
         {
           "id": {{id}},
           "name": "{{name}}",
