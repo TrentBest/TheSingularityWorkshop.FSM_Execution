@@ -104,6 +104,7 @@ jobs:
           IDEMPOTENCY_KEY: ${{ inputs.idempotency_key }}
         run: |
           set -euo pipefail
+          mkdir -p candidate/artifacts
           jq -n \
             --arg contract "execution.ciai-dispatch-marker.v1" \
             --arg requestId "$REQUEST_ID" \
