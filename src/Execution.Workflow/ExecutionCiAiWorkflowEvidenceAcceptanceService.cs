@@ -198,7 +198,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             observerProfile.RequiredJobName != mapping.JobName)
             throw new UnauthorizedAccessException("Observer profile does not match the host-registered workflow and required-check mapping.");
 
-        var expectedEventSha = mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
+        var expectedEventSha = runBinding.EventSha ?? mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
         var independentlyObservedProvenance = CiWorkflowProvenanceArtifactReader.Read(
             providerProvenanceArchiveBytes,
             independentlyObservedRun.ProvenanceArtifact,
@@ -206,7 +206,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             mapping.Repository,
             runBinding.RunId,
             runBinding.RunAttempt,
-            independentlyObservedRun.WorkflowSha,
+            independentlyObservedRun.Run.WorkflowSha,
             expectedEventSha,
             mapping.CandidateRef,
             mapping.CandidateSha,
