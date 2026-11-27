@@ -62,10 +62,15 @@ public static class CiAiWorkflowEvidencePacketConsumer
         string expectedEventSha,
         CiWorkflowDefinitionTrustPolicy protectedWorkflowPolicy,
         ReadOnlyMemory<byte> workflowBytesAtRunRevision,
-        ReadOnlyMemory<byte> workflowBytesAtApprovedRevision)
+        ReadOnlyMemory<byte> workflowBytesAtApprovedRevision,
+        JsonlCiAiWorkflowEvidencePacketStore durableStore,
+        string taskId,
+        string correlationId,
+        DateTimeOffset receivedAt)
     {
         ArgumentNullException.ThrowIfNull(expectedRequiredChecks);
         ArgumentNullException.ThrowIfNull(protectedWorkflowPolicy);
+        ArgumentNullException.ThrowIfNull(durableStore);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedRepository);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedWorkflowRef);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedWorkflowSha);
@@ -143,6 +148,12 @@ public static class CiAiWorkflowEvidencePacketConsumer
                 : packet.HasActionableDiagnostics
                     ? "ActionableFailure"
                     : "NonActionableFailure";
+
+        var staged = durableStore.Store(
+            taskId, correlationId, expectedRepository, expectedRunId, expectedRunAttempt,
+            packet.CandidateSha, packetSha256, packetBytes, receivedAt);
+        if (staged == CiAiWorkflowEvidencePacketStoreOutcome.Conflict)
+            throw new InvalidDataException("A different CiAi packet is already staged for this task/run/attempt identity.");
 
         return new ExecutionAcceptedCiAiWorkflowEvidence(packet, packetSha256, verdict);
     }
