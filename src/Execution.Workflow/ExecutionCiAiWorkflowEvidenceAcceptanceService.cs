@@ -63,7 +63,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             independentlyObservedRun.TestResultsArtifact, mapping, runBinding,
             observerProfile.TestArtifactName(runBinding.RunId, runBinding.RunAttempt), receivedAt);
 
-        var expectedEventSha = mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
+        var expectedEventSha = runBinding.EventSha ?? mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
         var provenanceEvidence = CiWorkflowProvenanceArtifactReader.Read(
             providerProvenanceArchiveBytes,
             independentlyObservedRun.ProvenanceArtifact,
@@ -71,7 +71,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             mapping.Repository,
             runBinding.RunId,
             runBinding.RunAttempt,
-            mapping.TrustedWorkflowSha,
+            observedRun.WorkflowSha,
             expectedEventSha,
             mapping.CandidateRef,
             mapping.CandidateSha,
@@ -140,7 +140,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
     {
         if (!string.Equals(artifact.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
             artifact.RunId != runBinding.RunId ||
-            !string.Equals(artifact.HeadSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(artifact.HeadSha, runBinding.EventSha ?? mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
             artifact.ArtifactName != expectedArtifactName ||
             artifact.IsExpired || artifact.ExpiresAt <= now ||
             artifact.ArchiveSizeBytes is <= 0 or > CiTestResultArtifactArchive.DefaultMaximumArchiveBytes)
@@ -206,7 +206,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             mapping.Repository,
             runBinding.RunId,
             runBinding.RunAttempt,
-            mapping.TrustedWorkflowSha,
+            independentlyObservedRun.WorkflowSha,
             expectedEventSha,
             mapping.CandidateRef,
             mapping.CandidateSha,
