@@ -319,7 +319,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
           "expired": false,
           "created_at": "2026-11-27T20:00:00Z",
           "expires_at": "2026-11-28T20:00:00Z",
-          "workflow_run": { "id": 42, "head_sha": "{{workflowSha}}" },
+          "workflow_run": { "id": 42, "head_sha": "{{eventSha}}" },
           "archive_download_url": "https://api.github.com/repos/TrentBest/Example/actions/artifacts/{{id}}/zip"
         }
         """;
