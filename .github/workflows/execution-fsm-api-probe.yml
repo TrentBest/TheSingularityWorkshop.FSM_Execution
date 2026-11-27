@@ -65,6 +65,11 @@ jobs:
       - name: Test workflow runtime
         run: dotnet test tests/Execution.Workflow.Tests/Execution.Workflow.Tests.csproj --configuration Release --no-restore
 
+      - name: Verify pinned CiAi producer contract tests
+        run: |
+          dotnet restore dependencies/CiAi/tests/TheSingularityWorkshop.CiAi.ContractTests/TheSingularityWorkshop.CiAi.ContractTests.csproj
+          dotnet run --project dependencies/CiAi/tests/TheSingularityWorkshop.CiAi.ContractTests/TheSingularityWorkshop.CiAi.ContractTests.csproj --configuration Release
+
       - name: Build projects
         run: |
           dotnet build src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-restore
