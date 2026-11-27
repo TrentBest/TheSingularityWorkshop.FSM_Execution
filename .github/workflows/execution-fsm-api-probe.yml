@@ -8,9 +8,6 @@ on:
       - feature/**
       - work/**
       - integration/**
-  pull_request:
-    branches:
-      - development
   workflow_dispatch:
 
 permissions:
