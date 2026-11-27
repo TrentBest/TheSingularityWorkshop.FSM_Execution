@@ -38,6 +38,7 @@ public sealed class ExecutionCiAiProviderRunObserverTests
           "total_count": 1,
           "workflow_runs": [{
             "id": 42,
+            "repository": { "full_name": "TrentBest/Example" },
             "name": "CI",
             "head_sha": "{{workflowSha}}",
             "status": "completed",
