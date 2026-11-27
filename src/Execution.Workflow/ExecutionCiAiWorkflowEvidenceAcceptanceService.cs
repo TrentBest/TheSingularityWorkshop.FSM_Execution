@@ -87,7 +87,6 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             mapping.TrustedWorkflowRef, mapping.TrustedWorkflowSha);
         var expectedWorkflowRef =
             mapping.Repository + "/" + mapping.WorkflowPath + "@" + mapping.TrustedWorkflowRef;
-        var expectedEventSha = mapping.TrustedEventSha ?? mapping.TrustedWorkflowSha;
 
         return CiAiWorkflowEvidencePacketConsumer.Consume(
             verifiedArtifact.Bytes,
@@ -102,6 +101,7 @@ public static class ExecutionCiAiWorkflowEvidenceAcceptanceService
             mapping.CandidateSha,
             runBinding.Event,
             mapping.TrustedWorkflowRef,
+            expectedEventSha,
             independentlyObservedRun.Run,
             independentlyObservedProvenance,
             protectedWorkflowPolicy,
