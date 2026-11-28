@@ -57,7 +57,7 @@ public sealed class CiAiArtifactNoticeIngressTests
             ["capabilityVersion"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
             ["implementationRevision"] = Mapping().TrustedWorkflowSha,
             ["artifactId"] = "artifact-123",
-            ["artifactVersion"] = "v1",
+            ["artifactVersion"] = "1",
             ["mediaType"] = "application/json",
             ["sizeBytes"] = 1024,
             ["retrievalUri"] = "https://artifacts.example.test/immutable/evidence.json",
