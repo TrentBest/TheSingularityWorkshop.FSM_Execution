@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Execution;
 using TheSingularityWorkshop.HeadlessAi;
 using Xunit;
@@ -16,7 +17,7 @@ public sealed class CiAiArtifactHostCompositionTests
     private static readonly DateTimeOffset ObservedAt = DateTimeOffset.Parse("2026-10-31T10:45:00Z");
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-31T10:46:00Z");
     private const string Repository = "owner/repo";
-    private const string ProviderRepository = "owner/ciai";
+    private const string ProviderRepository = Repository;
     private const string CandidateSha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string BaseSha = "cccccccccccccccccccccccccccccccccccccccc";
     private const string WorkflowSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -360,11 +361,13 @@ public sealed class CiAiArtifactHostCompositionTests
         {
             ["requestId"] = "request-1",
             ["operationId"] = "operation-1",
-            ["idempotencyKey"] = "idempotency-1",
+            ["idempotencyKey"] = new CiAiArtifactDeliveryIdentity(
+                "request-1", "operation-1", "idempotency-1")
+                .DeriveIdempotencyKey(CiTestResultExecutionNoticeEnqueuer.CapabilityId),
             ["providerRepository"] = ProviderRepository,
-            ["capabilityIdentity"] = "workflow-evidence",
+            ["capabilityIdentity"] = CiTestResultExecutionNoticeEnqueuer.CapabilityId,
             ["capabilityVersion"] = "1",
-            ["implementationRevision"] = "implementation-1",
+            ["implementationRevision"] = WorkflowSha,
             ["artifactId"] = "artifact-123",
             ["artifactVersion"] = "v1",
             ["mediaType"] = "application/json",
