@@ -53,8 +53,6 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
         lock (_gate)
         {
             var current = GetSnapshot(groupId);
-            if (current.Decisions.Any(x => x.RevisionId == current.Latest.RevisionId))
-                throw new InvalidOperationException("A reviewed revision is immutable; create a new group or append before review.");
             var revision = DevelopmentGroupRevision.Create(groupId, revisionId,
                 current.Latest.Sequence + 1, current.Latest.RevisionId, serializedBytes.ToArray(),
                 serializationFormat, producer, mandateId, taskId, turnId, supportingReferences, createdAt);
@@ -206,7 +204,6 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
                     if (entry.Sequence != existing.JournalSequence + 1 ||
                         revision.Sequence != existing.Latest.Sequence + 1 ||
                         revision.PreviousRevisionId != existing.Latest.RevisionId ||
-                        existing.Decisions.Any(x => x.RevisionId == existing.Latest.RevisionId) ||
                         existing.Revisions.Any(x => x.RevisionId == revision.RevisionId))
                         throw new InvalidDataException("Development-group revision history is discontinuous or mutable.");
                     _groups[revision.GroupId] = existing with {
@@ -303,8 +300,9 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
     private static string HashSupport(IReadOnlyList<string> references) =>
         Hash(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(references.OrderBy(x => x, StringComparer.Ordinal), JsonOptions)));
 
-    private static bool FixedEquals(string left, string right) =>
-        left.Length == right.Length && CryptographicOperations.FixedTimeEquals(
+    private static bool FixedEquals(string? left, string? right) =>
+        left is not null && right is not null && left.Length == right.Length &&
+        CryptographicOperations.FixedTimeEquals(
             Encoding.ASCII.GetBytes(left.ToLowerInvariant()), Encoding.ASCII.GetBytes(right.ToLowerInvariant()));
 
     private static void ValidateText(string value, string name, int maxLength)
