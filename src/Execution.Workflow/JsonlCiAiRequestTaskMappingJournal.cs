@@ -72,7 +72,7 @@ public sealed record CiAiRequestTaskMapping(
             }
             else
             {
-                AdmissionEvidence.ValidateFor(Repository, CandidateSha);
+                AdmissionEvidence.ValidateFor(Repository ?? string.Empty, CandidateSha);
                 if (!AdmissionEvidence.IsEligible)
                     throw new UnauthorizedAccessException("CiAi onboarding validation rejected this CI dispatch candidate.");
             }
