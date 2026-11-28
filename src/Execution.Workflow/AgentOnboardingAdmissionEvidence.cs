@@ -28,6 +28,8 @@ public sealed record AgentOnboardingAdmissionEvidence(
             string.IsNullOrWhiteSpace(Reason) || Reason.Length > 2048 || Reason.Any(char.IsControl) ||
             (FailureCode is not null && (FailureCode.Length > 128 || FailureCode.Any(char.IsControl))))
             throw new ArgumentException("Onboarding evidence contains invalid bounded result metadata.");
+        if (ContentSha256 is not null && !IsDigest(ContentSha256))
+            throw new ArgumentException("Onboarding content digest must be a full SHA-256 value when present.");
         if (IsEligible)
         {
             if (Outcome != "ELIGIBLE" || FailureCode is not null || !IsDigest(ContentSha256))
