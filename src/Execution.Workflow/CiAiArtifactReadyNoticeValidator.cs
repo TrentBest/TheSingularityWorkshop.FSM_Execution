@@ -141,7 +141,6 @@ public static class CiAiArtifactReadyNoticeValidator
         if (!string.Equals(providerRepository, policy.ProviderRepository, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("CiAi provider repository is not the registered evidence producer.");
 
-        var capabilityIdentity = ReadText(manifest, "capabilityIdentity", 256);
         var capabilityVersion = ReadText(manifest, "capabilityVersion", 128);
         var implementationRevision = ReadText(manifest, "implementationRevision", 256);
         if (!string.Equals(capabilityIdentity, policy.CapabilityIdentity, StringComparison.Ordinal) ||
