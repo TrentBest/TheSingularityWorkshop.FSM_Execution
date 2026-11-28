@@ -304,8 +304,6 @@ public sealed class GitHubRepositoryOperationAdapterTests
     }
 
     [Fact]
-
-    [Fact]
     public async Task RejectsRepositoriesOutsideHostAllowlist()
     {
         var handler = new StubGitHubHandler((_, _) => Json(HttpStatusCode.OK, "{}"));
