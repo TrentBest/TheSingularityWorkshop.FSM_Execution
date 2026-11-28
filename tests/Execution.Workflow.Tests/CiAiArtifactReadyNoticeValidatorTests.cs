@@ -64,7 +64,7 @@ public sealed class CiAiArtifactReadyNoticeValidatorTests
             ["operationId"] = "operation-1",
             ["idempotencyKey"] = ArtifactIdempotencyKey(),
             ["providerRepository"] = providerRepository ?? Mapping().Repository,
-            ["capabilityIdentity"] = capabilityIdentity ?? CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
+            ["capabilityId"] = capabilityIdentity ?? CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
             ["capabilityVersion"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
             ["implementationRevision"] = Mapping().TrustedWorkflowSha,
             ["artifactId"] = "artifact-123",
