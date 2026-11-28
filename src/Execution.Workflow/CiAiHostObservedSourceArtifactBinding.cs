@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using TheSingularityWorkshop.CiAi;
 
 namespace TheSingularityWorkshop.Execution;
 
@@ -107,6 +108,75 @@ public sealed record CiAiHostObservedSourceArtifactBinding
             });
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
         }
+    }
+
+    /// <summary>
+    /// Creates the Execution-owned source binding from the host-observed CiAi provider
+    /// artifact binding, the accepted V1 packet's exact job observation, and the extracted
+    /// TRX payload bytes. Report-supplied metadata is never used to populate this value.
+    /// </summary>
+    public static CiAiHostObservedSourceArtifactBinding FromVerifiedProviderArtifact(
+        CiAiRequestTaskMapping mapping,
+        CiAiDispatchRunBinding run,
+        CiTestResultProviderArtifactBinding providerArtifact,
+        CiWorkflowEvidencePacket evidence,
+        CiWorkflowJobObservation job,
+        ReadOnlyMemory<byte> exactTrxPayload,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(mapping);
+        ArgumentNullException.ThrowIfNull(run);
+        ArgumentNullException.ThrowIfNull(providerArtifact);
+        ArgumentNullException.ThrowIfNull(evidence);
+        ArgumentNullException.ThrowIfNull(job);
+        mapping.Validate();
+        run.ValidateAgainst(mapping);
+        if (now == default || exactTrxPayload.IsEmpty || exactTrxPayload.Length > 16 * 1024 * 1024)
+            throw new InvalidDataException("Exact TRX payload is empty, oversized, or has no current observation time.");
+        if (providerArtifact.IsExpired || providerArtifact.ExpiresAt <= now ||
+            !string.Equals(providerArtifact.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
+            providerArtifact.RunId != run.RunId || providerArtifact.RunAttempt != run.RunAttempt ||
+            !string.Equals(providerArtifact.JobName, mapping.JobName, StringComparison.Ordinal) ||
+            !string.Equals(providerArtifact.JobKey, mapping.JobKey, StringComparison.Ordinal) ||
+            !string.Equals(providerArtifact.ArtifactName, mapping.SourceArtifactName, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("Observed test-results artifact does not match the persisted dispatch and registered job.");
+
+        if (!string.Equals(evidence.Provenance.Repository, mapping.Repository, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(evidence.Provenance.WorkflowPath, mapping.WorkflowPath, StringComparison.Ordinal) ||
+            !string.Equals(evidence.Provenance.WorkflowSha, mapping.TrustedWorkflowSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(evidence.Provenance.CheckoutSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+            evidence.Provenance.RunId != run.RunId || evidence.Provenance.RunAttempt != run.RunAttempt ||
+            evidence.ObservedRun.RunId != run.RunId || evidence.ObservedRun.RunAttempt != run.RunAttempt ||
+            job.JobId != providerArtifact.JobId || job.RunId != run.RunId || job.RunAttempt != run.RunAttempt ||
+            !string.Equals(job.Name, mapping.JobName, StringComparison.Ordinal) ||
+            job.Status != "completed" ||
+            job.StartedAt is not { } jobStartedAt ||
+            job.CompletedAt is not { } jobCompletedAt)
+            throw new UnauthorizedAccessException("Accepted workflow packet and provider job observation do not identify the exact mapped run attempt.");
+
+        var payloadSha256 = Convert.ToHexString(SHA256.HashData(exactTrxPayload.Span)).ToLowerInvariant();
+        var binding = new CiAiHostObservedSourceArtifactBinding(
+            mapping.Repository,
+            run.RunId,
+            run.RunAttempt,
+            mapping.CandidateSha,
+            mapping.WorkflowPath,
+            job.JobId,
+            job.Name,
+            mapping.JobKey!,
+            job.Status,
+            job.Conclusion,
+            providerArtifact.ArtifactId,
+            providerArtifact.ArtifactName,
+            providerArtifact.ProviderArchiveDigest,
+            providerArtifact.ArchiveSizeBytes,
+            jobStartedAt,
+            jobCompletedAt,
+            providerArtifact.CreatedAt,
+            providerArtifact.ExpiresAt,
+            payloadSha256,
+            exactTrxPayload.Length);
+        return binding.ValidateAgainst(mapping, run, now);
     }
 
     public CiAiHostObservedSourceArtifactBinding ValidateAgainst(
