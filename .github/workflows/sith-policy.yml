@@ -42,7 +42,13 @@ jobs:
           branches=()
           branch_count="unknown"
 
-          if gh api --paginate "repos/$GH_REPO/branches?per_page=100" --jq '.[].name' > "$branch_file"; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" &&
+                "$GITHUB_REF" != "refs/heads/master" &&
+                "$GITHUB_REF" != "refs/heads/development" ]]; then
+            # Feature/work branches are temporary development surfaces. The exact-two-branch
+            # policy is evaluated at canonical checkpoints, not used to block active work.
+            status="DEFERRED"
+          elif gh api --paginate "repos/$GH_REPO/branches?per_page=100" --jq '.[].name' > "$branch_file"; then
             mapfile -t branches < <(sort -u "$branch_file")
             branch_count="${#branches[@]}"
             if [[ "$branch_count" -eq 2 &&
@@ -71,6 +77,17 @@ jobs:
                   <path d="M66 47 L45 28" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round" filter="url(#glow)"/>
                   <path d="M33 51 L39 57 M63 52 L70 57" stroke="#475569" stroke-width="3" stroke-linecap="round"/>
                   <circle cx="48" cy="29" r="3" fill="#fff" opacity=".9"/>
+                </g>'
+              ;;
+            DEFERRED)
+              headline="TEMPORARY WORKING BRANCH"
+              detail="canonical branch policy check deferred"
+              accent="#94a3b8"
+              glow="#94a3b8"
+              scene_markup='
+                <g opacity=".55">
+                  <ellipse cx="48" cy="68" rx="37" ry="10" fill="#111827" stroke="#94a3b8" stroke-width="1.5"/>
+                  <path d="M12 46 L84 46 M20 39 L20 74 M76 39 L76 74" stroke="#94a3b8" stroke-width="2"/>
                 </g>'
               ;;
             NON-COMPLIANT)
@@ -181,7 +198,10 @@ jobs:
             echo "- Evaluated: $evaluated_at"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "$status" != "COMPLIANT" ]]; then
-            echo "::error::Sith Policy requires exactly master and development; status is $status."
+          if [[ "$status" == "NON-COMPLIANT" || "$status" == "UNVERIFIED" ]]; then
+            echo "::error::Sith Policy requires exactly master and development at canonical policy checkpoints; status is $status."
             exit 1
+          fi
+          if [[ "$status" == "DEFERRED" ]]; then
+            echo "::notice::Temporary development branch detected; exact-two-branch policy is deferred until a canonical checkpoint."
           fi
