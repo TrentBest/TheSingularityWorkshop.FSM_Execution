@@ -35,7 +35,7 @@ public sealed class GitHubActionsCiAiWorkflowDispatcherTests
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal(
-            "https://api.github.com/repos/TrentBest/Example/actions/workflows/ci.yml/dispatches",
+            "https://api.github.com/repos/TrentBest/Example/actions/workflows/execution-fsm-api-probe.yml/dispatches",
             request.Uri.AbsoluteUri);
         Assert.Equal("Bearer test-dispatch-token", request.Authorization);
         Assert.Equal("application/json", request.ContentType);
