@@ -367,7 +367,7 @@ public sealed class CiAiArtifactHostCompositionTests
                 "request-1", "operation-1", "idempotency-1")
                 .DeriveIdempotencyKey(CiTestResultExecutionNoticeEnqueuer.CapabilityId),
             ["providerRepository"] = ProviderRepository,
-            ["capabilityIdentity"] = CiTestResultExecutionNoticeEnqueuer.CapabilityId,
+            ["capabilityId"] = CiTestResultExecutionNoticeEnqueuer.CapabilityId,
             ["capabilityVersion"] = "1",
             ["implementationRevision"] = WorkflowSha,
             ["artifactId"] = "artifact-123",
