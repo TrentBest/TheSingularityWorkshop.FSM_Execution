@@ -6,7 +6,9 @@ public sealed record WorkTaskRequest(int SchemaVersion, string TaskId, string Co
 {
     public const int CurrentSchemaVersion = 1;
 
-    public WorkTaskRequest Validate()
+    public AgentOnboardingAdmissionEvidence? AdmissionEvidence { get; init; }
+
+    public WorkTaskRequest Validate(bool requireAdmissionEvidence = true)
     {
         if (SchemaVersion != CurrentSchemaVersion)
             throw new ArgumentException($"Unsupported task schema version '{SchemaVersion}'.");
@@ -37,6 +39,24 @@ public sealed record WorkTaskRequest(int SchemaVersion, string TaskId, string Co
             throw new ArgumentException("At least one safe, repository-relative path is required.");
         if (MaximumAttempts is < 1 or > 10)
             throw new ArgumentOutOfRangeException(nameof(MaximumAttempts));
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(Repository))
+        {
+            if (AdmissionEvidence is null)
+            {
+                if (requireAdmissionEvidence)
+                    throw new UnauthorizedAccessException("The governed repository requires trusted exact-SHA AgentOnboarding admission.");
+            }
+            else
+            {
+                AdmissionEvidence.ValidateFor(Repository, BaseSha);
+                if (!AdmissionEvidence.IsEligible)
+                    throw new UnauthorizedAccessException("The repository's AgentOnboarding contract is not eligible.");
+            }
+        }
+        else if (AdmissionEvidence is not null)
+        {
+            throw new ArgumentException("Admission evidence is only valid for governed repositories.");
+        }
         return this with { AllowedPaths = Array.AsReadOnly(AllowedPaths.Distinct(StringComparer.Ordinal).ToArray()) };
     }
 }
@@ -73,7 +93,44 @@ public sealed class WorkTaskCoordinator
     public WorkTaskSnapshot Submit(WorkTaskRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var validated = request.Validate();
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(request.Repository))
+            throw new UnauthorizedAccessException("Governed task creation requires a trusted exact-SHA admission verifier.");
+        return SubmitValidated(request.Validate());
+    }
+
+    public async ValueTask<WorkTaskSnapshot> SubmitAsync(WorkTaskRequest request,
+        IAgentOnboardingAdmissionVerifier admissionVerifier,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(admissionVerifier);
+        var validated = request.Validate(requireAdmissionEvidence: false);
+        if (!AgentOnboardingTargetPolicy.RequiresAdmission(validated.Repository))
+            return SubmitValidated(validated with { AdmissionEvidence = null });
+
+        var evidence = await admissionVerifier.VerifyAsync(validated.Repository, validated.BaseSha,
+            cancellationToken).ConfigureAwait(false);
+        evidence.ValidateFor(validated.Repository, validated.BaseSha);
+        if (!evidence.IsEligible)
+            throw new UnauthorizedAccessException("The repository's AgentOnboarding contract is not eligible.");
+        return SubmitAdmitted(validated, evidence);
+    }
+
+    internal WorkTaskSnapshot SubmitAdmitted(WorkTaskRequest request,
+        AgentOnboardingAdmissionEvidence evidence)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(evidence);
+        if (!AgentOnboardingTargetPolicy.RequiresAdmission(request.Repository))
+            throw new UnauthorizedAccessException("Admission evidence cannot be used outside the governed repository policy.");
+        evidence.ValidateFor(request.Repository, request.BaseSha);
+        if (!evidence.IsEligible)
+            throw new UnauthorizedAccessException("Ineligible onboarding evidence cannot create a task.");
+        return SubmitValidated((request with { AdmissionEvidence = evidence }).Validate());
+    }
+
+    private WorkTaskSnapshot SubmitValidated(WorkTaskRequest validated)
+    {
         lock (_gate)
         {
             if (_tasks.ContainsKey(validated.TaskId))
@@ -86,28 +143,59 @@ public sealed class WorkTaskCoordinator
 
     public WorkTaskSnapshot Claim(string taskId, string agentId, TimeSpan leaseDuration, DateTimeOffset now)
     {
+        ValidateClaimArguments(agentId, leaseDuration, now);
+        lock (_gate)
+        {
+            var state = Get(taskId);
+            if (AgentOnboardingTargetPolicy.RequiresAdmission(state.Request.Repository))
+                throw new UnauthorizedAccessException("Governed tasks require host revalidation through the persistent ClaimAsync boundary.");
+            return ClaimUnderLock(state, taskId, agentId, leaseDuration, now);
+        }
+    }
+
+    internal WorkTaskSnapshot ClaimAdmitted(string taskId, string agentId, TimeSpan leaseDuration,
+        DateTimeOffset now, AgentOnboardingAdmissionEvidence evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+        ValidateClaimArguments(agentId, leaseDuration, now);
+        lock (_gate)
+        {
+            var state = Get(taskId);
+            var stored = state.Request.AdmissionEvidence ?? throw new UnauthorizedAccessException(
+                "The governed task has no persisted onboarding admission evidence.");
+            stored.ValidateFor(state.Request.Repository, state.Request.BaseSha);
+            evidence.ValidateFor(state.Request.Repository, state.Request.BaseSha);
+            if (!stored.IsEligible || !evidence.IsEligible || stored != evidence)
+                throw new UnauthorizedAccessException("Current onboarding evidence does not match immutable task admission provenance.");
+            return ClaimUnderLock(state, taskId, agentId, leaseDuration, now);
+        }
+    }
+
+    private static void ValidateClaimArguments(string agentId, TimeSpan leaseDuration, DateTimeOffset now)
+    {
         if (string.IsNullOrWhiteSpace(agentId) || agentId.Length > 128 || agentId.Any(char.IsControl))
             throw new ArgumentException("Agent identity must be non-empty, control-free, and at most 128 characters.", nameof(agentId));
         if (leaseDuration <= TimeSpan.Zero || leaseDuration > TimeSpan.FromHours(1))
             throw new ArgumentOutOfRangeException(nameof(leaseDuration));
         if (now == default)
             throw new ArgumentException("Claim time is required.", nameof(now));
-        lock (_gate)
-        {
-            var state = Get(taskId);
-            if (state.Status is WorkTaskStatus.HandedOff or WorkTaskStatus.Stopped or WorkTaskStatus.Failed)
-                throw new InvalidOperationException($"Terminal task '{taskId}' cannot be claimed.");
-            if (state.Lease is { } current && current.ExpiresAt > now)
-                throw new InvalidOperationException($"Task '{taskId}' is leased by '{current.AgentId}'.");
-            if (state.Status != WorkTaskStatus.Queued && state.Lease is null)
-                throw new InvalidOperationException($"Task '{taskId}' requires recovery before reclaim.");
-            var previous = state.Status;
-            var lease = new WorkTaskLease(agentId, Guid.NewGuid(), now.Add(leaseDuration));
-            state.Lease = lease;
-            state.Status = WorkTaskStatus.Claimed;
-            state.AddEvent(previous, WorkTaskStatus.Claimed, agentId, lease.LeaseId, now, "Task claimed.");
-            return state.Snapshot();
-        }
+    }
+
+    private static WorkTaskSnapshot ClaimUnderLock(TaskState state, string taskId, string agentId,
+        TimeSpan leaseDuration, DateTimeOffset now)
+    {
+        if (state.Status is WorkTaskStatus.HandedOff or WorkTaskStatus.Stopped or WorkTaskStatus.Failed)
+            throw new InvalidOperationException($"Terminal task '{taskId}' cannot be claimed.");
+        if (state.Lease is { } current && current.ExpiresAt > now)
+            throw new InvalidOperationException($"Task '{taskId}' is leased by '{current.AgentId}'.");
+        if (state.Status != WorkTaskStatus.Queued && state.Lease is null)
+            throw new InvalidOperationException($"Task '{taskId}' requires recovery before reclaim.");
+        var previous = state.Status;
+        var lease = new WorkTaskLease(agentId, Guid.NewGuid(), now.Add(leaseDuration));
+        state.Lease = lease;
+        state.Status = WorkTaskStatus.Claimed;
+        state.AddEvent(previous, WorkTaskStatus.Claimed, agentId, lease.LeaseId, now, "Task claimed.");
+        return state.Snapshot();
     }
 
     public WorkTaskSnapshot Transition(string taskId, Guid leaseId, WorkTaskStatus next,
