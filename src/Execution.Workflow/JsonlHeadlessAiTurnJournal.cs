@@ -99,6 +99,28 @@ public sealed class JsonlHeadlessAiTurnJournal
         }
     }
 
+    /// <summary>Returns one completed turn by its task and immutable turn identity.</summary>
+    public ExecutionHeadlessAiTurnResult? GetCompletedTurn(string taskId, string turnId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId) || taskId.Length > 128 ||
+            string.IsNullOrWhiteSpace(turnId) || turnId.Length > 128)
+            throw new ArgumentException("Task and turn identities must be non-empty and bounded.");
+        lock (_gate)
+        {
+            EnsureHealthy();
+            using var fileLock = AcquireFileLock();
+            Replay();
+            var matches = _entries.Values
+                .Where(entry => entry.Result is not null &&
+                    entry.Result.TaskId == taskId && entry.Result.TurnId == turnId)
+                .Select(entry => entry.Result!)
+                .ToArray();
+            if (matches.Length > 1)
+                throw new InvalidDataException("The HeadlessAi turn journal contains duplicate completed turn identities.");
+            return matches.Length == 0 ? null : Clone(matches[0]);
+        }
+    }
+
     private FileStream AcquireFileLock()
     {
         var timer = Stopwatch.StartNew();

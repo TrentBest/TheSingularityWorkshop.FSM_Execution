@@ -4,17 +4,35 @@ on:
   push:
     branches:
       - development
-  pull_request:
-    branches:
-      - development
+      - master
+      - feature/**
+      - work/**
+      - integration/**
   workflow_dispatch:
+    inputs:
+      candidate_ref:
+        description: "Candidate branch to test (fully qualified refs/heads/... ref)"
+        required: true
+        type: string
+      candidate_sha:
+        description: "Exact 40-character candidate commit SHA"
+        required: true
+        type: string
+      request_id:
+        description: "Persisted CiAi request identity"
+        required: true
+        type: string
+      operation_id:
+        description: "Persisted CiAi operation identity"
+        required: true
+        type: string
+      idempotency_key:
+        description: "Persisted CiAi idempotency identity"
+        required: true
+        type: string
 
 permissions:
   contents: read
-
-concurrency:
-  group: execution-ci-proof-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   fsm-api-proof:
@@ -26,12 +44,122 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Resolve candidate
+        id: candidate
+        shell: bash
+        env:
+          INPUT_CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INPUT_REQUEST_ID: ${{ inputs.request_id }}
+          INPUT_OPERATION_ID: ${{ inputs.operation_id }}
+          INPUT_IDEMPOTENCY_KEY: ${{ inputs.idempotency_key }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            candidate_ref="$INPUT_CANDIDATE_REF"
+            candidate_sha="$INPUT_CANDIDATE_SHA"
+          else
+            candidate_ref="$GITHUB_REF"
+            candidate_sha="$GITHUB_SHA"
+          fi
+          [[ "$candidate_ref" == refs/heads/* ]] || { echo "Candidate must be a branch ref." >&2; exit 1; }
+          git check-ref-format "$candidate_ref"
+          [[ "$candidate_sha" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Candidate SHA must be a full commit SHA." >&2; exit 1; }
+          echo "candidate_ref=$candidate_ref" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$candidate_sha" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            for identity in "$INPUT_REQUEST_ID" "$INPUT_OPERATION_ID" "$INPUT_IDEMPOTENCY_KEY"; do
+              [[ -n "$identity" && ${#identity} -le 256 && ! "$identity" =~ [[:cntrl:]] ]] || {
+                echo "Dispatch identity is empty or outside its allowed bounds." >&2
+                exit 1
+              }
+            done
+          fi
+
+      - name: Check out candidate source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.candidate.outputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Verify candidate checkout
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git -C candidate rev-parse HEAD)"
+          [[ "$actual_sha" == "$CANDIDATE_SHA" ]] || {
+            echo "Candidate checkout SHA mismatch: expected $CANDIDATE_SHA, got $actual_sha" >&2
+            exit 1
+          }
+
+      - name: Create CiAi dispatch marker
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          OPERATION_ID: ${{ inputs.operation_id }}
+          IDEMPOTENCY_KEY: ${{ inputs.idempotency_key }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/artifacts
+          jq -n \
+            --arg contract "execution.ciai-dispatch-marker.v1" \
+            --arg requestId "$REQUEST_ID" \
+            --arg operationId "$OPERATION_ID" \
+            --arg idempotencyKey "$IDEMPOTENCY_KEY" \
+            --argjson runId "$GITHUB_RUN_ID" \
+            --argjson runAttempt "$GITHUB_RUN_ATTEMPT" \
+            '{contract:$contract,requestId:$requestId,operationId:$operationId,idempotencyKey:$idempotencyKey,runId:$runId,runAttempt:$runAttempt}' \
+            > candidate/artifacts/dispatch-marker.json
+
+      - name: Create CiAi workflow provenance
+        shell: bash
+        env:
+          CANDIDATE_REF: ${{ steps.candidate.outputs.candidate_ref }}
+          CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/artifacts
+          jq -n \
+            --arg schema "ciai.workflow-provenance.v1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --argjson runId "$GITHUB_RUN_ID" \
+            --argjson runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflowRef "$GITHUB_WORKFLOW_REF" \
+            --arg workflowSha "$GITHUB_WORKFLOW_SHA" \
+            --arg eventName "$GITHUB_EVENT_NAME" \
+            --arg eventRef "$GITHUB_REF" \
+            --arg eventSha "$GITHUB_SHA" \
+            --arg checkoutRef "$CANDIDATE_REF" \
+            --arg checkoutSha "$CANDIDATE_SHA" \
+            '{schema:$schema,repository:$repository,runId:$runId,runAttempt:$runAttempt,workflow:{ref:$workflowRef,sha:$workflowSha},event:{name:$eventName,ref:$eventRef,sha:$eventSha,pullRequest:null},checkout:{ref:$checkoutRef,sha:$checkoutSha}}' \
+            > candidate/artifacts/workflow-provenance.json
+
       - name: Check out pinned HeadlessAi source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.HeadlessAi
-          ref: c87386f0deb5f2f9f8a34dadc6811f2d59727c9f
-          path: headlessai
+          ref: 309e75aa1647a51a10516d7d4abd2556efc48a35
+          path: candidate/headlessai
+
+      - name: Check out pinned FSM_Serialization development source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: TrentBest/TheSingularityWorkshop.FSM_Serialization
+          ref: da730f0e33239c6031e44fdcc5ee350ac57b385d
+          path: candidate/dependencies/FSM_Serialization
+
+      - name: Check out pinned CiAi V1 contract source and its source dependencies
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: TrentBest/TheSingularityWorkshop.CiAi
+          ref: 497e6271e8337b231a5e79df244522293fd16448
+          path: candidate/dependencies/CiAi
+          submodules: recursive
+          persist-credentials: false
 
       - name: Set up .NET 10
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -39,6 +167,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore projects
+        working-directory: candidate
         run: |
           dotnet restore src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj
           dotnet restore src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj
@@ -47,9 +176,17 @@ jobs:
           dotnet restore src/Execution.HeadlessAiHost.Console/Execution.HeadlessAiHost.Console.csproj
 
       - name: Test workflow runtime
-        run: dotnet test tests/Execution.Workflow.Tests/Execution.Workflow.Tests.csproj --configuration Release --no-restore
+        working-directory: candidate
+        run: dotnet test tests/Execution.Workflow.Tests/Execution.Workflow.Tests.csproj --configuration Release --no-restore --logger "trx;LogFileName=results.trx" --results-directory artifacts/test-results
+
+      - name: Verify pinned CiAi producer contract tests
+        working-directory: candidate
+        run: |
+          dotnet restore dependencies/CiAi/tests/TheSingularityWorkshop.CiAi.ContractTests/TheSingularityWorkshop.CiAi.ContractTests.csproj
+          dotnet run --project dependencies/CiAi/tests/TheSingularityWorkshop.CiAi.ContractTests/TheSingularityWorkshop.CiAi.ContractTests.csproj --configuration Release
 
       - name: Build projects
+        working-directory: candidate
         run: |
           dotnet build src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-restore
           dotnet build src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-restore
@@ -58,6 +195,7 @@ jobs:
 
       - name: Verify basic FSM_API probe in separate processes
         shell: bash
+        working-directory: candidate
         run: |
           mkdir -p artifacts
           dotnet run --project src/Execution.FsmApiProbe/Execution.FsmApiProbe.csproj --configuration Release --no-build > artifacts/fsm-api-probe-run-1.txt 2>&1
@@ -67,6 +205,7 @@ jobs:
 
       - name: Execute fox and sheepdog scenario twice
         shell: bash
+        working-directory: candidate
         run: |
           mkdir -p artifacts/fox-run-1 artifacts/fox-run-2
           dotnet run --project src/Execution.FoxSheepdog/Execution.FoxSheepdog.csproj --configuration Release --no-build -- artifacts/fox-run-1 | tee artifacts/fox-run-1.txt
@@ -75,15 +214,59 @@ jobs:
           diff -u artifacts/fox-run-1/fox-sheepdog.svg artifacts/fox-run-2/fox-sheepdog.svg
           grep -q "PASS: dog-to-fox cross-FSM transition reached Mangled." artifacts/fox-run-1.txt
 
+      - name: Package CiAi test-results archive
+        if: always()
+        shell: bash
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          if [[ -s artifacts/workflow-provenance.json ]]; then
+            mkdir -p artifacts/ciai-test-results
+            cp artifacts/workflow-provenance.json artifacts/ciai-test-results/workflow-provenance.json
+          fi
+          if [[ -s artifacts/test-results/results.trx ]]; then
+            mkdir -p artifacts/ciai-test-results
+            cp artifacts/test-results/results.trx artifacts/ciai-test-results/results.trx
+          else
+            echo "No TRX was produced (for example, restore/build failed before test execution)."
+          fi
+
+      - name: Upload CiAi dispatch marker artifact
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ciai-dispatch-marker-${{ github.run_attempt }}
+          path: candidate/artifacts/dispatch-marker.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload CiAi workflow provenance artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ciai-workflow-provenance-${{ github.run_attempt }}
+          path: candidate/artifacts/workflow-provenance.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload CiAi test-results artifact
+        if: always() && hashFiles('candidate/artifacts/ciai-test-results/results.trx') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ciai-test-results-${{ github.run_attempt }}
+          path: candidate/artifacts/ciai-test-results/*
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Publish run evidence as a workflow artifact
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: execution-ci-state-evidence
           path: |
-            artifacts/fsm-api-probe-run-*.txt
-            artifacts/fox-run-1.txt
-            artifacts/fox-run-1/fox-sheepdog.trace
-            artifacts/fox-run-1/fox-sheepdog.svg
+            candidate/artifacts/fsm-api-probe-run-*.txt
+            candidate/artifacts/fox-run-1.txt
+            candidate/artifacts/fox-run-1/fox-sheepdog.trace
+            candidate/artifacts/fox-run-1/fox-sheepdog.svg
           if-no-files-found: warn
           retention-days: 14

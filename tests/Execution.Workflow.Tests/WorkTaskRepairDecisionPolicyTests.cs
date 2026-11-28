@@ -9,12 +9,15 @@ public sealed class WorkTaskRepairDecisionPolicyTests
 
     private static WorkTaskRepairAttempt Attempt(int number = 1, char candidate = 'a',
         char diagnostics = 'd', bool successful = false, bool complete = true, bool actionable = true) =>
-        new(1, "task-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
+        new WorkTaskRepairAttempt(1, "task-8", "correlation-8", "TrentBest/TheSingularityWorkshop.Execution",
             "work/task-8", ".github/workflows/build.yml", TaskStart, number,
             new string(candidate, 40), 1000 + number, 1, new string((char)('f' - number), 64),
             complete, successful, successful ? false : actionable,
             actionable && !successful ? new string(diagnostics, 64) : null,
-            TaskStart.AddMinutes(number * 3 - 2), TaskStart.AddMinutes(number * 3 - 1));
+            TaskStart.AddMinutes(number * 3 - 2), TaskStart.AddMinutes(number * 3 - 1))
+        {
+            EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema
+        };
 
     private static WorkTaskRepairEvidenceExpectation Expectation(WorkTaskRepairAttempt attempt) =>
         new(attempt.TaskId, attempt.CorrelationId, attempt.Repository, attempt.Branch,
@@ -34,6 +37,23 @@ public sealed class WorkTaskRepairDecisionPolicyTests
 
         Assert.Equal(WorkTaskRepairDecision.RepairRequired, result.Decision);
         Assert.Equal("repair.actionable-failure", result.ReasonCode);
+    }
+
+    [Fact]
+    public void DiagnosticOrUnversionedEvidenceCannotDriveLifecycleDecision()
+    {
+        var attempt = Attempt() with { EvidenceSchema = null };
+        var result = Evaluate(Array.Empty<WorkTaskRepairAttempt>(), attempt);
+        Assert.Equal(WorkTaskRepairDecision.Blocked, result.Decision);
+        Assert.Equal("repair.authoritative-workflow-evidence-required", result.ReasonCode);
+    }
+
+    [Fact]
+    public void TestResultSchemaCannotBePresentedAsAuthoritativeEvidence()
+    {
+        var attempt = Attempt() with { EvidenceSchema = "ciai.test-results.v1" };
+        Assert.Throws<ArgumentException>(() =>
+            Evaluate(Array.Empty<WorkTaskRepairAttempt>(), attempt));
     }
 
     [Fact]

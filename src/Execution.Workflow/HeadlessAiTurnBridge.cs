@@ -29,6 +29,8 @@ public sealed record ExecutionHeadlessAiTurnRequest
     public string? PriorCandidateCommitSha { get; init; }
     public IReadOnlyList<ExecutionHeadlessAiEvidence> Evidence { get; init; } =
         Array.Empty<ExecutionHeadlessAiEvidence>();
+    /// <summary>Exact host-accepted CiAi report bytes and lineage for a repair turn.</summary>
+    public ExecutionAcceptedCiAiReportContext? AcceptedCiAiReport { get; init; }
 
     public void Validate(DateTimeOffset now)
     {
@@ -82,6 +84,18 @@ public sealed record ExecutionHeadlessAiTurnRequest
             throw new ArgumentException("At most 64 CI evidence references may be supplied.", nameof(Evidence));
         foreach (var item in Evidence)
             item.Validate(Repository, CandidateCommitSha, PriorCandidateCommitSha);
+        if (AcceptedCiAiReport is not null)
+        {
+            AcceptedCiAiReport.Validate(Repository, CandidateCommitSha, PriorCandidateCommitSha);
+            if (Role == "repair" &&
+                (AcceptedCiAiReport.Verdict != "ActionableFailure" || AcceptedCiAiReport.SourceArtifactBinding is null))
+                throw new ArgumentException("HeadlessAi repair turns require an actionable report plus host-observed nested source-artifact provenance.", nameof(AcceptedCiAiReport));
+            if (!Evidence.Any(item =>
+                    item.WorkflowRunId == AcceptedCiAiReport.WorkflowRunId &&
+                    item.Attempt == AcceptedCiAiReport.RunAttempt &&
+                    string.Equals(item.CommitSha, AcceptedCiAiReport.CandidateCommitSha, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException("Accepted CiAi report must have a matching exact-run evidence reference.", nameof(AcceptedCiAiReport));
+        }
     }
 
     private static void ValidateSha(string? value, string name)
@@ -93,7 +107,8 @@ public sealed record ExecutionHeadlessAiTurnRequest
     internal static string CreateIdempotencyKey(WorkTaskSnapshot task, string branch,
         string candidateSha, string role, string instructions, string canonicalPrompt,
         string responseSchema, string? priorTurnId, string? priorCandidateCommitSha,
-        IReadOnlyList<ExecutionHeadlessAiEvidence> evidence)
+        IReadOnlyList<ExecutionHeadlessAiEvidence> evidence,
+        ExecutionAcceptedCiAiReportContext? acceptedCiAiReport = null)
     {
         var material = JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -110,7 +125,13 @@ public sealed record ExecutionHeadlessAiTurnRequest
             responseSchema,
             priorTurnId,
             priorCandidateCommitSha,
-            evidence
+            evidence,
+            acceptedReportIdentity = acceptedCiAiReport?.ReportIdentity,
+            acceptedReportSha256 = acceptedCiAiReport?.ReportSha256,
+            acceptedReportRunId = acceptedCiAiReport?.WorkflowRunId,
+            acceptedReportRunAttempt = acceptedCiAiReport?.RunAttempt,
+            acceptedReportCandidateSha = acceptedCiAiReport?.CandidateCommitSha,
+            acceptedSourceArtifactIdentitySha256 = acceptedCiAiReport?.SourceArtifactIdentitySha256
         });
         return "execution-" + Convert.ToHexString(SHA256.HashData(material)).ToLowerInvariant();
     }
@@ -154,6 +175,34 @@ public sealed record ExecutionHeadlessAiEvidence
 /// Normalized HeadlessAi output returned to Execution. Every proposal field remains untrusted;
 /// this result cannot authorize a repository operation or lifecycle transition.
 /// </summary>
+/// <summary>One untrusted structured operation proposed by HeadlessAi.</summary>
+public sealed record ExecutionHeadlessAiOperationProposal
+{
+    public required string Operation { get; init; }
+    public required string Summary { get; init; }
+    public required string Rationale { get; init; }
+    public required string ArgumentsJson { get; init; }
+
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(Operation) || Operation.Length > 128 || Operation.Any(char.IsControl) ||
+            string.IsNullOrWhiteSpace(Summary) || Summary.Length > 1024 || Summary.Any(char.IsControl) ||
+            string.IsNullOrWhiteSpace(Rationale) || Rationale.Length > 4096 || Rationale.Any(char.IsControl) ||
+            string.IsNullOrWhiteSpace(ArgumentsJson) || ArgumentsJson.Length > 64 * 1024)
+            throw new ArgumentException("HeadlessAi operation proposal fields are missing or exceed their bounds.");
+        try
+        {
+            using var document = JsonDocument.Parse(ArgumentsJson, new JsonDocumentOptions { MaxDepth = 16 });
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                throw new ArgumentException("HeadlessAi operation arguments must be a JSON object.");
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("HeadlessAi operation arguments must be valid JSON.", nameof(ArgumentsJson), exception);
+        }
+    }
+}
+
 public sealed record ExecutionHeadlessAiTurnResult
 {
     public required string TurnId { get; init; }
@@ -171,6 +220,16 @@ public sealed record ExecutionHeadlessAiTurnResult
     public string? PriorTurnId { get; init; }
     public string? PriorCandidateCommitSha { get; init; }
     public string? IdempotencyKey { get; init; }
+    public string? AcceptedReportSchemaVersion { get; init; }
+    public string? AcceptedReportVerdict { get; init; }
+    public string? AcceptedReportIdentity { get; init; }
+    public string? AcceptedReportNoticeIdentitySha256 { get; init; }
+    public string? AcceptedReportSha256 { get; init; }
+    public string? AcceptedReportWorkflowRunId { get; init; }
+    public int? AcceptedReportRunAttempt { get; init; }
+    public string? AcceptedReportCandidateCommitSha { get; init; }
+    public string? AcceptedReportSourceArtifactIdentitySha256 { get; init; }
+    public string? AcceptedReportAuthoritativeWorkflowEvidenceSha256 { get; init; }
     public string? ErrorCode { get; init; }
     public string? Diagnosis { get; init; }
     public string? PatchIntent { get; init; }
@@ -185,6 +244,7 @@ public sealed record ExecutionHeadlessAiTurnResult
     public string? NextExpectedUpdate { get; init; }
     public string? StopOrEscalateReason { get; init; }
     public string? HumanDecisionRequired { get; init; }
+    public IReadOnlyList<ExecutionHeadlessAiOperationProposal> Operations { get; init; } = Array.Empty<ExecutionHeadlessAiOperationProposal>();
 
     public void ValidateAgainst(ExecutionHeadlessAiTurnRequest request)
     {
@@ -198,11 +258,36 @@ public sealed record ExecutionHeadlessAiTurnResult
             !string.Equals(PriorCandidateCommitSha, request.PriorCandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
             IdempotencyKey != request.IdempotencyKey)
             throw new InvalidOperationException("HeadlessAi returned a result for different task or candidate provenance.");
+
+        var accepted = request.AcceptedCiAiReport;
+        if (accepted is null)
+        {
+            if (AcceptedReportSchemaVersion is not null || AcceptedReportVerdict is not null ||
+                AcceptedReportIdentity is not null || AcceptedReportSha256 is not null ||
+                AcceptedReportNoticeIdentitySha256 is not null || AcceptedReportWorkflowRunId is not null ||
+                AcceptedReportRunAttempt is not null || AcceptedReportCandidateCommitSha is not null ||
+                AcceptedReportSourceArtifactIdentitySha256 is not null ||
+                AcceptedReportAuthoritativeWorkflowEvidenceSha256 is not null)
+                throw new InvalidOperationException("HeadlessAi returned accepted-report lineage for a turn that supplied no accepted report.");
+        }
+        else if (AcceptedReportSchemaVersion != accepted.SchemaVersion ||
+            AcceptedReportVerdict != accepted.Verdict ||
+            AcceptedReportIdentity != accepted.ReportIdentity ||
+            AcceptedReportNoticeIdentitySha256 != accepted.NoticeIdentitySha256 ||
+            AcceptedReportSha256 != accepted.ReportSha256 ||
+            AcceptedReportWorkflowRunId != accepted.WorkflowRunId ||
+            AcceptedReportRunAttempt != accepted.RunAttempt ||
+            !string.Equals(AcceptedReportCandidateCommitSha, accepted.CandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(AcceptedReportSourceArtifactIdentitySha256, accepted.SourceArtifactIdentitySha256, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(AcceptedReportAuthoritativeWorkflowEvidenceSha256, accepted.AuthoritativeWorkflowEvidenceSha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("HeadlessAi result accepted-report lineage does not match the exact report supplied to the turn.");
+
         if (string.IsNullOrWhiteSpace(TurnId) || TurnId.Length > 128 ||
             string.IsNullOrWhiteSpace(ProviderId) || ProviderId.Length > 128 ||
             string.IsNullOrWhiteSpace(ModelId) || ModelId.Length > 256 ||
             RequestFingerprint is not { Length: 64 } || !RequestFingerprint.All(Uri.IsHexDigit) ||
             CompletedAt < StartedAt || CompletedAt > request.ExpiresAt || Questions is null || Questions.Count > 64 ||
+            Operations is null || Operations.Count > 16 || Operations.Any(operation => operation is null) ||
             Questions.Any(question => string.IsNullOrWhiteSpace(question) || question.Length > 2_048) ||
             Confidence is < 0 or > 1 || (Confidence.HasValue && double.IsNaN(Confidence.Value)))
             throw new InvalidOperationException("HeadlessAi returned a malformed or unbounded result.");
@@ -213,6 +298,11 @@ public sealed record ExecutionHeadlessAiTurnResult
             Blocker?.Length > 4_096 || NextExpectedUpdate?.Length > 2_048 ||
             StopOrEscalateReason?.Length > 4_096 || HumanDecisionRequired?.Length > 4_096)
             throw new InvalidOperationException("HeadlessAi returned proposal text beyond the accepted bounds.");
+        foreach (var operation in Operations)
+        {
+            try { operation.Validate(); }
+            catch (ArgumentException exception) { throw new InvalidOperationException("HeadlessAi returned an invalid structured operation proposal.", exception); }
+        }
     }
 }
 
@@ -263,14 +353,36 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
         string authorizedBranch, string candidateCommitSha, string role, string instructions,
         string canonicalPrompt, string responseSchema, IReadOnlyList<ExecutionHeadlessAiEvidence>? evidence = null,
         string? priorTurnId = null, string? priorCandidateCommitSha = null,
-        TimeSpan? turnLifetime = null, CancellationToken cancellationToken = default)
+        TimeSpan? turnLifetime = null, CancellationToken cancellationToken = default,
+        ExecutionAcceptedCiAiReportContext? acceptedCiAiReport = null)
     {
         var now = _timeProvider.GetUtcNow();
         var task = _tasks.GetSnapshot(taskId);
         if (task.Lease is not { } lease || lease.LeaseId != leaseId || lease.ExpiresAt <= now)
             throw new UnauthorizedAccessException("A current, unexpired Execution task lease is required.");
-        if (task.Status != WorkTaskStatus.Investigating)
-            throw new InvalidOperationException("HeadlessAi may be invoked only after the task enters Investigating.");
+        var expectedStatus = task.Status;
+        if (expectedStatus is not (WorkTaskStatus.Investigating or WorkTaskStatus.RepairRequired))
+            throw new InvalidOperationException("HeadlessAi may be invoked only during investigation or for a CiAi-authorized repair-required turn.");
+        if (expectedStatus == WorkTaskStatus.Investigating && acceptedCiAiReport is not null)
+            throw new UnauthorizedAccessException("Diagnostic test reports may be supplied only after authoritative workflow-evidence v2 has placed the task in RepairRequired.");
+        if (expectedStatus == WorkTaskStatus.RepairRequired)
+        {
+            if (string.IsNullOrWhiteSpace(priorTurnId) ||
+                string.IsNullOrWhiteSpace(priorCandidateCommitSha) ||
+                evidence is null || evidence.Count == 0 || acceptedCiAiReport is null)
+                throw new InvalidOperationException("A repair turn requires prior-turn provenance, accepted report bytes, and exact-run evidence.");
+            if (!string.Equals(acceptedCiAiReport.CandidateCommitSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("The accepted CiAi report must be bound to the prior candidate being repaired.");
+            var priorTurn = _journal.GetCompletedTurn(taskId, priorTurnId)
+                ?? throw new UnauthorizedAccessException("A repair turn must resume a completed prior turn from the same task journal.");
+            if (priorTurn.CorrelationId != task.Request.CorrelationId ||
+                !string.Equals(priorTurn.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase) ||
+                priorTurn.AuthorizedBranch != authorizedBranch ||
+                !string.Equals(priorTurn.BaseCommitSha, task.Request.BaseSha, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(priorTurn.CandidateCommitSha, priorCandidateCommitSha, StringComparison.OrdinalIgnoreCase) ||
+                priorTurn.CompletedAt > now)
+                throw new UnauthorizedAccessException("The prior HeadlessAi turn does not match this task, branch, base, or prior candidate provenance.");
+        }
         var lifetime = turnLifetime ?? TimeSpan.FromMinutes(15);
         if (lifetime <= TimeSpan.Zero || lifetime > TimeSpan.FromHours(2))
             throw new ArgumentOutOfRangeException(nameof(turnLifetime));
@@ -292,13 +404,15 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
             IdempotencyKey = "pending",
             PriorTurnId = priorTurnId,
             PriorCandidateCommitSha = priorCandidateCommitSha,
-            Evidence = Array.AsReadOnly((evidence ?? Array.Empty<ExecutionHeadlessAiEvidence>()).ToArray())
+            Evidence = Array.AsReadOnly((evidence ?? Array.Empty<ExecutionHeadlessAiEvidence>()).ToArray()),
+            AcceptedCiAiReport = acceptedCiAiReport
         };
         request = request with
         {
             IdempotencyKey = ExecutionHeadlessAiTurnRequest.CreateIdempotencyKey(
                 task, authorizedBranch, candidateCommitSha, role, instructions,
-                canonicalPrompt, responseSchema, priorTurnId, priorCandidateCommitSha, request.Evidence)
+                canonicalPrompt, responseSchema, priorTurnId, priorCandidateCommitSha, request.Evidence,
+                request.AcceptedCiAiReport)
         };
         request.Validate(now);
         cancellationToken.ThrowIfCancellationRequested();
@@ -330,13 +444,17 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
         // for host reconciliation, but this stale invocation must not hand it to its caller.
         var current = _tasks.GetSnapshot(taskId);
         var completedAt = _timeProvider.GetUtcNow();
-        if (current.Status != WorkTaskStatus.Investigating ||
+        if (current.Status != expectedStatus ||
             current.Lease is not { } currentLease || currentLease.LeaseId != leaseId ||
             currentLease.ExpiresAt <= completedAt)
             throw new UnauthorizedAccessException(
                 "The HeadlessAi result was durably recorded, but the task lease or investigation state became stale during the provider call.");
         return result;
     }
+
+    /// <summary>Loads the original completed provider result for an approval-resume operation.</summary>
+    public ExecutionHeadlessAiTurnResult? GetCompletedTurn(string taskId, string turnId) =>
+        _journal.GetCompletedTurn(taskId, turnId);
 
     private static void ValidateRequestFingerprint(string fingerprint)
     {

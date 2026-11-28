@@ -58,6 +58,13 @@ public static class WorkTaskRepairDecisionPolicy
         ArgumentNullException.ThrowIfNull(previousAttempts);
         ArgumentNullException.ThrowIfNull(currentAttempt);
         currentAttempt.Validate();
+        if (!string.Equals(currentAttempt.EvidenceSchema, WorkTaskRepairAttempt.RequiredEvidenceSchema, StringComparison.Ordinal))
+            return new(WorkTaskRepairDecision.Blocked, "repair.authoritative-workflow-evidence-required",
+                "Only an independently validated ciai.workflow-evidence.v1 packet may drive task lifecycle or repair decisions; test-results.v1 is diagnostic-only.");
+        if (previousAttempts.Any(item =>
+                !string.Equals(item.EvidenceSchema, WorkTaskRepairAttempt.RequiredEvidenceSchema, StringComparison.Ordinal)))
+            return new(WorkTaskRepairDecision.Blocked, "repair.history-not-authoritative",
+                "Prior repair history contains evidence that is not bound to ciai.workflow-evidence.v1.");
         ArgumentNullException.ThrowIfNull(expectation);
         expectation.Validate();
         if (!MatchesExpectation(currentAttempt, expectation))

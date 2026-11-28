@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Execution.Workflow/Execution.Workflow.csproj" />
+    <ProjectReference Include="../../src/Execution.Approvals.AspNetCore/Execution.Approvals.AspNetCore.csproj" />
     <ProjectReference Include="../../src/Execution.HeadlessAiHost/Execution.HeadlessAiHost.csproj" />
   </ItemGroup>
 </Project>

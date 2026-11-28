@@ -23,7 +23,11 @@ public sealed record WorkTaskRepairAttempt(
     DateTimeOffset StartedAt,
     DateTimeOffset ObservedAt)
 {
+    /// <summary>Authoritative evidence contract that produced this lifecycle attempt.</summary>
+    public string? EvidenceSchema { get; init; }
+
     public const int CurrentSchemaVersion = 1;
+    public const string RequiredEvidenceSchema = "ciai.workflow-evidence.v1";
 
     public WorkTaskRepairAttempt Validate()
     {
@@ -47,6 +51,8 @@ public sealed record WorkTaskRepairAttempt(
             throw new ArgumentOutOfRangeException(nameof(AttemptNumber), "Attempt, run, and run-attempt identities must be positive.");
         ValidateSha(CandidateSha, nameof(CandidateSha));
         ValidateDigest(EvidencePayloadSha256, nameof(EvidencePayloadSha256));
+        if (EvidenceSchema is not null && EvidenceSchema != RequiredEvidenceSchema)
+            throw new ArgumentException("Repair attempts may only identify the authoritative ciai.workflow-evidence.v1 contract.", nameof(EvidenceSchema));
         if (IsSuccessful && (!EvidenceComplete || HasActionableDiagnostics))
             throw new ArgumentException("Successful evidence must be complete and have no actionable failure diagnostics.");
         if (HasActionableDiagnostics && (!EvidenceComplete || IsSuccessful ||

@@ -220,7 +220,7 @@ public sealed class JsonlWorkTaskStoreTests
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", Now, 1, new string('a', 40), 1001, 1,
                 new string('f', 64), true, true, false, null,
-                Now.AddMinutes(1), Now.AddMinutes(2));
+                Now.AddMinutes(1), Now.AddMinutes(2)) { EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema };
             var expectation = new WorkTaskRepairEvidenceExpectation("task-1", "correlation-1",
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", new string('a', 40), Now);
@@ -270,7 +270,7 @@ public sealed class JsonlWorkTaskStoreTests
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", Now, 1, new string('a', 40), 1001, 1,
                 new string('f', 64), true, true, false, null,
-                Now.AddMinutes(1), Now.AddMinutes(2));
+                Now.AddMinutes(1), Now.AddMinutes(2)) { EvidenceSchema = WorkTaskRepairAttempt.RequiredEvidenceSchema };
             var expectation = new WorkTaskRepairEvidenceExpectation("task-1", "correlation-1",
                 "TrentBest/TheSingularityWorkshop.Execution", "work/task-1",
                 ".github/workflows/build.yml", new string('a', 40), Now);

@@ -96,6 +96,62 @@ public sealed class PersistentWorkTaskCoordinator
         }
     }
 
+    /// <summary>
+    /// Consumes a verified CiAi report, appends its exact attempt idempotently, and applies
+    /// the existing Execution lifecycle policy using only CiAi's versioned verdict.
+    /// </summary>
+    public CiAiDiagnosticReportContext ConsumeCiAiDiagnosticReport(
+        string taskId,
+        Guid leaseId,
+        ExecutionVerifiedCiAiReportArtifact artifact,
+        CiAiHostObservedSourceArtifactBinding? sourceArtifactBinding,
+        DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        ArgumentNullException.ThrowIfNull(artifact);
+        lock (_gate)
+        {
+            EnsureHealthy();
+            var journal = _repairAttemptJournal ?? throw new InvalidOperationException(
+                "A durable authoritative workflow-evidence attempt journal is required before consuming diagnostic reports.");
+            var task = _coordinator.GetSnapshot(taskId);
+            if (now == default || task.Lease is not { } lease ||
+                lease.LeaseId != leaseId || lease.ExpiresAt <= now)
+                throw new UnauthorizedAccessException("A current, unexpired task lease is required to consume CiAi diagnostic evidence.");
+            if (task.Status != WorkTaskStatus.RepairRequired)
+                throw new UnauthorizedAccessException("Diagnostic reports cannot create RepairRequired state; authoritative workflow evidence must do that first.");
+
+            var mapping = artifact.Request.Mapping.Validate();
+            var run = artifact.Request.RunBinding
+                ?? throw new InvalidOperationException("CiAi report is not bound to an exact GitHub run.");
+            if (!string.Equals(mapping.TaskId, taskId, StringComparison.Ordinal) ||
+                !string.Equals(mapping.CorrelationId, task.Request.CorrelationId, StringComparison.Ordinal) ||
+                !string.Equals(mapping.Repository, task.Request.Repository, StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("CiAi diagnostic report mapping identifies a different Execution task.");
+
+            var authoritativeEvent = task.Events.LastOrDefault(item => item.Current == WorkTaskStatus.RepairRequired)
+                ?? throw new UnauthorizedAccessException("Task has no authoritative RepairRequired event.");
+            if (authoritativeEvent.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
+                !string.Equals(authoritativeEvent.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                authoritativeEvent.CiRunId != run.RunId ||
+                authoritativeEvent.CiRunAttempt != run.RunAttempt ||
+                string.IsNullOrWhiteSpace(authoritativeEvent.EvidencePayloadSha256))
+                throw new UnauthorizedAccessException("The diagnostic report does not match the exact ciai.workflow-evidence.v1 task event.");
+
+            var authoritativeAttempt = journal.GetAttempts(taskId).SingleOrDefault(item =>
+                item.CiRunId == run.RunId && item.CiRunAttempt == run.RunAttempt);
+            if (authoritativeAttempt is null ||
+                authoritativeAttempt.EvidenceSchema != WorkTaskRepairAttempt.RequiredEvidenceSchema ||
+                !string.Equals(authoritativeAttempt.CandidateSha, mapping.CandidateSha, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(authoritativeAttempt.EvidencePayloadSha256, authoritativeEvent.EvidencePayloadSha256, StringComparison.OrdinalIgnoreCase) ||
+                !authoritativeAttempt.EvidenceComplete || authoritativeAttempt.IsSuccessful ||
+                !authoritativeAttempt.HasActionableDiagnostics)
+                throw new UnauthorizedAccessException("The matching authoritative workflow-evidence v1 attempt is missing, incomplete, successful, or non-actionable.");
+
+            return CiAiTestResultReportConsumer.Consume(artifact, task, sourceArtifactBinding, now);
+        }
+    }
+
     public WorkTaskSnapshot GetSnapshot(string taskId)
     {
         lock (_gate)
