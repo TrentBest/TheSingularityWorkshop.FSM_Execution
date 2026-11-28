@@ -34,16 +34,40 @@ public sealed record CiAiDispatchSubmissionResult(
 /// </summary>
 public static class CiAiDispatchSubmissionCoordinator
 {
+    public static Task<CiAiDispatchSubmissionResult> SubmitAsync(
+        JsonlCiAiRequestTaskMappingJournal journal,
+        CiAiRequestTaskMapping mapping,
+        ICiAiWorkflowDispatcher dispatcher,
+        CancellationToken cancellationToken = default) =>
+        SubmitAsync(journal, mapping, dispatcher, null, cancellationToken);
+
     public static async Task<CiAiDispatchSubmissionResult> SubmitAsync(
         JsonlCiAiRequestTaskMappingJournal journal,
         CiAiRequestTaskMapping mapping,
         ICiAiWorkflowDispatcher dispatcher,
+        IAgentOnboardingAdmissionVerifier? admissionVerifier,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(journal);
         ArgumentNullException.ThrowIfNull(mapping);
         ArgumentNullException.ThrowIfNull(dispatcher);
+
+        // Validate ordinary mapping fields before contacting the host. Governed targets
+        // must pass CiAi's exact-candidate-SHA validator before a durable intent exists.
+        mapping.Validate(requireAdmissionEvidence: false);
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository))
+        {
+            if (admissionVerifier is null)
+                throw new UnauthorizedAccessException("A trusted exact-SHA onboarding verifier is required for this CI dispatch.");
+            var evidence = await admissionVerifier.VerifyAsync(mapping.Repository,
+                mapping.CandidateSha, cancellationToken).ConfigureAwait(false);
+            evidence.ValidateFor(mapping.Repository, mapping.CandidateSha);
+            if (!evidence.IsEligible)
+                throw new UnauthorizedAccessException("CiAi onboarding validation rejected this CI dispatch candidate.");
+            mapping = mapping with { AdmissionEvidence = evidence };
+        }
         mapping.Validate();
+        cancellationToken.ThrowIfCancellationRequested();
 
         var intent = journal.CreateDispatchIntent(mapping);
         if (intent == CiAiRequestMappingAppendOutcome.Conflict)
@@ -51,8 +75,19 @@ public static class CiAiDispatchSubmissionCoordinator
         if (intent == CiAiRequestMappingAppendOutcome.Duplicate)
             return new(CiAiDispatchSubmissionOutcome.ExistingIntentRequiresReconciliation, mapping.RequestId);
 
-        // The durable intent exists before any external side effect. If this call
-        // throws or is cancelled, its outcome may be ambiguous; do not resubmit it.
+        // Revalidate after intent persistence and immediately before the network boundary.
+        // A changed or revoked candidate remains durably pending but is never dispatched.
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(mapping.Repository))
+        {
+            var finalEvidence = await admissionVerifier!.VerifyAsync(mapping.Repository,
+                mapping.CandidateSha, cancellationToken).ConfigureAwait(false);
+            finalEvidence.ValidateFor(mapping.Repository, mapping.CandidateSha);
+            if (!finalEvidence.IsEligible || finalEvidence != mapping.AdmissionEvidence)
+                throw new UnauthorizedAccessException(
+                    "Candidate onboarding evidence changed before CI dispatch; the durable intent was not dispatched.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         await dispatcher.DispatchAsync(mapping, cancellationToken).ConfigureAwait(false);
         return new(CiAiDispatchSubmissionOutcome.SubmittedAwaitingReconciliation, mapping.RequestId);
     }
