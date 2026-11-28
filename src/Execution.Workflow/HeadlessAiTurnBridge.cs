@@ -27,6 +27,7 @@ public sealed record ExecutionHeadlessAiTurnRequest
     public required string IdempotencyKey { get; init; }
     public string? PriorTurnId { get; init; }
     public string? PriorCandidateCommitSha { get; init; }
+    public AgentOnboardingAdmissionEvidence? CandidateAdmissionEvidence { get; init; }
     public IReadOnlyList<ExecutionHeadlessAiEvidence> Evidence { get; init; } =
         Array.Empty<ExecutionHeadlessAiEvidence>();
 
@@ -82,6 +83,18 @@ public sealed record ExecutionHeadlessAiTurnRequest
             throw new ArgumentException("At most 64 CI evidence references may be supplied.", nameof(Evidence));
         foreach (var item in Evidence)
             item.Validate(Repository, CandidateCommitSha, PriorCandidateCommitSha);
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(Repository))
+        {
+            var admission = CandidateAdmissionEvidence ?? throw new UnauthorizedAccessException(
+                "A fresh exact-candidate-SHA onboarding result is required before a governed HeadlessAi turn.");
+            admission.ValidateFor(Repository, CandidateCommitSha);
+            if (!admission.IsEligible)
+                throw new UnauthorizedAccessException("CiAi onboarding validation rejected the candidate commit.");
+        }
+        else if (CandidateAdmissionEvidence is not null)
+        {
+            throw new ArgumentException("Candidate onboarding evidence is only valid for governed repositories.");
+        }
     }
 
     private static void ValidateSha(string? value, string name)
@@ -93,6 +106,7 @@ public sealed record ExecutionHeadlessAiTurnRequest
     internal static string CreateIdempotencyKey(WorkTaskSnapshot task, string branch,
         string candidateSha, string role, string instructions, string canonicalPrompt,
         string responseSchema, string? priorTurnId, string? priorCandidateCommitSha,
+        AgentOnboardingAdmissionEvidence? candidateAdmissionEvidence,
         IReadOnlyList<ExecutionHeadlessAiEvidence> evidence)
     {
         var material = JsonSerializer.SerializeToUtf8Bytes(new
@@ -110,6 +124,7 @@ public sealed record ExecutionHeadlessAiTurnRequest
             responseSchema,
             priorTurnId,
             priorCandidateCommitSha,
+            candidateAdmissionEvidence,
             evidence
         });
         return "execution-" + Convert.ToHexString(SHA256.HashData(material)).ToLowerInvariant();
@@ -170,6 +185,7 @@ public sealed record ExecutionHeadlessAiTurnResult
     public required DateTimeOffset CompletedAt { get; init; }
     public string? PriorTurnId { get; init; }
     public string? PriorCandidateCommitSha { get; init; }
+    public AgentOnboardingAdmissionEvidence? CandidateAdmissionEvidence { get; init; }
     public string? IdempotencyKey { get; init; }
     public string? ErrorCode { get; init; }
     public string? Diagnosis { get; init; }
@@ -248,15 +264,17 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
     private readonly IHeadlessAiAgentTurnClient _client;
     private readonly JsonlHeadlessAiTurnJournal _journal;
     private readonly TimeProvider _timeProvider;
+    private readonly IAgentOnboardingAdmissionVerifier? _admissionVerifier;
 
     public ExecutionHeadlessAiTurnCoordinator(PersistentWorkTaskCoordinator tasks,
         IHeadlessAiAgentTurnClient client, JsonlHeadlessAiTurnJournal journal,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, IAgentOnboardingAdmissionVerifier? admissionVerifier = null)
     {
         _tasks = tasks ?? throw new ArgumentNullException(nameof(tasks));
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _journal = journal ?? throw new ArgumentNullException(nameof(journal));
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _admissionVerifier = admissionVerifier;
     }
 
     public async Task<ExecutionHeadlessAiTurnResult> InvokeAsync(string taskId, Guid leaseId,
@@ -271,6 +289,8 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
             throw new UnauthorizedAccessException("A current, unexpired Execution task lease is required.");
         if (task.Status != WorkTaskStatus.Investigating)
             throw new InvalidOperationException("HeadlessAi may be invoked only after the task enters Investigating.");
+        var candidateAdmissionEvidence = await VerifyCandidateAdmissionAsync(task, candidateCommitSha,
+            cancellationToken).ConfigureAwait(false);
         var lifetime = turnLifetime ?? TimeSpan.FromMinutes(15);
         if (lifetime <= TimeSpan.Zero || lifetime > TimeSpan.FromHours(2))
             throw new ArgumentOutOfRangeException(nameof(turnLifetime));
@@ -292,13 +312,15 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
             IdempotencyKey = "pending",
             PriorTurnId = priorTurnId,
             PriorCandidateCommitSha = priorCandidateCommitSha,
+            CandidateAdmissionEvidence = candidateAdmissionEvidence,
             Evidence = Array.AsReadOnly((evidence ?? Array.Empty<ExecutionHeadlessAiEvidence>()).ToArray())
         };
         request = request with
         {
             IdempotencyKey = ExecutionHeadlessAiTurnRequest.CreateIdempotencyKey(
                 task, authorizedBranch, candidateCommitSha, role, instructions,
-                canonicalPrompt, responseSchema, priorTurnId, priorCandidateCommitSha, request.Evidence)
+                canonicalPrompt, responseSchema, priorTurnId, priorCandidateCommitSha,
+                candidateAdmissionEvidence, request.Evidence)
         };
         request.Validate(now);
         cancellationToken.ThrowIfCancellationRequested();
@@ -316,8 +338,16 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
         // A durable pending entry is written before this single provider call. If the call
         // fails or the process stops before completion is journaled, a later invocation is
         // blocked as indeterminate rather than risking an automatic duplicate provider call.
+        // Revalidate the exact candidate immediately before crossing the model/provider boundary.
+        var latestTask = _tasks.GetSnapshot(taskId);
+        var finalAdmission = await VerifyCandidateAdmissionAsync(latestTask, candidateCommitSha,
+            cancellationToken).ConfigureAwait(false);
+        if (finalAdmission != candidateAdmissionEvidence)
+            throw new UnauthorizedAccessException("Candidate onboarding evidence changed before the HeadlessAi provider call.");
+
         // The adapter executes the exact immutable snapshot returned by Prepare.
         var result = await _client.ExecuteAsync(request, prepared, cancellationToken).ConfigureAwait(false);
+        result = result with { CandidateAdmissionEvidence = candidateAdmissionEvidence };
         result.ValidateAgainst(request);
         if (!string.Equals(result.RequestFingerprint, prepared.RequestFingerprint,
                 StringComparison.OrdinalIgnoreCase))
@@ -336,6 +366,21 @@ public sealed class ExecutionHeadlessAiTurnCoordinator
             throw new UnauthorizedAccessException(
                 "The HeadlessAi result was durably recorded, but the task lease or investigation state became stale during the provider call.");
         return result;
+    }
+
+    private async ValueTask<AgentOnboardingAdmissionEvidence?> VerifyCandidateAdmissionAsync(
+        WorkTaskSnapshot task, string candidateSha, CancellationToken cancellationToken)
+    {
+        if (!AgentOnboardingTargetPolicy.RequiresAdmission(task.Request.Repository))
+            return null;
+        var verifier = _admissionVerifier ?? throw new UnauthorizedAccessException(
+            "A trusted exact-SHA onboarding verifier is required before every governed HeadlessAi model turn.");
+        var evidence = await verifier.VerifyAsync(task.Request.Repository, candidateSha,
+            cancellationToken).ConfigureAwait(false);
+        evidence.ValidateFor(task.Request.Repository, candidateSha);
+        if (!evidence.IsEligible)
+            throw new UnauthorizedAccessException("CiAi AgentOnboarding validation rejected the exact candidate commit.");
+        return evidence;
     }
 
     private static void ValidateRequestFingerprint(string fingerprint)

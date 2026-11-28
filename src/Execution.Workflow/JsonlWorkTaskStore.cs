@@ -133,6 +133,7 @@ public sealed class JsonlWorkTaskStore
         left.CorrelationId == right.CorrelationId && left.Repository == right.Repository &&
         left.IssueNumber == right.IssueNumber && left.IssueUrl == right.IssueUrl &&
         left.BaseSha == right.BaseSha && left.MaximumAttempts == right.MaximumAttempts &&
+        left.AdmissionEvidence == right.AdmissionEvidence &&
         left.AllowedPaths.SequenceEqual(right.AllowedPaths, StringComparer.Ordinal);
 
     private static WorkTaskSnapshot Clone(WorkTaskSnapshot snapshot) =>
