@@ -75,19 +75,24 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
     private readonly GitHubRepositoryOperationPolicy _policy;
     private readonly IGitHubRepositoryStagingStore _stagingStore;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly IAgentOnboardingAdmissionVerifier? _admissionVerifier;
 
     public GitHubRepositoryOperationAdapter(
         HttpClient httpClient,
         IGitHubAccessTokenProvider tokens,
         GitHubRepositoryOperationPolicy policy,
         IGitHubRepositoryStagingStore stagingStore,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        IAgentOnboardingAdmissionVerifier? admissionVerifier = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
         _stagingStore = stagingStore ?? throw new ArgumentNullException(nameof(stagingStore));
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _admissionVerifier = admissionVerifier;
+        if (_httpClient.DefaultRequestHeaders.Authorization is not null)
+            throw new ArgumentException("The GitHub API client must not carry ambient Authorization headers.", nameof(httpClient));
         if (_httpClient.BaseAddress is null ||
             !string.Equals(_httpClient.BaseAddress.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(_httpClient.BaseAddress.Host, "api.github.com", StringComparison.OrdinalIgnoreCase) ||
@@ -102,6 +107,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
         if (operation is RequestRepositoryCiOperation)
             throw new InvalidOperationException("CI dispatch requires the persisted repository-operation execution context.");
         _policy.DemandRepository(operation.Repository);
+        await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
         GitHubRepositoryOperationPolicy.DemandCandidateBranch(operation.Branch);
 
         return operation switch
@@ -153,6 +159,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
             throw new InvalidDataException("GitHub did not return the exact authorized base commit.");
 
         var body = JsonSerializer.Serialize(new CreateRefRequest(branchRef, operation.CandidateSha), JsonOptions);
+        await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
         using var created = await SendAsync(HttpMethod.Post,
             $"repos/{operation.Repository}/git/refs", token, body, cancellationToken).ConfigureAwait(false);
         var result = await ReadJsonAsync<GitRefResponse>(created!, cancellationToken).ConfigureAwait(false);
@@ -223,6 +230,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
         var entries = staged.Select(entry => new GitTreeEntry(entry.Path, "100644", "blob", entry.BlobSha)).ToArray();
         var treeBody = JsonSerializer.Serialize(
             new CreateTreeRequest(baseCommit.Tree.Sha, entries), JsonOptions);
+        await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
         using var treeResponse = await SendAsync(HttpMethod.Post,
             $"repos/{operation.Repository}/git/trees", token, treeBody, cancellationToken).ConfigureAwait(false);
         var tree = await ReadJsonAsync<GitTreeResponse>(treeResponse!, cancellationToken).ConfigureAwait(false);
@@ -233,6 +241,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
         // a lost response therefore creates/retrieves the same immutable commit object.
         var commitBody = JsonSerializer.Serialize(new CreateCommitRequest(
             operation.Message, tree.Sha, [operation.CandidateSha], author, committer), JsonOptions);
+        await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
         using var commitResponse = await SendAsync(HttpMethod.Post,
             $"repos/{operation.Repository}/git/commits", token, commitBody, cancellationToken).ConfigureAwait(false);
         var commit = await ReadJsonAsync<GitCommitResponse>(commitResponse!, cancellationToken).ConfigureAwait(false);
@@ -263,6 +272,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
         var updateBody = JsonSerializer.Serialize(new UpdateRefRequest(commitSha, false), JsonOptions);
         try
         {
+            await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
             using var updateResponse = await SendAsync(HttpMethod.Patch,
                 $"repos/{operation.Repository}/git/refs/{Uri.EscapeDataString(lookupRef)}",
                 token, updateBody, cancellationToken).ConfigureAwait(false);
@@ -283,6 +293,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
                     token, cancellationToken).ConfigureAwait(false);
             if (!string.Equals(current.Object?.Sha, operation.CandidateSha, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Candidate ref update outcome is ambiguous and the branch no longer has the authorized parent.");
+            await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
             using var retryResponse = await SendAsync(HttpMethod.Patch,
                 $"repos/{operation.Repository}/git/refs/{Uri.EscapeDataString(lookupRef)}",
                 token, updateBody, cancellationToken).ConfigureAwait(false);
@@ -346,6 +357,7 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
             throw new ArgumentException("UTF-8 file content exceeds the host 64 KiB byte limit.", nameof(operation));
         var digest = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         var body = JsonSerializer.Serialize(new CreateBlobRequest(operation.Content, "utf-8"), JsonOptions);
+        await VerifyAdmissionAsync(operation, cancellationToken).ConfigureAwait(false);
         using var response = await SendAsync(HttpMethod.Post,
             $"repos/{operation.Repository}/git/blobs", token, body, cancellationToken).ConfigureAwait(false);
         var blob = await ReadJsonAsync<GitBlobResponse>(response!, cancellationToken).ConfigureAwait(false);
@@ -377,6 +389,21 @@ public sealed class GitHubRepositoryOperationAdapter : IRepositoryOperationAdapt
     {
         if (value is not { Length: 40 } || !value.All(Uri.IsHexDigit))
             throw new InvalidDataException($"GitHub returned an invalid SHA for {parameterName}.");
+    }
+
+    private async ValueTask VerifyAdmissionAsync(
+        RepositoryOperation operation, CancellationToken cancellationToken)
+    {
+        if (!AgentOnboardingTargetPolicy.RequiresAdmission(operation.Repository))
+            return;
+        var verifier = _admissionVerifier ?? throw new UnauthorizedAccessException(
+            "A trusted exact-candidate-SHA onboarding verifier is required at the GitHub repository adapter boundary.");
+        var evidence = await verifier.VerifyAsync(operation.Repository, operation.CandidateSha, cancellationToken)
+            .ConfigureAwait(false);
+        evidence.ValidateFor(operation.Repository, operation.CandidateSha);
+        if (!evidence.IsEligible)
+            throw new UnauthorizedAccessException(
+                "The exact candidate commit does not satisfy the CiAi AgentOnboarding contract.");
     }
 
     private async ValueTask<string> GetTokenAsync(string repository, CancellationToken cancellationToken)
