@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Execution;
 using Xunit;
 
@@ -19,9 +20,15 @@ public sealed class CiAiArtifactReadyNoticeValidatorTests
             "https://ciai.example.test/api/v1/integrations/ciai/artifact-receipts",
             "ciai-ack-profile", Created, Created.AddHours(2));
 
+    private static string ArtifactIdempotencyKey() =>
+        new CiAiArtifactDeliveryIdentity("request-1", "operation-1", "idempotency-1")
+            .DeriveIdempotencyKey(CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId);
+
     private static CiAiArtifactNoticeValidationPolicy Policy() =>
-        new("foundry-production", "TrentBest/TheSingularityWorkshop.CiAi",
-            "workflow-evidence", "2", "7f3d9a");
+        new("foundry-production", Mapping().Repository,
+            CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
+            CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
+            Mapping().TrustedWorkflowSha);
 
     private static JsonlCiAiRequestTaskMappingJournal CreateJournal(string path, bool bind = true)
     {
@@ -55,11 +62,11 @@ public sealed class CiAiArtifactReadyNoticeValidatorTests
         {
             ["requestId"] = "request-1",
             ["operationId"] = "operation-1",
-            ["idempotencyKey"] = "idempotency-1",
-            ["providerRepository"] = providerRepository ?? "TrentBest/TheSingularityWorkshop.CiAi",
-            ["capabilityIdentity"] = capabilityIdentity ?? "workflow-evidence",
-            ["capabilityVersion"] = "2",
-            ["implementationRevision"] = "7f3d9a",
+            ["idempotencyKey"] = ArtifactIdempotencyKey(),
+            ["providerRepository"] = providerRepository ?? Mapping().Repository,
+            ["capabilityIdentity"] = capabilityIdentity ?? CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
+            ["capabilityVersion"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
+            ["implementationRevision"] = Mapping().TrustedWorkflowSha,
             ["artifactId"] = "artifact-123",
             ["artifactVersion"] = "v1",
             ["mediaType"] = "application/json",
@@ -69,7 +76,7 @@ public sealed class CiAiArtifactReadyNoticeValidatorTests
             ["expiresAt"] = Created.AddHours(1),
             ["sourceSha"] = sourceSha ?? new string('a', 40),
             ["clientIdentity"] = clientIdentity ?? "foundry-production",
-            ["providerRunId"] = "run-456"
+            ["providerRunId"] = "12345"
         };
         if (additionalProperty is not null)
             manifest["unexpected"] = additionalProperty;
@@ -86,7 +93,7 @@ public sealed class CiAiArtifactReadyNoticeValidatorTests
 
     private static CiAiArtifactReadyNotice Notice(string payload, string sender = "ciai-production") =>
         CiAiArtifactReadyNotice.FromUtf8Bytes(
-            sender, "notice-1", "idempotency-1", Encoding.UTF8.GetBytes(payload));
+            sender, "notice-1", ArtifactIdempotencyKey(), Encoding.UTF8.GetBytes(payload));
 
     [Fact]
     public void ValidatesCompleteNoticeAgainstAuthenticatedProviderAndExactBoundRun()
