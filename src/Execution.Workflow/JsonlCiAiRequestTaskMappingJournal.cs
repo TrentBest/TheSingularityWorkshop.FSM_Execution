@@ -31,8 +31,9 @@ public sealed record CiAiRequestTaskMapping(
     DateTimeOffset ExpiresAt)
 {
     public const int CurrentSchemaVersion = 1;
+    public AgentOnboardingAdmissionEvidence? AdmissionEvidence { get; init; }
 
-    public CiAiRequestTaskMapping Validate()
+    public CiAiRequestTaskMapping Validate(bool requireAdmissionEvidence = true)
     {
         static bool Clean(string? value, int max = 256) =>
             !string.IsNullOrWhiteSpace(value) && value.Length <= max && !value.Any(char.IsControl);
@@ -62,6 +63,24 @@ public sealed record CiAiRequestTaskMapping(
         ValidateHttpsOrigin(AcknowledgementDestination, nameof(AcknowledgementDestination), originOnly: false);
         if (CreatedAt == default || ExpiresAt <= CreatedAt || ExpiresAt - CreatedAt > TimeSpan.FromDays(7))
             throw new ArgumentException("Mapping expiry must be after creation and no more than seven days later.");
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(Repository))
+        {
+            if (AdmissionEvidence is null)
+            {
+                if (requireAdmissionEvidence)
+                    throw new UnauthorizedAccessException("A governed CI dispatch requires exact-candidate-SHA onboarding evidence.");
+            }
+            else
+            {
+                AdmissionEvidence.ValidateFor(Repository, CandidateSha);
+                if (!AdmissionEvidence.IsEligible)
+                    throw new UnauthorizedAccessException("CiAi onboarding validation rejected this CI dispatch candidate.");
+            }
+        }
+        else if (AdmissionEvidence is not null)
+        {
+            throw new ArgumentException("Onboarding evidence is only valid for governed repositories.");
+        }
         return this;
     }
 
