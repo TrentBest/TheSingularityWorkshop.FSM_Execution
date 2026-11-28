@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using TheSingularityWorkshop.CiAi;
+
 namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
