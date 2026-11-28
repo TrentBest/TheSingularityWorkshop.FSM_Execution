@@ -53,7 +53,7 @@ public sealed class CiAiArtifactNoticeIngressTests
             ["operationId"] = "operation-1",
             ["idempotencyKey"] = ArtifactIdempotencyKey(),
             ["providerRepository"] = Mapping().Repository,
-            ["capabilityIdentity"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
+            ["capabilityId"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
             ["capabilityVersion"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
             ["implementationRevision"] = Mapping().TrustedWorkflowSha,
             ["artifactId"] = "artifact-123",
