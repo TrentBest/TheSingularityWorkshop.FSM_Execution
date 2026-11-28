@@ -9,6 +9,29 @@ public sealed class AgentOnboardingAdmissionTests
     private const string Repository = "TrentBest/raWWar";
     private static readonly string TargetSha = new('a', 40);
 
+    [Theory]
+    [InlineData("TrentBest/TheSingularityWorkshop.CiAi")]
+    [InlineData("TrentBest/TheSingularityWorkshop.CiAi.CogA")]
+    [InlineData("TrentBest/TheSingularityWorkshop.CiAi.CogB")]
+    [InlineData("TrentBest/TheSingularityWorkshop.CiAi.CogC")]
+    [InlineData("TrentBest/TheSingularityWorkshop.CiAi.CogD")]
+    [InlineData("TrentBest/TheSingularityWorkshop.CiAi.CogE")]
+    [InlineData("TrentBest/TheSingularityWorkshop.Experiences")]
+    [InlineData("TrentBest/TheSingularityWorkshop.FSM_COS")]
+    [InlineData("TrentBest/TheSingularityWorkshop.FSM_Execution")]
+    [InlineData("TrentBest/TheSingularityWorkshop.HeadlessAi")]
+    [InlineData("TrentBest/TheSingularityWorkshop.MicroBundleRepository")]
+    [InlineData("TrentBest/TheSingularityWorkshop.ServerSC2")]
+    [InlineData("TrentBest/TheSingularityWorkshop.SingularityBot")]
+    [InlineData("TrentBest/raWWar")]
+    [InlineData("TrentBest/WebPage")]
+    public void EveryKnownAdpParticipantRequiresOnboardingAdmission(string repository) =>
+        Assert.True(AgentOnboardingTargetPolicy.RequiresAdmission(repository));
+
+    [Fact]
+    public void UnlistedRepositoryDoesNotReceiveOwnerPolicyByAccident() =>
+        Assert.False(AgentOnboardingTargetPolicy.RequiresAdmission("TrentBest/UnrelatedRepository"));
+
     [Fact]
     public async Task PersistentSubmissionAndClaimRequireFreshExactShaAdmissionBeforeMutation()
     {
