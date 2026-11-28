@@ -68,7 +68,7 @@ public sealed class CiAiArtifactReadyNoticeValidatorTests
             ["capabilityVersion"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
             ["implementationRevision"] = Mapping().TrustedWorkflowSha,
             ["artifactId"] = "artifact-123",
-            ["artifactVersion"] = "v1",
+            ["artifactVersion"] = "1",
             ["mediaType"] = "application/json",
             ["sizeBytes"] = sizeBytes,
             ["retrievalUri"] = retrievalUri ?? "https://artifacts.example.test/immutable/evidence.json",
