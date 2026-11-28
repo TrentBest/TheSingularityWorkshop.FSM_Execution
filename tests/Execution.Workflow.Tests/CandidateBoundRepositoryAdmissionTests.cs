@@ -1,4 +1,5 @@
 using TheSingularityWorkshop.Execution;
+using TheSingularityWorkshop.Execution.GitHubHost;
 using Xunit;
 
 namespace Execution.Workflow.Tests;
