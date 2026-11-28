@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace TheSingularityWorkshop.Execution;
 
 /// <summary>
@@ -9,6 +11,7 @@ public sealed class PersistentWorkTaskCoordinator
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _admissionGate = new(1, 1);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _taskOperationGates = new(StringComparer.Ordinal);
     private readonly WorkTaskCoordinator _coordinator;
     private readonly JsonlWorkTaskStore _store;
     private readonly JsonlWorkTaskRepairAttemptJournal? _repairAttemptJournal;
@@ -65,8 +68,46 @@ public sealed class PersistentWorkTaskCoordinator
         }
     }
 
+    /// <summary>
+    /// Serializes one repository operation against lifecycle mutations for the same task.
+    /// The callback must not synchronously invoke a lifecycle mutation on this coordinator.
+    /// </summary>
+    public async ValueTask<T> ExecuteSerializedAsync<T>(string taskId,
+        Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        ArgumentNullException.ThrowIfNull(action);
+        var taskGate = _taskOperationGates.GetOrAdd(taskId, static _ => new SemaphoreSlim(1, 1));
+        await taskGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            lock (_gate)
+                EnsureHealthy();
+            return await action(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            taskGate.Release();
+        }
+    }
+
+    private IDisposable EnterTaskOperationGate(string taskId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        var taskGate = _taskOperationGates.GetOrAdd(taskId, static _ => new SemaphoreSlim(1, 1));
+        taskGate.Wait();
+        return new TaskOperationGateLease(taskGate);
+    }
+
+    private sealed class TaskOperationGateLease(SemaphoreSlim gate) : IDisposable
+    {
+        public void Dispose() => gate.Release();
+    }
+
     public WorkTaskSnapshot Submit(WorkTaskRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        using var taskGate = EnterTaskOperationGate(request.TaskId);
         lock (_gate)
         {
             EnsureHealthy();
@@ -91,6 +132,7 @@ public sealed class PersistentWorkTaskCoordinator
         if (!evidence.IsEligible)
             throw new UnauthorizedAccessException("The repository's AgentOnboarding contract is not eligible.");
 
+        using var taskGate = EnterTaskOperationGate(validated.TaskId);
         lock (_gate)
         {
             EnsureHealthy();
@@ -101,6 +143,7 @@ public sealed class PersistentWorkTaskCoordinator
 
     public WorkTaskSnapshot Claim(string taskId, string agentId, TimeSpan leaseDuration, DateTimeOffset now)
     {
+        using var taskGate = EnterTaskOperationGate(taskId);
         lock (_gate)
         {
             EnsureHealthy();
@@ -143,6 +186,7 @@ public sealed class PersistentWorkTaskCoordinator
             if (!current.IsEligible || current != stored)
                 throw new UnauthorizedAccessException("Current exact-SHA onboarding evidence does not match the task's immutable admission provenance.");
 
+            using var taskGate = EnterTaskOperationGate(taskId);
             lock (_gate)
             {
                 EnsureHealthy();
@@ -163,6 +207,7 @@ public sealed class PersistentWorkTaskCoordinator
     public WorkTaskSnapshot Transition(string taskId, Guid leaseId, WorkTaskStatus next,
         DateTimeOffset now, string reason)
     {
+        using var taskGate = EnterTaskOperationGate(taskId);
         lock (_gate)
         {
             EnsureHealthy();
@@ -176,6 +221,7 @@ public sealed class PersistentWorkTaskCoordinator
         CodeRedIncident incident, CodeRedRecoveryApprovalReceipt receipt,
         DateTimeOffset now, string reason)
     {
+        using var taskGate = EnterTaskOperationGate(taskId);
         lock (_gate)
         {
             EnsureHealthy();
@@ -193,6 +239,7 @@ public sealed class PersistentWorkTaskCoordinator
         TimeSpan maximumDuration, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(currentAttempt);
+        using var taskGate = EnterTaskOperationGate(taskId);
         lock (_gate)
         {
             EnsureHealthy();
