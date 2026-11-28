@@ -18,7 +18,8 @@ public interface IGitHubAccessTokenProvider
 /// contract interpretation to CiAi's pinned AgentOnboardingValidator.
 /// This verifier intentionally does not require the SHA to be the current development head:
 /// callers must bind the SHA to their own task/candidate policy and this adapter verifies
-/// the exact commit supplied.
+/// the exact commit supplied. The host must configure the HttpClient handler with automatic
+/// redirects disabled so bearer credentials cannot be forwarded through a redirect.
 /// </summary>
 public sealed class GitHubAgentOnboardingAdmissionVerifier : IAgentOnboardingAdmissionVerifier
 {
@@ -33,7 +34,10 @@ public sealed class GitHubAgentOnboardingAdmissionVerifier : IAgentOnboardingAdm
         if (_client.BaseAddress is null ||
             _client.BaseAddress.Scheme != Uri.UriSchemeHttps ||
             _client.BaseAddress.Host != "api.github.com" ||
-            _client.BaseAddress.Port != 443)
+            _client.BaseAddress.Port != 443 ||
+            _client.BaseAddress.AbsolutePath != "/" ||
+            !string.IsNullOrEmpty(_client.BaseAddress.Query) ||
+            !string.IsNullOrEmpty(_client.BaseAddress.Fragment))
             throw new ArgumentException("The GitHub API client must use https://api.github.com:443.", nameof(client));
         if (_client.DefaultRequestHeaders.Authorization is not null)
             throw new ArgumentException("The GitHub API client must not carry ambient Authorization headers.", nameof(client));
