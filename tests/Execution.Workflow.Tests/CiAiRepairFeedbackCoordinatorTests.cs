@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Execution;
 using Xunit;
 
@@ -166,13 +167,18 @@ public sealed class CiAiRepairFeedbackCoordinatorTests
         const string noticePayload = "{}";
         var noticePayloadDigest = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(noticePayload))).ToLowerInvariant();
         var notice = new CiAiValidatedArtifactNotice(
-            snapshot, "notice-1", RunBoundAt, "owner/ciai", "workflow-evidence", "1",
-            "implementation-1", "report-artifact-1", "v1", "application/json",
+            snapshot, "notice-1", RunBoundAt, Repository,
+            CiTestResultExecutionNoticeEnqueuer.CapabilityId,
+            CiTestResultExecutionNoticeEnqueuer.CapabilityVersion,
+            WorkflowSha, "report-artifact-1", "v1", "application/json",
             bytes.Length, new Uri("https://artifacts.example.com/report.json"), digest,
             expiresAt, RunId.ToString(), "foundry-host", noticePayloadDigest);
         var receipt = new CiAiArtifactNoticeReceipt(
             CiAiArtifactNoticeReceipt.CurrentSchemaVersion, "receipt-1", mapping.ProviderIdentity,
-            notice.NoticeId, mapping.IdempotencyKey, noticePayloadDigest, noticePayload, Now);
+            notice.NoticeId,
+            new CiAiArtifactDeliveryIdentity(mapping.RequestId, mapping.OperationId, mapping.IdempotencyKey)
+                .DeriveIdempotencyKey(CiTestResultExecutionNoticeEnqueuer.CapabilityId),
+            noticePayloadDigest, noticePayload, Now);
         var retrieved = CiAiArtifactContentVerifier.Verify(notice, bytes, Now);
         return ExecutionVerifiedCiAiReportArtifact.Verify(retrieved, receipt, Now);
     }
