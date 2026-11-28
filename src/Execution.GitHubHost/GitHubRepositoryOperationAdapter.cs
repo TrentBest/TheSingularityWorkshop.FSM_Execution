@@ -57,7 +57,7 @@ public sealed class GitHubRepositoryOperationPolicy
 
     private static bool IsGitHubSegment(string value) =>
         value.Length is > 0 and <= 100 &&
-        value.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_');
+        value.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_' or '.');
 }
 
 /// <summary>
