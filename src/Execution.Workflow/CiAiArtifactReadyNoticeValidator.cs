@@ -123,10 +123,14 @@ public static class CiAiArtifactReadyNoticeValidator
         var snapshot = mappings.GetActionable(requestId, now);
         var mapping = snapshot.Mapping;
 
+        var capabilityIdentity = ReadText(manifest, "capabilityIdentity", 128);
+        var expectedArtifactIdempotencyKey = new CiAiArtifactDeliveryIdentity(
+            mapping.RequestId, mapping.OperationId, mapping.IdempotencyKey)
+            .DeriveIdempotencyKey(capabilityIdentity);
         if (!string.Equals(notice.SenderIdentity, mapping.ProviderIdentity, StringComparison.Ordinal) ||
             !string.Equals(ReadText(manifest, "operationId", 128), mapping.OperationId, StringComparison.Ordinal) ||
-            !string.Equals(ReadText(manifest, "idempotencyKey", 128), mapping.IdempotencyKey, StringComparison.Ordinal))
-            throw new UnauthorizedAccessException("CiAi notice does not match the authenticated provider and exact persisted request identity.");
+            !string.Equals(ReadText(manifest, "idempotencyKey", 128), expectedArtifactIdempotencyKey, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("CiAi notice does not match the authenticated provider and capability-scoped persisted request identity.");
 
         if (notifiedAt < mapping.CreatedAt || notifiedAt > mapping.ExpiresAt || notifiedAt > now)
             throw new InvalidOperationException("CiAi notice timestamp is outside the active dispatch request window.");
