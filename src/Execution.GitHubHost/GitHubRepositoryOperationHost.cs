@@ -41,7 +41,7 @@ public sealed class GitHubRepositoryOperationHost
         if (apiClient.DefaultRequestHeaders.Authorization is not null)
             throw new ArgumentException("The GitHub API client must not carry ambient Authorization headers.", nameof(apiClient));
         var verifier = new GitHubAgentOnboardingAdmissionVerifier(apiClient, tokens);
-        var adapter = new GitHubRepositoryOperationAdapter(apiClient, tokens, repositoryPolicy, stagingStore, clock);
+        var adapter = new GitHubRepositoryOperationAdapter(apiClient, tokens, repositoryPolicy, stagingStore, clock, verifier);
         return new GitHubRepositoryOperationHost(adapter, verifier);
     }
 }
