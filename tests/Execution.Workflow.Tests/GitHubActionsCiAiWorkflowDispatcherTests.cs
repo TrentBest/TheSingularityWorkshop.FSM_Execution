@@ -115,7 +115,7 @@ public sealed class GitHubActionsCiAiWorkflowDispatcherTests
             eventSha)
         {
             JobKey = Profile.RequiredJobKey,
-            SourceArtifactName = Profile.TestArtifactName(1)
+            SourceArtifactName = Profile.TestArtifactNameForDispatch(1)
         };
     }
 
