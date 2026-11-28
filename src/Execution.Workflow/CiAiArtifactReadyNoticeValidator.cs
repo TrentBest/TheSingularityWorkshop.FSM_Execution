@@ -150,8 +150,6 @@ public static class CiAiArtifactReadyNoticeValidator
 
         var artifactId = ReadText(manifest, "artifactId", 256);
         var artifactVersion = ReadText(manifest, "artifactVersion", 128);
-        if (!string.Equals(artifactVersion, "v1", StringComparison.Ordinal))
-            throw new InvalidDataException("CiAi artifact version must be v1.");
         var mediaType = ReadText(manifest, "mediaType", 128);
         if (!string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase))
             throw new FormatException("CiAi evidence artifact media type must be application/json.");
