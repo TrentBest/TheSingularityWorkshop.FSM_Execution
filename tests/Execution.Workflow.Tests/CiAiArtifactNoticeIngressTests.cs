@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using TheSingularityWorkshop.CiAi;
 using TheSingularityWorkshop.Execution;
 using Xunit;
 
@@ -28,6 +29,10 @@ public sealed class CiAiArtifactNoticeIngressTests
             "https://ciai.example.test/api/v1/integrations/ciai/artifact-receipts",
             "ciai-ack-profile", Created, Created.AddHours(2));
 
+    private static string ArtifactIdempotencyKey() =>
+        new CiAiArtifactDeliveryIdentity("request-1", "operation-1", "idempotency-1")
+            .DeriveIdempotencyKey(CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId);
+
     private static JsonlCiAiRequestTaskMappingJournal CreateMappings(string path)
     {
         var journal = new JsonlCiAiRequestTaskMappingJournal(path);
@@ -46,11 +51,11 @@ public sealed class CiAiArtifactNoticeIngressTests
         {
             ["requestId"] = "request-1",
             ["operationId"] = "operation-1",
-            ["idempotencyKey"] = "idempotency-1",
-            ["providerRepository"] = "TrentBest/TheSingularityWorkshop.CiAi",
-            ["capabilityIdentity"] = "workflow-evidence",
-            ["capabilityVersion"] = "2",
-            ["implementationRevision"] = "7f3d9a",
+            ["idempotencyKey"] = ArtifactIdempotencyKey(),
+            ["providerRepository"] = Mapping().Repository,
+            ["capabilityIdentity"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
+            ["capabilityVersion"] = CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
+            ["implementationRevision"] = Mapping().TrustedWorkflowSha,
             ["artifactId"] = "artifact-123",
             ["artifactVersion"] = "v1",
             ["mediaType"] = "application/json",
@@ -60,7 +65,7 @@ public sealed class CiAiArtifactNoticeIngressTests
             ["expiresAt"] = Created.AddHours(1),
             ["sourceSha"] = new string('a', 40),
             ["clientIdentity"] = "foundry-production",
-            ["providerRunId"] = "run-456"
+            ["providerRunId"] = "12345"
         };
         return Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
         {
@@ -81,8 +86,10 @@ public sealed class CiAiArtifactNoticeIngressTests
             new TestAuthenticator(sender),
             CreateMappings(mappingPath),
             new CiAiArtifactNoticeValidationPolicy(
-                "foundry-production", "TrentBest/TheSingularityWorkshop.CiAi",
-                "workflow-evidence", "2", "7f3d9a"),
+                "foundry-production", Mapping().Repository,
+                CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityId,
+                CiWorkflowEvidenceExecutionNoticeEnqueuer.CapabilityVersion,
+                Mapping().TrustedWorkflowSha),
             new JsonlCiAiArtifactNoticeReceiptLedger(receiptPath));
     }
 
