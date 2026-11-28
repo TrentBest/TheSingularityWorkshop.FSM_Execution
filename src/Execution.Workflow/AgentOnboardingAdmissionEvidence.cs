@@ -64,9 +64,19 @@ public static class AgentOnboardingTargetPolicy
 {
     private static readonly HashSet<string> Repositories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "TrentBest/TheSingularityWorkshop.SingularityBot",
-        "TrentBest/TheSingularityWorkshop.ServerSC2",
+        "TrentBest/TheSingularityWorkshop.CiAi",
+        "TrentBest/TheSingularityWorkshop.CiAi.CogA",
+        "TrentBest/TheSingularityWorkshop.CiAi.CogB",
+        "TrentBest/TheSingularityWorkshop.CiAi.CogC",
+        "TrentBest/TheSingularityWorkshop.CiAi.CogD",
+        "TrentBest/TheSingularityWorkshop.CiAi.CogE",
         "TrentBest/TheSingularityWorkshop.Experiences",
+        "TrentBest/TheSingularityWorkshop.FSM_COS",
+        "TrentBest/TheSingularityWorkshop.FSM_Execution",
+        "TrentBest/TheSingularityWorkshop.HeadlessAi",
+        "TrentBest/TheSingularityWorkshop.MicroBundleRepository",
+        "TrentBest/TheSingularityWorkshop.ServerSC2",
+        "TrentBest/TheSingularityWorkshop.SingularityBot",
         "TrentBest/raWWar",
         "TrentBest/WebPage"
     };
