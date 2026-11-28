@@ -83,6 +83,34 @@ public sealed class CandidateBoundRepositoryAdmissionTests
         Assert.Empty(fixture.Journal.GetAll());
     }
 
+    [Fact]
+    public async Task ConcreteGitHubAdapterRejectsGovernedOperationWithoutItsOwnAdmissionVerifier()
+    {
+        var handler = new CountingHandler();
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.github.com/") };
+        var directory = Path.Combine(Path.GetTempPath(), "execution-adapter-admission", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var staging = new JsonlGitHubRepositoryStagingStore(Path.Combine(directory, "staging.jsonl"));
+            var adapter = new TheSingularityWorkshop.Execution.GitHubHost.GitHubRepositoryOperationAdapter(
+                client, new FakeTokenProvider(),
+                new TheSingularityWorkshop.Execution.GitHubHost.GitHubRepositoryOperationPolicy([Repository]),
+                staging);
+            var operation = new ReadRepositoryFileOperation(
+                "governed-task", Repository, "agents/issue-39", CandidateSha, "src/example.cs");
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await adapter.ExecuteAsync(operation, CancellationToken.None));
+
+            Assert.Equal(0, handler.Calls);
+        }
+        finally
+        {
+            if (System.IO.Directory.Exists(directory))
+                System.IO.Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private sealed class GovernedFixture : IDisposable
     {
         private GovernedFixture(string directoryPath, PersistentWorkTaskCoordinator tasks,
@@ -127,6 +155,24 @@ public sealed class CandidateBoundRepositoryAdmissionTests
             if (System.IO.Directory.Exists(DirectoryPath))
                 System.IO.Directory.Delete(DirectoryPath, recursive: true);
         }
+    }
+
+    private sealed class CountingHandler : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError));
+        }
+    }
+
+    private sealed class FakeTokenProvider : TheSingularityWorkshop.Execution.GitHubHost.IGitHubAccessTokenProvider
+    {
+        public ValueTask<string> GetTokenAsync(string repository, CancellationToken cancellationToken) =>
+            ValueTask.FromResult("test-token");
     }
 
     private sealed class FakeVerifier : IAgentOnboardingAdmissionVerifier
