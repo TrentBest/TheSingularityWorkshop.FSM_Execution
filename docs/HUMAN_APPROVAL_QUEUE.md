@@ -66,3 +66,8 @@ The host should expose a read-only pending-approval query and an authenticated d
 - decision state and, after decision, actor/reason/time.
 
 The GUI must never infer approval from a click preview, a model response, or a task status label. It should submit an explicit decision command to the authenticated host and refresh from the authoritative queue. This slice also adds a reusable ASP.NET Core adapter: GET `/api/v1/adp/approvals` returns the pending queue (optionally filtered by `repository`), and POST `/api/v1/adp/approvals/{approvalId}/decision` accepts an explicit `approve` or `reject` decision with a reason. Both routes require a host-supplied `IHumanApprovalQueueAuthorizer`; the adapter has no anonymous or permissive default. The ServerApp host must register the journal, implement the authorizer against its real authentication system, and map the routes before a GUI can use them. The live GUI client and production ServerApp wiring remain outstanding.
+
+
+## Separate workflow: quarantined development groups
+
+The operation-approval queue above is not the sprint-proposal review store. Future development groups remain opaque FSM_Serialization byte streams until a human approves the exact revision and digest. They are not `HumanApprovalRequest` records, JSON operation arguments, or manifests with an approval flag. See [Quarantined Development Groups](QUARANTINED_DEVELOPMENT_GROUPS.md) for the storage, review, post-approval materialization, validation, and admission contract.
