@@ -246,7 +246,9 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
                 var decision = snapshot.Decisions.SingleOrDefault(x => x.RevisionId == outcome.RevisionId);
                 var revision = snapshot.Revisions.SingleOrDefault(x => x.RevisionId == outcome.RevisionId);
                 if (entry.Sequence != snapshot.JournalSequence + 1 || decision?.Status != DevelopmentGroupReviewStatus.Approved ||
-                    revision is null || !FixedEquals(revision.Sha256, outcome.RevisionSha256) ||
+                    revision is null || revision.RevisionId != snapshot.Latest.RevisionId ||
+                    !FixedEquals(revision.Sha256, outcome.RevisionSha256) ||
+                    !FixedEquals(decision.RevisionSha256, outcome.RevisionSha256) ||
                     snapshot.MaterializationOutcomes.Any(x => x.RevisionId == outcome.RevisionId))
                     throw new InvalidDataException("Materialization outcome is not bound to one approved revision.");
                 _groups[outcome.GroupId] = snapshot with {
