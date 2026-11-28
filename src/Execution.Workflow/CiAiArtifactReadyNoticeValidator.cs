@@ -72,7 +72,7 @@ public static class CiAiArtifactReadyNoticeValidator
     private static readonly HashSet<string> ManifestProperties = new(StringComparer.Ordinal)
     {
         "requestId", "operationId", "idempotencyKey", "providerRepository",
-        "capabilityIdentity", "capabilityVersion", "implementationRevision",
+        "capabilityId", "capabilityVersion", "implementationRevision",
         "artifactId", "artifactVersion", "mediaType", "sizeBytes", "retrievalUri",
         "digest", "expiresAt", "sourceSha", "clientIdentity"
     };
@@ -125,7 +125,7 @@ public static class CiAiArtifactReadyNoticeValidator
         var snapshot = mappings.GetActionable(requestId, now);
         var mapping = snapshot.Mapping;
 
-        var capabilityIdentity = ReadText(manifest, "capabilityIdentity", 128);
+        var capabilityIdentity = ReadText(manifest, "capabilityId", 128);
         var expectedArtifactIdempotencyKey = new CiAiArtifactDeliveryIdentity(
             mapping.RequestId, mapping.OperationId, mapping.IdempotencyKey)
             .DeriveIdempotencyKey(capabilityIdentity);
@@ -150,6 +150,8 @@ public static class CiAiArtifactReadyNoticeValidator
 
         var artifactId = ReadText(manifest, "artifactId", 256);
         var artifactVersion = ReadText(manifest, "artifactVersion", 128);
+        if (!string.Equals(artifactVersion, "v1", StringComparison.Ordinal))
+            throw new InvalidDataException("CiAi artifact version must be v1.");
         var mediaType = ReadText(manifest, "mediaType", 128);
         if (!string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase))
             throw new FormatException("CiAi evidence artifact media type must be application/json.");
