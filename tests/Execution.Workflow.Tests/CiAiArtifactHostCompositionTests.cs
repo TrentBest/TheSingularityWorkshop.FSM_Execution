@@ -371,7 +371,7 @@ public sealed class CiAiArtifactHostCompositionTests
             ["capabilityVersion"] = "1",
             ["implementationRevision"] = WorkflowSha,
             ["artifactId"] = "artifact-123",
-            ["artifactVersion"] = "v1",
+            ["artifactVersion"] = "1",
             ["mediaType"] = "application/json",
             ["sizeBytes"] = reportBytes.Length,
             ["retrievalUri"] = ArtifactUri.AbsoluteUri,
