@@ -63,7 +63,7 @@ public sealed record CiAiRequestTaskMapping(
         ValidateHttpsOrigin(AcknowledgementDestination, nameof(AcknowledgementDestination), originOnly: false);
         if (CreatedAt == default || ExpiresAt <= CreatedAt || ExpiresAt - CreatedAt > TimeSpan.FromDays(7))
             throw new ArgumentException("Mapping expiry must be after creation and no more than seven days later.");
-        if (AgentOnboardingTargetPolicy.RequiresAdmission(Repository))
+        if (AgentOnboardingTargetPolicy.RequiresAdmission(Repository ?? string.Empty))
         {
             if (AdmissionEvidence is null)
             {
