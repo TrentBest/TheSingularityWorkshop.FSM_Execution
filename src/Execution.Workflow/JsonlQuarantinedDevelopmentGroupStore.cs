@@ -58,10 +58,11 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
                 serializationFormat, producer, mandateId, taskId, turnId, supportingReferences, createdAt);
             if (current.Revisions.Any(x => x.RevisionId == revisionId))
                 throw new InvalidOperationException($"Revision '{revisionId}' already exists.");
-            Append(new DevelopmentGroupJournalEntry(NextSequence(groupId), DevelopmentGroupJournalEvent.RevisionCreated,
+            var journalSequence = NextSequence(groupId);
+            Append(new DevelopmentGroupJournalEntry(journalSequence, DevelopmentGroupJournalEvent.RevisionCreated,
                 revision, null, null));
             _groups[groupId] = current with { Latest = Clone(revision),
-                Revisions = current.Revisions.Append(Clone(revision)).ToArray() };
+                Revisions = current.Revisions.Append(Clone(revision)).ToArray(), JournalSequence = journalSequence };
             return Clone(revision);
         }
     }
@@ -89,9 +90,11 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
                 throw new InvalidOperationException("The review decision does not bind to the exact revision and supporting material.");
             var decision = new DevelopmentGroupReviewDecision(groupId, revisionId, revision.Sha256,
                 revision.SupportingMaterialSha256, status, authenticatedApprover, reason, decidedAt);
-            Append(new DevelopmentGroupJournalEntry(NextSequence(groupId), DevelopmentGroupJournalEvent.ReviewDecided,
+            var journalSequence = NextSequence(groupId);
+            Append(new DevelopmentGroupJournalEntry(journalSequence, DevelopmentGroupJournalEvent.ReviewDecided,
                 null, decision, null));
-            _groups[groupId] = snapshot with { Decisions = snapshot.Decisions.Append(decision).ToArray() };
+            _groups[groupId] = snapshot with { Decisions = snapshot.Decisions.Append(decision).ToArray(),
+                JournalSequence = journalSequence };
             return decision;
         }
     }
@@ -131,10 +134,12 @@ public sealed class JsonlQuarantinedDevelopmentGroupStore
                 throw new InvalidOperationException("A materialization outcome is already recorded for this revision.");
             var outcome = new DevelopmentGroupMaterializationOutcome(groupId, revisionId,
                 revisionSha256, succeeded, outcomeCode, detail, occurredAt);
-            Append(new DevelopmentGroupJournalEntry(NextSequence(groupId), DevelopmentGroupJournalEvent.MaterializationRecorded,
+            var journalSequence = NextSequence(groupId);
+            Append(new DevelopmentGroupJournalEntry(journalSequence, DevelopmentGroupJournalEvent.MaterializationRecorded,
                 null, null, outcome));
             _groups[groupId] = snapshot with {
-                MaterializationOutcomes = snapshot.MaterializationOutcomes.Append(outcome).ToArray()
+                MaterializationOutcomes = snapshot.MaterializationOutcomes.Append(outcome).ToArray(),
+                JournalSequence = journalSequence
             };
             return outcome;
         }
