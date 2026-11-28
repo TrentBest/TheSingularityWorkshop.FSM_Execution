@@ -135,10 +135,9 @@ public sealed class JsonlQuarantinedDevelopmentGroupStoreTests
             var store = new JsonlQuarantinedDevelopmentGroupStore(path);
             Create(store);
             var json = File.ReadAllText(path);
-            var tampered = json.Replace("AP8RK gA", "AP8RK gB", StringComparison.Ordinal)
-                .Replace("AP8RK", "AP8RL", StringComparison.Ordinal);
-            if (tampered == json)
-                tampered = json.Replace(Convert.ToBase64String(Candidate), Convert.ToBase64String([1, 2, 3]), StringComparison.Ordinal);
+            var tampered = json.Replace(Convert.ToBase64String(Candidate),
+                Convert.ToBase64String([1, 2, 3]), StringComparison.Ordinal);
+            Assert.NotEqual(json, tampered);
             File.WriteAllText(path, tampered);
             Assert.Throws<InvalidDataException>(() => new JsonlQuarantinedDevelopmentGroupStore(path));
         }
