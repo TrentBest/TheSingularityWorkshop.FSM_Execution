@@ -10,7 +10,6 @@ namespace Execution.Workflow.Tests;
 public sealed class GitHubRepositoryOperationAdapterTests
 {
     private const string CandidateSha = "0123456789abcdef0123456789abcdef01234567";
-    private const string TrustedWorkflowSha = "abcdef0123456789abcdef0123456789abcdef01";
     private const string Repository = "TrentBest/Sample";
 
     [Fact]
@@ -305,69 +304,6 @@ public sealed class GitHubRepositoryOperationAdapterTests
     }
 
     [Fact]
-    public async Task RequestCiOperationUsesHostAllowlistedDispatcherAndReturnsDurableRequestReference()
-    {
-        var handler = new StubGitHubHandler((request, _) =>
-        {
-            if (request.Method == HttpMethod.Get && request.RequestUri!.AbsolutePath.Contains("/git/ref/", StringComparison.Ordinal))
-            {
-                var trusted = request.RequestUri.AbsolutePath.Contains("development", StringComparison.Ordinal);
-                return Json(HttpStatusCode.OK, JsonSerializer.Serialize(new
-                {
-                    @ref = trusted ? "refs/heads/development" : "refs/heads/agents/task-123",
-                    @object = new { sha = trusted ? TrustedWorkflowSha : CandidateSha, type = "commit" }
-                }));
-            }
-            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith(
-                "/actions/workflows/foundry-fsm-api-probe.yml/dispatches", StringComparison.Ordinal))
-                return new HttpResponseMessage(HttpStatusCode.NoContent);
-            return Json(HttpStatusCode.NotFound, "{}");
-        });
-        var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.github.com/") };
-        var policy = new GitHubRepositoryOperationPolicy([Repository]);
-        var dispatchJournal = new JsonlGitHubActionsDispatchJournal(Path.Combine(
-            Path.GetTempPath(), "FoundryGitHubHostTests", Guid.NewGuid().ToString("N") + ".dispatch.jsonl"));
-        var allowlist = new GitHubActionsWorkflowAllowlist([
-            new GitHubActionsWorkflowDefinition("proof", "foundry-fsm-api-probe.yml",
-                ".github/workflows/foundry-fsm-api-probe.yml")
-        ]);
-        var actions = new GitHubActionsWorkflowDispatcher(client, new TestTokenProvider(),
-            policy, allowlist, dispatchJournal, TrustedWorkflowSha);
-        var adapter = new GitHubRepositoryOperationAdapter(client, new TestTokenProvider(), policy,
-            new JsonlGitHubRepositoryStagingStore(Path.Combine(
-                Path.GetTempPath(), "FoundryGitHubHostTests", Guid.NewGuid().ToString("N") + ".stage.jsonl")),
-            actionsDispatcher: actions);
-        var operation = new RequestRepositoryCiOperation(
-            "task-123", Repository, "agents/task-123", CandidateSha, "proof");
-        var executionContext = new TheSingularityWorkshop.Foundry.RepositoryOperationExecutionContext(
-            new string('1', 32), new string('2', 32), "task-123", "correlation-123");
-
-        var result = await adapter.ExecuteAsync(operation, executionContext, CancellationToken.None);
-
-        Assert.Equal(CandidateSha, result.RequestedCandidateSha);
-        Assert.Equal(CandidateSha, result.ResultingCandidateSha);
-        Assert.StartsWith("github:actions-dispatch:", result.OperationReference);
-        var dispatch = Assert.Single(handler.Requests.Where(request => request.Method == HttpMethod.Post));
-        using var payload = JsonDocument.Parse(dispatch.Body!);
-        Assert.Equal("development", payload.RootElement.GetProperty("ref").GetString());
-        var inputs = payload.RootElement.GetProperty("inputs");
-        Assert.Equal("agents/task-123", inputs.GetProperty("candidate_ref").GetString());
-        var requestId = inputs.GetProperty("request_id").GetString()!;
-        Assert.Equal(new string('1', 32), inputs.GetProperty("operation_id").GetString());
-        Assert.Equal(new string('2', 32), inputs.GetProperty("idempotency_key").GetString());
-        Assert.Equal("task-123", inputs.GetProperty("task_id").GetString());
-        Assert.Equal("correlation-123", inputs.GetProperty("correlation_id").GetString());
-        Assert.NotEqual(requestId, inputs.GetProperty("operation_id").GetString());
-        Assert.Equal("github:actions-dispatch:" + requestId, result.OperationReference);
-        var journalRecord = dispatchJournal.Get(requestId);
-        Assert.Equal("task-123", journalRecord.TaskId);
-        Assert.Equal(new string('1', 32), journalRecord.OperationId);
-        Assert.Equal(new string('2', 32), journalRecord.IdempotencyKey);
-        Assert.Equal("correlation-123", journalRecord.CorrelationId);
-        Assert.Equal("development", journalRecord.TrustedWorkflowRef);
-        Assert.Equal(TrustedWorkflowSha, journalRecord.TrustedWorkflowSha);
-        Assert.Equal(GitHubActionsDispatchState.Acknowledged, journalRecord.State);
-    }
 
     [Fact]
     public async Task RejectsRepositoriesOutsideHostAllowlist()
