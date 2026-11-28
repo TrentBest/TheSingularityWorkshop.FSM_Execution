@@ -118,4 +118,101 @@ public sealed class CiAiDispatchSubmissionCoordinatorTests
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+    [Fact]
+    public async Task GovernedDispatchPersistsExactCandidateAdmissionBeforeDispatchAndRevalidates()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-admission-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var journal = new JsonlCiAiRequestTaskMappingJournal(path);
+            var evidence = AdmissionEvidence('d');
+            var verifier = new SequenceAdmissionVerifier(evidence, evidence);
+            var dispatcher = new RecordingDispatcher();
+
+            var result = await CiAiDispatchSubmissionCoordinator.SubmitAsync(
+                journal, GovernedMapping(), dispatcher, verifier);
+
+            Assert.Equal(CiAiDispatchSubmissionOutcome.SubmittedAwaitingReconciliation, result.Outcome);
+            Assert.Equal(2, verifier.Calls);
+            Assert.Equal(1, dispatcher.Calls);
+            Assert.Equal(evidence, journal.Get("request-1").Mapping.AdmissionEvidence);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task GovernedDispatchRejectsBeforeIntentWhenCandidateIsNotEligible()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-admission-reject-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var journal = new JsonlCiAiRequestTaskMappingJournal(path);
+            var rejected = AdmissionEvidence('d') with
+            {
+                IsEligible = false,
+                Outcome = "NOT_ELIGIBLE",
+                FailureCode = "onboarding.missing",
+                ContentSha256 = null
+            };
+            var verifier = new SequenceAdmissionVerifier(rejected);
+            var dispatcher = new RecordingDispatcher();
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                CiAiDispatchSubmissionCoordinator.SubmitAsync(
+                    journal, GovernedMapping(), dispatcher, verifier));
+
+            Assert.Equal(1, verifier.Calls);
+            Assert.Equal(0, dispatcher.Calls);
+            Assert.False(File.Exists(path));
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task GovernedDispatchDoesNotDispatchWhenAdmissionChangesAfterIntentPersistence()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"execution-dispatch-admission-change-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var journal = new JsonlCiAiRequestTaskMappingJournal(path);
+            var initial = AdmissionEvidence('d');
+            var changed = AdmissionEvidence('e');
+            var verifier = new SequenceAdmissionVerifier(initial, changed);
+            var dispatcher = new RecordingDispatcher();
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                CiAiDispatchSubmissionCoordinator.SubmitAsync(
+                    journal, GovernedMapping(), dispatcher, verifier));
+
+            Assert.Equal(2, verifier.Calls);
+            Assert.Equal(0, dispatcher.Calls);
+            Assert.Equal(initial, journal.Get("request-1").Mapping.AdmissionEvidence);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    private static CiAiRequestTaskMapping GovernedMapping() =>
+        Mapping() with { Repository = "TrentBest/raWWar" };
+
+    private static AgentOnboardingAdmissionEvidence AdmissionEvidence(char digest) => new(
+        "TrentBest/raWWar", new string('a', 40),
+        AgentOnboardingAdmissionEvidence.RequiredPath,
+        AgentOnboardingAdmissionEvidence.RequiredContractVersion,
+        true, "ELIGIBLE", null, "CiAi v1 onboarding contract passed at exact candidate SHA.",
+        new string(digest, 64));
+
+    private sealed class SequenceAdmissionVerifier(params AgentOnboardingAdmissionEvidence[] evidence)
+        : IAgentOnboardingAdmissionVerifier
+    {
+        public int Calls { get; private set; }
+
+        public ValueTask<AgentOnboardingAdmissionEvidence> VerifyAsync(string repository,
+            string targetSha, CancellationToken cancellationToken = default)
+        {
+            var result = evidence[Math.Min(Calls, evidence.Length - 1)];
+            Calls++;
+            return ValueTask.FromResult(result);
+        }
+    }
+
 }
