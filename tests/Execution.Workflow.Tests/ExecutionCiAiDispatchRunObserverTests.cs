@@ -11,7 +11,18 @@ namespace Execution.Workflow.Tests;
 public sealed class ExecutionCiAiDispatchRunObserverTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 27, 21, 0, 0, TimeSpan.Zero);
-    private static readonly CiWorkflowObserverProfile Profile = CiWorkflowObserverProfile.CiAiDefault;
+    private static readonly CiWorkflowObserverProfile Profile = new(
+        "execution-fsm-api-probe-v1",
+        ".github/workflows/execution-fsm-api-probe.yml",
+        "ciai-workflow-provenance-{attempt}",
+        "ciai-test-results-{attempt}",
+        "workflow-provenance.json",
+        "results.trx",
+        "GitHub Actions",
+        "fsm-api-proof",
+        "Build, execute, and capture state evidence",
+        "Resolve candidate",
+        "Verify candidate checkout");
 
     [Fact]
     public void MarkerArchiveReaderAcceptsOneExactMarkerEntry()
