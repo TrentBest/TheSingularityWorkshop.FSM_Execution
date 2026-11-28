@@ -17,10 +17,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Execution.Workflow/Execution.Workflow.csproj" />
     <ProjectReference Include="../../src/Execution.HeadlessAiHost/Execution.HeadlessAiHost.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="../../src/Execution.Workflow/Execution.Workflow.csproj" />
-    <ProjectReference Include="../../src/Execution.HeadlessAiHost/Execution.HeadlessAiHost.csproj" />
     <ProjectReference Include="../../src/Execution.GitHubHost/Execution.GitHubHost.csproj" />
   </ItemGroup>
 </Project>
