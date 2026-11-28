@@ -69,10 +69,13 @@ public sealed class ExecutionVerifiedCiAiReportArtifact
             throw new InvalidDataException("CiAi report artifact is empty, oversized, or has an unexpected byte length.");
         if (!string.Equals(notice.MediaType, "application/json", StringComparison.OrdinalIgnoreCase))
             throw new FormatException("CiAi report artifact media type must be application/json.");
+        var expectedArtifactIdempotencyKey = new CiAiArtifactDeliveryIdentity(
+            mapping.RequestId, mapping.OperationId, mapping.IdempotencyKey)
+            .DeriveIdempotencyKey(notice.CapabilityIdentity);
         if (receipt.SchemaVersion != CiAiArtifactNoticeReceipt.CurrentSchemaVersion ||
             !string.Equals(receipt.SenderIdentity, mapping.ProviderIdentity, StringComparison.Ordinal) ||
             !string.Equals(receipt.NoticeId, notice.NoticeId, StringComparison.Ordinal) ||
-            !string.Equals(receipt.IdempotencyKey, mapping.IdempotencyKey, StringComparison.Ordinal) ||
+            !string.Equals(receipt.IdempotencyKey, expectedArtifactIdempotencyKey, StringComparison.Ordinal) ||
             !string.Equals(receipt.PayloadSha256, notice.PayloadSha256, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("CiAi durable receipt does not identify the exact authenticated notice used for artifact retrieval.");
 
