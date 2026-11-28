@@ -156,7 +156,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: TrentBest/TheSingularityWorkshop.CiAi
-          ref: 93692958305391b5fe31ba27031dcc91eda934d2
+          ref: 497e6271e8337b231a5e79df244522293fd16448
           path: candidate/dependencies/CiAi
           submodules: recursive
           persist-credentials: false
@@ -220,11 +220,16 @@ jobs:
         working-directory: candidate
         run: |
           set -euo pipefail
-          test -s artifacts/test-results/results.trx
-          test -s artifacts/workflow-provenance.json
-          mkdir -p artifacts/ciai-test-results
-          cp artifacts/test-results/results.trx artifacts/ciai-test-results/results.trx
-          cp artifacts/workflow-provenance.json artifacts/ciai-test-results/workflow-provenance.json
+          if [[ -s artifacts/workflow-provenance.json ]]; then
+            mkdir -p artifacts/ciai-test-results
+            cp artifacts/workflow-provenance.json artifacts/ciai-test-results/workflow-provenance.json
+          fi
+          if [[ -s artifacts/test-results/results.trx ]]; then
+            mkdir -p artifacts/ciai-test-results
+            cp artifacts/test-results/results.trx artifacts/ciai-test-results/results.trx
+          else
+            echo "No TRX was produced (for example, restore/build failed before test execution)."
+          fi
 
       - name: Upload CiAi dispatch marker artifact
         if: always() && github.event_name == 'workflow_dispatch'
@@ -245,7 +250,7 @@ jobs:
           retention-days: 7
 
       - name: Upload CiAi test-results artifact
-        if: always()
+        if: always() && hashFiles('candidate/artifacts/ciai-test-results/results.trx') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ciai-test-results-${{ github.run_attempt }}
