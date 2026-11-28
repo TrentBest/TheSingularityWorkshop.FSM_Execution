@@ -201,7 +201,9 @@ public sealed class CiAiArtifactHostCompositionTests
                 mappingJournal,
                 new CiAiArtifactNoticeValidationPolicy(
                     "foundry-production", ProviderRepository,
-                    "workflow-evidence", "1", "implementation-1"),
+                    CiTestResultExecutionNoticeEnqueuer.CapabilityId,
+                    CiTestResultExecutionNoticeEnqueuer.CapabilityVersion,
+                    WorkflowSha),
                 receiptLedger);
 
             var accepted = await ingress.AcceptAsync(noticeBytes, Now);
